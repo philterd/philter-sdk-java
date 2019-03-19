@@ -1,0 +1,13 @@
+.metadata
+.cache
+.checkstyle
+bin/
+.settings/
+target/
+.classpath
+.project
+.cache-main
+.cache-tests
+*.log
+.idea/
+*.iml
