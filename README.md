@@ -1,6 +1,6 @@
 # Philter Java Client
 
-This project is a Java client for Philter's REST API.
+This project is a Java client for Philter's REST API. [Philter](https://www.mtnfog.com/products/philter/) removes Protected Health Information (PHI) from natural language text. One method of operation is via its REST API and this project provides a convenience interface to its REST API.
 
 # Usage
 
