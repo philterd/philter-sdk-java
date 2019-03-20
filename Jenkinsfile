@@ -10,6 +10,9 @@ pipeline {
     options {
         buildDiscarder(logRotator(numToKeepStr: '3'))
     }
+    parameters {
+        booleanParam(defaultValue: false, description: 'Release', name: 'isRelease')
+    }
     stages {
         stage ('Initialize') {
             steps {
@@ -21,7 +24,20 @@ pipeline {
         }
         stage ('Build') {
             steps {
-                sh 'mvn clean install'
+                sh "mvn clean install deploy"
+            }
+        }
+        stage ('Release') {
+            when {
+                expression {
+                    if (env.ISRELEASE == "true") {
+                        return true
+                    }
+                    return false
+                }
+            }
+            steps {
+                sh "mvn --batch-mode release:clean release:prepare release:perform"
             }
         }
     }
