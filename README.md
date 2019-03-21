@@ -29,6 +29,17 @@ PhilterClient client = new PhilterClient("https://127.0.0.1:8080/api", false);
 String filtered = client.filter(text);
 ```
 
+Snapshot dependencies are available in the Maven Central Snapshot Repository:
+
+```
+<repository>
+  <id>snapshots</id>
+  <url>https://oss.sonatype.org/content/repositories/snapshots</url>
+  <releases><enabled>false</enabled></releases>
+  <snapshots><enabled>true</enabled></snapshots>
+</repository>
+```
+
 # License
 
 Licensed under the Apache License, version 2.0.
