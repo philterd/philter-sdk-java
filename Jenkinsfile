@@ -10,9 +10,6 @@ pipeline {
     options {
         buildDiscarder(logRotator(numToKeepStr: '3'))
     }
-    parameters {
-        booleanParam(defaultValue: false, description: 'Release', name: 'isRelease')
-    }
     stages {
         stage ('Initialize') {
             steps {
