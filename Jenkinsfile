@@ -24,7 +24,7 @@ pipeline {
         }
         stage ('Build') {
             steps {
-                sh "mvn clean install deploy"
+                sh "mvn -p ./java/pom.xml clean install deploy"
             }
         }
         stage ('Release') {
@@ -37,7 +37,7 @@ pipeline {
                 }
             }
             steps {
-                sh "mvn --batch-mode release:clean release:prepare release:perform"
+                sh "mvn -p ./java/pom.xml --batch-mode release:clean release:prepare release:perform"
             }
         }
     }
