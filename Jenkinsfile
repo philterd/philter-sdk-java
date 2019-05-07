@@ -22,22 +22,16 @@ pipeline {
                 '''
             }
         }
-        stage ('Build') {
+        stage ('Java Build and Release') {
             steps {
-                sh "mvn -p ./java/pom.xml clean install deploy"
+                sh "mvn -f ./java/pom.xml clean install deploy"
+                sh "mvn -f ./java/pom.xml --batch-mode release:clean release:prepare release:perform"                
             }
         }
-        stage ('Release') {
-            when {
-                expression {
-                    if (env.ISRELEASE == "true") {
-                        return true
-                    }
-                    return false
-                }
-            }
+        stage ('.Net Core Build') {
             steps {
-                sh "mvn -p ./java/pom.xml --batch-mode release:clean release:prepare release:perform"
+                sh "dotnet restore ./dotnetcore"
+                sh "dotnet build ./dotnetcore -c Release"
             }
         }
     }
