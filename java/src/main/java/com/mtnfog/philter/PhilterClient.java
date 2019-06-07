@@ -18,7 +18,9 @@ package com.mtnfog.philter;
 import java.io.IOException;
 import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
+import java.util.List;
 
+import com.mtnfog.philter.model.FilteredSpan;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -66,15 +68,21 @@ public class PhilterClient {
 
 	}
 
-	public String filter(String text) throws IOException {
+	public String filter(String context, String text) throws IOException {
 
-		return service.filter(text).execute().body();
+		return service.filter(context, text).execute().body();
 
 	}
 
 	public Double detect(String text) throws IOException {
 
 		return service.detect(text).execute().body();
+
+	}
+
+	public List<FilteredSpan> replacements(String documentId) throws IOException {
+
+		return service.replacements(documentId).execute().body();
 
 	}
 

@@ -15,22 +15,29 @@
  ******************************************************************************/
  package com.mtnfog.philter.service;
 
+import com.mtnfog.philter.model.FilteredSpan;
 import com.mtnfog.philter.model.Status;
 
 import retrofit2.Call;
 import retrofit2.http.Body;
 import retrofit2.http.GET;
 import retrofit2.http.POST;
+import retrofit2.http.Query;
+
+import java.util.List;
 
 public interface PhilterService {
 
-	@POST("/filter")
-	Call<String> filter(@Body String text);
+	@POST("/api/filter")
+	Call<String> filter(@Query("c") String context, @Body String text);
 
-	@POST("/detect")
+	@POST("/api/detect")
 	Call<Double> detect(@Body String text);
 
-	@GET("/status")
+	@GET("/api/replacements")
+	Call<List<FilteredSpan>> replacements(@Query("d") String documentId);
+
+	@GET("/api/status")
 	Call<Status> status();
 
 }
