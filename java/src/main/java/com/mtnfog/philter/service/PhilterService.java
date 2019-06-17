@@ -32,7 +32,7 @@ public interface PhilterService {
 	Call<String> filter(@Query("c") String context, @Body String text);
 
 	@POST("/api/detect")
-	Call<Double> detect(@Body String text);
+	Call<List<String>> detect(@Body String text);
 
 	@GET("/api/replacements")
 	Call<List<FilteredSpan>> replacements(@Query("d") String documentId);

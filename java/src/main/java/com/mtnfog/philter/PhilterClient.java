@@ -74,7 +74,7 @@ public class PhilterClient {
 
 	}
 
-	public Double detect(String text) throws IOException {
+	public List<String> detect(String text) throws IOException {
 
 		return service.detect(text).execute().body();
 
