@@ -29,10 +29,10 @@ import java.util.List;
 public interface PhilterService {
 
 	@POST("/api/filter")
-	Call<String> filter(@Query("c") String context, @Body String text);
+	Call<String> filter(@Query("c") String context, @Query("p") String filterProfile, @Body String text);
 
 	@POST("/api/detect")
-	Call<List<String>> detect(@Body String text);
+	Call<List<String>> detect(@Query("p") String filterProfile, @Body String text);
 
 	@GET("/api/replacements")
 	Call<List<FilteredSpan>> replacements(@Query("d") String documentId);

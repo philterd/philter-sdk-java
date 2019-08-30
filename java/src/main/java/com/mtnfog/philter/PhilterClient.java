@@ -15,21 +15,19 @@
  ******************************************************************************/
 package com.mtnfog.philter;
 
+import com.mtnfog.philter.model.FilteredSpan;
+import com.mtnfog.philter.model.Status;
+import com.mtnfog.philter.service.PhilterService;
+import okhttp3.OkHttpClient;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import retrofit2.Retrofit;
+import retrofit2.converter.gson.GsonConverterFactory;
+
 import java.io.IOException;
 import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
 import java.util.List;
-
-import com.mtnfog.philter.model.FilteredSpan;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-
-import com.mtnfog.philter.model.Status;
-import com.mtnfog.philter.service.PhilterService;
-
-import okhttp3.OkHttpClient;
-import retrofit2.Retrofit;
-import retrofit2.converter.gson.GsonConverterFactory;
 
 public class PhilterClient {
 
@@ -68,15 +66,15 @@ public class PhilterClient {
 
 	}
 
-	public String filter(String context, String text) throws IOException {
+	public String filter(String context, String filterProfile, String text) throws IOException {
 
-		return service.filter(context, text).execute().body();
+		return service.filter(context, filterProfile, text).execute().body();
 
 	}
 
-	public List<String> detect(String text) throws IOException {
+	public List<String> detect(String filterProfile, String text) throws IOException {
 
-		return service.detect(text).execute().body();
+		return service.detect(filterProfile, text).execute().body();
 
 	}
 
