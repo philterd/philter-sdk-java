@@ -90,4 +90,28 @@ public class PhilterClient {
 
 	}
 
+	public List<String> getFilterProfiles() throws IOException {
+
+		return service.getFilterProfiles().execute().body();
+
+	}
+
+	public String getFilterProfile(String filterProfileName) throws IOException {
+
+		return service.getFilterProfile(filterProfileName).execute().body();
+
+	}
+
+	public void saveFilterProfile(String filterProfile) throws IOException {
+
+		service.saveFilterProfile(filterProfile).execute();
+
+	}
+
+	public void deleteFilterProfile(String filterProfileName) throws IOException {
+
+		service.deleteFilterProfile(filterProfileName).execute();
+
+	}
+
 }
