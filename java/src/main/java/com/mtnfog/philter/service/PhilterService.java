@@ -18,7 +18,10 @@
 import com.mtnfog.philter.model.FilteredSpan;
 import com.mtnfog.philter.model.Status;
 import retrofit2.Call;
-import retrofit2.http.*;
+import retrofit2.http.Body;
+import retrofit2.http.GET;
+import retrofit2.http.POST;
+import retrofit2.http.Query;
 
 import java.util.List;
 
@@ -35,17 +38,5 @@ public interface PhilterService {
 
 	@GET("/api/status")
 	Call<Status> status();
-
-	@GET("/api/profiles")
-	Call<List<String>> getFilterProfiles();
-
-	@GET("/api/profiles")
-	Call<String> getFilterProfile(@Query("p") String filterProfileName);
-
-	@PUT("/api/profiles")
-	Call<Void> saveFilterProfile(@Body String filterProfile);
-
-	@DELETE("/api/profiles")
-	Call<Void> deleteFilterProfile(@Query("p") String filterProfileName);
 
 }

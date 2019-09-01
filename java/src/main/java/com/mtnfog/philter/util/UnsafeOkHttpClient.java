@@ -13,7 +13,7 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  ******************************************************************************/
-package com.mtnfog.philter;
+package com.mtnfog.philter.util;
 
 import okhttp3.OkHttpClient;
 

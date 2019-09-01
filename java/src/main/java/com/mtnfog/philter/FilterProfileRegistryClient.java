@@ -17,6 +17,7 @@ package com.mtnfog.philter;
 
 import com.mtnfog.philter.model.FilteredSpan;
 import com.mtnfog.philter.model.Status;
+import com.mtnfog.philter.service.FilterProfileRegistryService;
 import com.mtnfog.philter.service.PhilterService;
 import com.mtnfog.philter.util.UnsafeOkHttpClient;
 import okhttp3.OkHttpClient;
@@ -30,13 +31,13 @@ import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
 import java.util.List;
 
-public class PhilterClient {
+public class FilterProfileRegistryClient {
 
-	private static final Logger LOGGER = LogManager.getLogger(PhilterClient.class);
+	private static final Logger LOGGER = LogManager.getLogger(FilterProfileRegistryClient.class);
 
-	private PhilterService service;
+	private FilterProfileRegistryService service;
 
-	public PhilterClient(String endpoint, boolean verifySslCertificate) {
+	public FilterProfileRegistryClient(String endpoint, boolean verifySslCertificate) {
 
 		OkHttpClient okHttpClient = new OkHttpClient();
 
@@ -63,31 +64,37 @@ public class PhilterClient {
 
 		final Retrofit retrofit = builder.build();
 
-		service = retrofit.create(PhilterService.class);
-
-	}
-
-	public String filter(String context, String filterProfile, String text) throws IOException {
-
-		return service.filter(context, filterProfile, text).execute().body();
-
-	}
-
-	public List<String> detect(String filterProfile, String text) throws IOException {
-
-		return service.detect(filterProfile, text).execute().body();
-
-	}
-
-	public List<FilteredSpan> replacements(String documentId) throws IOException {
-
-		return service.replacements(documentId).execute().body();
+		service = retrofit.create(FilterProfileRegistryService.class);
 
 	}
 
 	public Status status() throws IOException {
 
 		return service.status().execute().body();
+
+	}
+
+	public List<String> getFilterProfiles() throws IOException {
+
+		return service.getFilterProfiles().execute().body();
+
+	}
+
+	public String getFilterProfile(String filterProfileName) throws IOException {
+
+		return service.getFilterProfile(filterProfileName).execute().body();
+
+	}
+
+	public void saveFilterProfile(String filterProfile) throws IOException {
+
+		service.saveFilterProfile(filterProfile).execute();
+
+	}
+
+	public void deleteFilterProfile(String filterProfileName) throws IOException {
+
+		service.deleteFilterProfile(filterProfileName).execute();
 
 	}
 

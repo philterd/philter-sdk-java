@@ -13,22 +13,29 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  ******************************************************************************/
-package com.mtnfog.philter.model;
+ package com.mtnfog.philter.service;
 
-public class Status {
+import com.mtnfog.philter.model.Status;
+import retrofit2.Call;
+import retrofit2.http.*;
 
-	private String status;
+import java.util.List;
 
-	public Status(String status) {
-		this.status = status;
-	}
+public interface FilterProfileRegistryService {
 
-	public String getStatus() {
-		return status;
-	}
+	@GET("/api/status")
+	Call<Status> status();
 
-	public void setStatus(String status) {
-		this.status = status;
-	}
+	@GET("/api/profiles")
+	Call<List<String>> getFilterProfiles();
+
+	@GET("/api/profiles/{name}")
+	Call<String> getFilterProfile(@Path("name") String filterProfileName);
+
+	@POST("/api/profiles")
+	Call<Void> saveFilterProfile(@Body String filterProfile);
+
+	@DELETE("/api/profiles/{name}")
+	Call<Void> deleteFilterProfile(@Query("name") String filterProfileName);
 
 }
