@@ -30,9 +30,6 @@ public interface PhilterService {
 	@POST("/api/filter")
 	Call<String> filter(@Query("c") String context, @Query("p") String filterProfileName, @Body String text);
 
-	@POST("/api/detect")
-	Call<List<String>> detect(@Query("p") String filterProfile, @Body String text);
-
 	@GET("/api/replacements")
 	Call<List<FilteredSpan>> replacements(@Query("d") String documentId);
 

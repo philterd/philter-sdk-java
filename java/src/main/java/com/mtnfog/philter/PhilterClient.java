@@ -73,12 +73,6 @@ public class PhilterClient {
 
 	}
 
-	public List<String> detect(String filterProfile, String text) throws IOException {
-
-		return service.detect(filterProfile, text).execute().body();
-
-	}
-
 	public List<FilteredSpan> replacements(String documentId) throws IOException {
 
 		return service.replacements(documentId).execute().body();
