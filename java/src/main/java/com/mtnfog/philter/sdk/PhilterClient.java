@@ -13,15 +13,19 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  ******************************************************************************/
-package com.mtnfog.philter;
+package com.mtnfog.philter.sdk;
 
-import com.mtnfog.philter.model.FilteredSpan;
-import com.mtnfog.philter.model.Status;
-import com.mtnfog.philter.service.PhilterService;
-import com.mtnfog.philter.util.UnsafeOkHttpClient;
+import com.mtnfog.philter.sdk.model.FilterResponse;
+import com.mtnfog.philter.sdk.model.FilteredSpan;
+import com.mtnfog.philter.sdk.model.Status;
+import com.mtnfog.philter.sdk.service.PhilterService;
+import com.mtnfog.philter.sdk.util.UnsafeOkHttpClient;
 import okhttp3.OkHttpClient;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
 import retrofit2.Retrofit;
 import retrofit2.converter.gson.GsonConverterFactory;
 
@@ -29,6 +33,7 @@ import java.io.IOException;
 import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class PhilterClient {
 
@@ -67,9 +72,31 @@ public class PhilterClient {
 
 	}
 
-	public String filter(String context, String filterProfile, String text) throws IOException {
+	public FilterResponse filter(String context, String filterProfile, String text) throws IOException {
 
-		return service.filter(context, filterProfile, text).execute().body();
+		final AtomicReference<String> documentId = new AtomicReference<>();
+
+		final Call<String> call = service.filter(context, filterProfile, text);
+
+		call.enqueue(new Callback<String>() {
+
+			@Override
+			public void onResponse(Call<String> call, Response<String> response) {
+
+				documentId.set(response.headers().get("x-document-id"));
+
+			}
+
+			@Override
+			public void onFailure(Call<String> call, Throwable t) {
+
+			}
+
+		});
+
+		final String filteredText = service.filter(context, filterProfile, text).execute().body();
+
+		return new FilterResponse(filteredText, context, documentId.get());
 
 	}
 

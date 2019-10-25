@@ -13,13 +13,11 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  ******************************************************************************/
-package com.mtnfog.philter;
+package com.mtnfog.philter.sdk;
 
-import com.mtnfog.philter.model.FilteredSpan;
-import com.mtnfog.philter.model.Status;
-import com.mtnfog.philter.service.FilterProfileRegistryService;
-import com.mtnfog.philter.service.PhilterService;
-import com.mtnfog.philter.util.UnsafeOkHttpClient;
+import com.mtnfog.philter.sdk.model.Status;
+import com.mtnfog.philter.sdk.service.FilterProfileRegistryService;
+import com.mtnfog.philter.sdk.util.UnsafeOkHttpClient;
 import okhttp3.OkHttpClient;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;

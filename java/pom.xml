@@ -40,6 +40,7 @@
 		</developer>
 	</developers>
 	<properties>
+		<commons.lang3.version>3.9</commons.lang3.version>
 		<junit.version>4.12</junit.version>
 		<log4j.version>2.11.2</log4j.version>
 		<okhttp.version>3.14.0</okhttp.version>
@@ -124,6 +125,11 @@
 			<groupId>com.squareup.retrofit2</groupId>
 			<artifactId>retrofit</artifactId>
 			<version>${retrofit.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.commons</groupId>
+			<artifactId>commons-lang3</artifactId>
+			<version>${commons.lang3.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>com.squareup.retrofit2</groupId>
