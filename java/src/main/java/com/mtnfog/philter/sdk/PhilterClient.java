@@ -28,6 +28,7 @@ import retrofit2.Callback;
 import retrofit2.Response;
 import retrofit2.Retrofit;
 import retrofit2.converter.gson.GsonConverterFactory;
+import retrofit2.converter.scalars.ScalarsConverterFactory;
 
 import java.io.IOException;
 import java.security.KeyManagementException;
@@ -64,6 +65,7 @@ public class PhilterClient {
 		final Retrofit.Builder builder = new Retrofit.Builder()
 		        .baseUrl(endpoint)
 		        .client(okHttpClient)
+				.addConverterFactory(ScalarsConverterFactory.create())
 		        .addConverterFactory(GsonConverterFactory.create());
 
 		final Retrofit retrofit = builder.build();
@@ -72,11 +74,11 @@ public class PhilterClient {
 
 	}
 
-	public FilterResponse filter(String context, String filterProfile, String text) throws IOException {
+	public FilterResponse filter(String context, String filterProfileName, String text) throws IOException {
 
 		final AtomicReference<String> documentId = new AtomicReference<>();
 
-		final Call<String> call = service.filter(context, filterProfile, text);
+		final Call<String> call = service.filter(context, filterProfileName, text);
 
 		call.enqueue(new Callback<String>() {
 
@@ -94,7 +96,7 @@ public class PhilterClient {
 
 		});
 
-		final String filteredText = service.filter(context, filterProfile, text).execute().body();
+		final String filteredText = service.filter(context, filterProfileName, text).execute().body();
 
 		return new FilterResponse(filteredText, context, documentId.get());
 

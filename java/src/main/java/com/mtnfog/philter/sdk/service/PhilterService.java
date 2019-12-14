@@ -18,15 +18,13 @@
 import com.mtnfog.philter.sdk.model.FilteredSpan;
 import com.mtnfog.philter.sdk.model.Status;
 import retrofit2.Call;
-import retrofit2.http.Body;
-import retrofit2.http.GET;
-import retrofit2.http.POST;
-import retrofit2.http.Query;
+import retrofit2.http.*;
 
 import java.util.List;
 
 public interface PhilterService {
 
+	@Headers({"Accept: text/plain", "content-type: text/plain"})
 	@POST("/api/filter")
 	Call<String> filter(@Query("c") String context, @Query("p") String filterProfileName, @Body String text);
 
