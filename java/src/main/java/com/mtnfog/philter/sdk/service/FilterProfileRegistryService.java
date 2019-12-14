@@ -23,19 +23,23 @@ import java.util.List;
 
 public interface FilterProfileRegistryService {
 
+	@Headers({"Accept: text/plain"})
 	@GET("/api/status")
 	Call<Status> status();
 
+	@Headers({"Accept: text/plain"})
 	@GET("/api/profiles")
-	Call<List<String>> getFilterProfiles();
+	Call<List<String>> get();
 
+	@Headers({"Accept: text/plain"})
 	@GET("/api/profiles/{name}")
-	Call<String> getFilterProfile(@Path("name") String filterProfileName);
+	Call<String> get(@Path("name") String filterProfileName);
 
+	@Headers({"Content-Type: application/json"})
 	@POST("/api/profiles")
-	Call<Void> saveFilterProfile(@Body String filterProfile);
+	Call<Void> save(@Body String json);
 
 	@DELETE("/api/profiles/{name}")
-	Call<Void> deleteFilterProfile(@Query("name") String filterProfileName);
+	Call<Void> delete(@Query("name") String filterProfileName);
 
 }

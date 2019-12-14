@@ -21,8 +21,10 @@ import com.mtnfog.philter.sdk.util.UnsafeOkHttpClient;
 import okhttp3.OkHttpClient;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import retrofit2.Response;
 import retrofit2.Retrofit;
 import retrofit2.converter.gson.GsonConverterFactory;
+import retrofit2.converter.scalars.ScalarsConverterFactory;
 
 import java.io.IOException;
 import java.security.KeyManagementException;
@@ -58,6 +60,7 @@ public class FilterProfileRegistryClient {
 		final Retrofit.Builder builder = new Retrofit.Builder()
 		        .baseUrl(endpoint)
 		        .client(okHttpClient)
+				.addConverterFactory(ScalarsConverterFactory.create())
 		        .addConverterFactory(GsonConverterFactory.create());
 
 		final Retrofit retrofit = builder.build();
@@ -72,27 +75,29 @@ public class FilterProfileRegistryClient {
 
 	}
 
-	public List<String> getFilterProfiles() throws IOException {
+	public List<String> get() throws IOException {
 
-		return service.getFilterProfiles().execute().body();
-
-	}
-
-	public String getFilterProfile(String filterProfileName) throws IOException {
-
-		return service.getFilterProfile(filterProfileName).execute().body();
+		return service.get().execute().body();
 
 	}
 
-	public void saveFilterProfile(String filterProfile) throws IOException {
+	public String get(String filterProfileName) throws IOException {
 
-		service.saveFilterProfile(filterProfile).execute();
+		return service.get(filterProfileName).execute().body();
 
 	}
 
-	public void deleteFilterProfile(String filterProfileName) throws IOException {
+	public boolean save(String json) throws IOException {
 
-		service.deleteFilterProfile(filterProfileName).execute();
+		final Response response = service.save(json).execute();
+		return response.isSuccessful();
+
+	}
+
+	public boolean delete(String filterProfileName) throws IOException {
+
+		final Response response = service.delete(filterProfileName).execute();
+		return response.isSuccessful();
 
 	}
 
