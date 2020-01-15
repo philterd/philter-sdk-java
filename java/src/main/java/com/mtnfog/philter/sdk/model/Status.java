@@ -18,9 +18,15 @@ package com.mtnfog.philter.sdk.model;
 public class Status {
 
 	private String status;
+	private String version;
 
-	public Status(String status) {
+	public Status() {
+
+	}
+
+	public Status(String status, String version) {
 		this.status = status;
+		this.version = version;
 	}
 
 	public String getStatus() {
@@ -29,6 +35,14 @@ public class Status {
 
 	public void setStatus(String status) {
 		this.status = status;
+	}
+
+	public String getVersion() {
+		return version;
+	}
+
+	public void setVersion(String version) {
+		this.version = version;
 	}
 
 }
