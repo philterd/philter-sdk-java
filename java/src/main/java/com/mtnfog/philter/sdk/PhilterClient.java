@@ -20,6 +20,7 @@ import com.mtnfog.philter.sdk.model.FilteredSpan;
 import com.mtnfog.philter.sdk.model.Status;
 import com.mtnfog.philter.sdk.service.PhilterService;
 import com.mtnfog.philter.sdk.util.UnsafeOkHttpClient;
+import okhttp3.ConnectionPool;
 import okhttp3.OkHttpClient;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -42,6 +43,8 @@ public class PhilterClient {
 	private static final Logger LOGGER = LogManager.getLogger(PhilterClient.class);
 
 	public static final int TIMEOUT_SEC = 30;
+	public static final int MAX_IDLE_CONNECTIONS = 20;
+	public static final int KEEP_ALIVE_DURATION_MS = 30 * 1000;
 
 	private PhilterService service;
 
@@ -51,6 +54,7 @@ public class PhilterClient {
 			.connectTimeout(TIMEOUT_SEC, TimeUnit.SECONDS)
 			.writeTimeout(TIMEOUT_SEC, TimeUnit.SECONDS)
 			.readTimeout(TIMEOUT_SEC, TimeUnit.SECONDS)
+			.connectionPool(new ConnectionPool(MAX_IDLE_CONNECTIONS, KEEP_ALIVE_DURATION_MS, TimeUnit.MILLISECONDS))
 			.build();
 
 		if(!verifySslCertificate) {

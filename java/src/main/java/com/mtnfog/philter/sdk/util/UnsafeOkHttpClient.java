@@ -16,12 +16,14 @@
 package com.mtnfog.philter.sdk.util;
 
 import com.mtnfog.philter.sdk.PhilterClient;
+import okhttp3.ConnectionPool;
 import okhttp3.OkHttpClient;
 
-import javax.net.ssl.*;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.X509TrustManager;
 import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
-import java.security.cert.CertificateException;
 import java.util.concurrent.TimeUnit;
 
 public class UnsafeOkHttpClient {
@@ -31,13 +33,11 @@ public class UnsafeOkHttpClient {
 		final TrustManager[] trustAllCerts = new TrustManager[] { new X509TrustManager() {
 
 			@Override
-			public void checkClientTrusted(java.security.cert.X509Certificate[] chain, String authType)
-					throws CertificateException {
+			public void checkClientTrusted(java.security.cert.X509Certificate[] chain, String authType) {
 			}
 
 			@Override
-			public void checkServerTrusted(java.security.cert.X509Certificate[] chain, String authType)
-					throws CertificateException {
+			public void checkServerTrusted(java.security.cert.X509Certificate[] chain, String authType) {
 			}
 
 			@Override
@@ -55,6 +55,7 @@ public class UnsafeOkHttpClient {
 		builder.connectTimeout(PhilterClient.TIMEOUT_SEC, TimeUnit.SECONDS);
 		builder.writeTimeout(PhilterClient.TIMEOUT_SEC, TimeUnit.SECONDS);
 		builder.readTimeout(PhilterClient.TIMEOUT_SEC, TimeUnit.SECONDS);
+		builder.connectionPool(new ConnectionPool(PhilterClient.MAX_IDLE_CONNECTIONS, PhilterClient.KEEP_ALIVE_DURATION_MS, TimeUnit.MILLISECONDS));
 		builder.hostnameVerifier((hostname, session) -> true);
 
 		return builder.build();

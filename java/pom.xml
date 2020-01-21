@@ -4,7 +4,7 @@
 	<groupId>com.mtnfog</groupId>
 	<artifactId>philter-api-client</artifactId>
 	<name>philter-api-client</name>
-	<version>1.0.0-SNAPSHOT</version>
+	<version>1.0.1-SNAPSHOT</version>
 	<packaging>jar</packaging>
 	<description>Java client for Philter.</description>
 	<url>https://github.com/mtnfog/philter-java-client</url>
