@@ -15,12 +15,14 @@
  ******************************************************************************/
 package com.mtnfog.philter.sdk.util;
 
+import com.mtnfog.philter.sdk.PhilterClient;
 import okhttp3.OkHttpClient;
 
 import javax.net.ssl.*;
 import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
+import java.util.concurrent.TimeUnit;
 
 public class UnsafeOkHttpClient {
 
@@ -50,14 +52,10 @@ public class UnsafeOkHttpClient {
 
 		OkHttpClient.Builder builder = new OkHttpClient.Builder();
 		builder.sslSocketFactory(sslContext.getSocketFactory(), (X509TrustManager) trustAllCerts[0]);
-		builder.hostnameVerifier(new HostnameVerifier() {
-
-			@Override
-			public boolean verify(String hostname, SSLSession session) {
-				return true;
-			}
-
-		});
+		builder.connectTimeout(PhilterClient.TIMEOUT_SEC, TimeUnit.SECONDS);
+		builder.writeTimeout(PhilterClient.TIMEOUT_SEC, TimeUnit.SECONDS);
+		builder.readTimeout(PhilterClient.TIMEOUT_SEC, TimeUnit.SECONDS);
+		builder.hostnameVerifier((hostname, session) -> true);
 
 		return builder.build();
 

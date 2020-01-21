@@ -34,17 +34,24 @@ import java.io.IOException;
 import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 public class PhilterClient {
 
 	private static final Logger LOGGER = LogManager.getLogger(PhilterClient.class);
 
+	public static final int TIMEOUT_SEC = 30;
+
 	private PhilterService service;
 
 	public PhilterClient(String endpoint, boolean verifySslCertificate) {
 
-		OkHttpClient okHttpClient = new OkHttpClient();
+		OkHttpClient okHttpClient = new OkHttpClient.Builder()
+			.connectTimeout(TIMEOUT_SEC, TimeUnit.SECONDS)
+			.writeTimeout(TIMEOUT_SEC, TimeUnit.SECONDS)
+			.readTimeout(TIMEOUT_SEC, TimeUnit.SECONDS)
+			.build();
 
 		if(!verifySslCertificate) {
 
