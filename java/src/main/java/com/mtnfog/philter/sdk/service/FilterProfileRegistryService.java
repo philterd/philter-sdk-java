@@ -27,7 +27,7 @@ public interface FilterProfileRegistryService {
 	@GET("/api/status")
 	Call<Status> status();
 
-	@Headers({"Accept: text/plain"})
+	@Headers({"Accept: application/json"})
 	@GET("/api/profiles")
 	Call<List<String>> get();
 
