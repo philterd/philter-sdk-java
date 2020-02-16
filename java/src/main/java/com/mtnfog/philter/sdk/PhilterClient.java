@@ -113,6 +113,34 @@ public class PhilterClient {
 
 	}
 
+	public FilterResponse filterFhirV4(String context, String filterProfileName, String json) throws IOException {
+
+		final AtomicReference<String> documentId = new AtomicReference<>();
+
+		final Call<String> call = service.filterFhirV4(context, filterProfileName, json);
+
+		call.enqueue(new Callback<String>() {
+
+			@Override
+			public void onResponse(Call<String> call, Response<String> response) {
+
+				documentId.set(response.headers().get("x-document-id"));
+
+			}
+
+			@Override
+			public void onFailure(Call<String> call, Throwable t) {
+
+			}
+
+		});
+
+		final String filteredText = service.filter(context, filterProfileName, json).execute().body();
+
+		return new FilterResponse(filteredText, context, documentId.get());
+
+	}
+
 	public List<FilteredSpan> replacements(String documentId) throws IOException {
 
 		return service.replacements(documentId).execute().body();

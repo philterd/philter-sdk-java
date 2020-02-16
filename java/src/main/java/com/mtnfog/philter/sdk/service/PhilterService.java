@@ -28,6 +28,10 @@ public interface PhilterService {
 	@POST("/api/filter")
 	Call<String> filter(@Query("c") String context, @Query("p") String filterProfileName, @Body String text);
 
+	@Headers({"Accept: application/fhir+json", "content-type: application/fhir+json"})
+	@POST("/api/filter")
+	Call<String> filterFhirV4(@Query("c") String context, @Query("p") String filterProfileName, @Body String text);
+
 	@GET("/api/replacements")
 	Call<List<FilteredSpan>> replacements(@Query("d") String documentId);
 
