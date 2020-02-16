@@ -25,7 +25,7 @@ pipeline {
                 //sh "mvn -f ./java/pom.xml --batch-mode release:clean release:prepare release:perform"                
             }
         }
-        stage ('.Net Core Build') {
+        stage ('.Net Core Build', false) {
             steps {
                 sh "dotnet restore ./dotnetcore"
                 sh "dotnet build ./dotnetcore -c Release"
