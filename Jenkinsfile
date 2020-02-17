@@ -4,8 +4,8 @@ pipeline {
         pollSCM 'H/10 * * * *'
     }
     tools {
-        maven 'maven-3.6.0'
-        jdk 'jdk8u192'
+        maven 'maven-3.6.3'
+        jdk 'java-1.11.0-openjdk-amd64'
     }
     options {
         buildDiscarder(logRotator(numToKeepStr: '3'))
@@ -33,7 +33,7 @@ pipeline {
                 }
             }           
             steps {
-                sh "mvn -f ./java/pom.xml clean install deploy"
+                sh "mvn -f ./java/pom.xml clean install deploy -Dmaven.javadoc.skip=true"
                 //sh "mvn -f ./java/pom.xml --batch-mode release:clean release:prepare release:perform"                
             }
         }
