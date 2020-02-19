@@ -24,13 +24,13 @@ import java.util.List;
 
 public interface PhilterService {
 
-	@Headers({"Accept: text/plain", "content-type: text/plain"})
+	@Headers({"Accept: text/plain", "Content-Type: text/plain"})
 	@POST("/api/filter")
 	Call<String> filter(@Query("c") String context, @Query("p") String filterProfileName, @Body String text);
 
-	@Headers({"Accept: application/fhir+json", "content-type: application/fhir+json"})
+	@Headers({"Accept: application/json", "Content-Type: application/fhir+json"})
 	@POST("/api/filter")
-	Call<String> filterFhirV4(@Query("c") String context, @Query("p") String filterProfileName, @Body String text);
+	Call<String> filterFhirV4(@Query("c") String context, @Query("p") String filterProfileName, @Body String json);
 
 	@GET("/api/replacements")
 	Call<List<FilteredSpan>> replacements(@Query("d") String documentId);
