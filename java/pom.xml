@@ -44,7 +44,7 @@
 		<junit.version>4.12</junit.version>
 		<log4j.version>2.11.2</log4j.version>
 		<okhttp.version>3.14.0</okhttp.version>
-		<retrofit.version>2.7.0</retrofit.version>
+		<retrofit.version>2.7.1</retrofit.version>
 	</properties>
 	<build>
 		<plugins>
@@ -135,6 +135,11 @@
 			<groupId>org.apache.commons</groupId>
 			<artifactId>commons-lang3</artifactId>
 			<version>${commons.lang3.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>commons-io</groupId>
+			<artifactId>commons-io</artifactId>
+			<version>2.6</version>
 		</dependency>
 		<dependency>
 			<groupId>com.squareup.retrofit2</groupId>

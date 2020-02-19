@@ -22,6 +22,8 @@ import com.mtnfog.philter.sdk.service.PhilterService;
 import com.mtnfog.philter.sdk.util.UnsafeOkHttpClient;
 import okhttp3.ConnectionPool;
 import okhttp3.OkHttpClient;
+import okhttp3.ResponseBody;
+import org.apache.commons.io.FileUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import retrofit2.Call;
@@ -31,7 +33,9 @@ import retrofit2.Retrofit;
 import retrofit2.converter.gson.GsonConverterFactory;
 import retrofit2.converter.scalars.ScalarsConverterFactory;
 
+import java.io.File;
 import java.io.IOException;
+import java.nio.charset.Charset;
 import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
 import java.util.List;
@@ -47,6 +51,10 @@ public class PhilterClient {
 	public static final int KEEP_ALIVE_DURATION_MS = 30 * 1000;
 
 	private PhilterService service;
+
+	public PhilterClient(String endpoint) {
+		this(endpoint, true);
+	}
 
 	public PhilterClient(String endpoint, boolean verifySslCertificate) {
 
@@ -87,57 +95,31 @@ public class PhilterClient {
 
 	public FilterResponse filter(String context, String filterProfileName, String text) throws IOException {
 
-		final AtomicReference<String> documentId = new AtomicReference<>();
+		final Response<String> response = service.filter(context, filterProfileName, text).execute();
 
-		final Call<String> call = service.filter(context, filterProfileName, text);
+		if(response.isSuccessful()) {
 
-		call.enqueue(new Callback<String>() {
+			final String documentId = response.headers().get("x-document-id");
+			return new FilterResponse(response.body(), context, documentId);
 
-			@Override
-			public void onResponse(Call<String> call, Response<String> response) {
+		}
 
-				documentId.set(response.headers().get("x-document-id"));
-
-			}
-
-			@Override
-			public void onFailure(Call<String> call, Throwable t) {
-
-			}
-
-		});
-
-		final String filteredText = service.filter(context, filterProfileName, text).execute().body();
-
-		return new FilterResponse(filteredText, context, documentId.get());
+		throw new IOException("Unable to process text. Check Philter log for details.");
 
 	}
 
 	public FilterResponse filterFhirV4(String context, String filterProfileName, String json) throws IOException {
 
-		final AtomicReference<String> documentId = new AtomicReference<>();
+		final Response<String> response = service.filterFhirV4(context, filterProfileName, json).execute();
 
-		final Call<String> call = service.filterFhirV4(context, filterProfileName, json);
+		if(response.isSuccessful()) {
 
-		call.enqueue(new Callback<String>() {
+			final String documentId = response.headers().get("x-document-id");
+			return new FilterResponse(response.body(), context, documentId);
 
-			@Override
-			public void onResponse(Call<String> call, Response<String> response) {
+		}
 
-				documentId.set(response.headers().get("x-document-id"));
-
-			}
-
-			@Override
-			public void onFailure(Call<String> call, Throwable t) {
-
-			}
-
-		});
-
-		final String filteredText = service.filter(context, filterProfileName, json).execute().body();
-
-		return new FilterResponse(filteredText, context, documentId.get());
+		throw new IOException("Unable to process text. Check Philter log for details.");
 
 	}
 
