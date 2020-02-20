@@ -34,6 +34,7 @@ pipeline {
             }
             steps {
                 sh "mvn -f ./java/pom.xml clean install deploy javadoc:javadoc site"
+                sh "./java/upload-site.sh"
                 //sh "mvn -f ./java/pom.xml --batch-mode release:clean release:prepare release:perform"
             }
         }
