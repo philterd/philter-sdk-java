@@ -108,21 +108,6 @@ public class PhilterClient {
 
 	}
 
-	public FilterResponse filterFhirV4(String context, String filterProfileName, String json) throws IOException {
-
-		final Response<String> response = service.filterFhirV4(context, filterProfileName, json).execute();
-
-		if(response.isSuccessful()) {
-
-			final String documentId = response.headers().get("x-document-id");
-			return new FilterResponse(response.body(), context, documentId);
-
-		}
-
-		throw new IOException("Unable to process text. Check Philter log for details.");
-
-	}
-
 	public List<FilteredSpan> replacements(String documentId) throws IOException {
 
 		return service.replacements(documentId).execute().body();
