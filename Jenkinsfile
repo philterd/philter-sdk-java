@@ -31,10 +31,10 @@ pipeline {
                     }
                     return false
                 }
-            }           
+            }
             steps {
-                sh "mvn -f ./java/pom.xml clean install deploy -Dmaven.javadoc.skip=true"
-                //sh "mvn -f ./java/pom.xml --batch-mode release:clean release:prepare release:perform"                
+                sh "mvn -f ./java/pom.xml clean install deploy javadoc:javadoc site"
+                //sh "mvn -f ./java/pom.xml --batch-mode release:clean release:prepare release:perform"
             }
         }
         stage ('.Net Core Build') {
@@ -45,7 +45,7 @@ pipeline {
                     }
                     return false
                 }
-            }   
+            }
             steps {
                 sh "dotnet restore ./dotnetcore"
                 sh "dotnet build ./dotnetcore -c Release"
