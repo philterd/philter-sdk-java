@@ -42,6 +42,10 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
+/**
+ * Client class for Philter's API. Philter finds and manipulates sensitive information
+ * in text.
+ */
 public class PhilterClient {
 
 	private static final Logger LOGGER = LogManager.getLogger(PhilterClient.class);
@@ -52,10 +56,20 @@ public class PhilterClient {
 
 	private PhilterService service;
 
+	/**
+	 * Create a new client.
+	 * @param endpoint The Philter endpoint, e.g. <code>https://127.0.0.1:8080</code>.
+	 */
 	public PhilterClient(String endpoint) {
 		this(endpoint, true);
 	}
 
+	/**
+	 * Create a new client.
+	 * @param endpoint The Philter endpoint, e.g. <code>https://127.0.0.1:8080</code>.
+	 * @param verifySslCertificate Set to <code>true</code> to disable SSL certificate verification.
+	 *                             Not recommended for production usage.
+	 */
 	public PhilterClient(String endpoint, boolean verifySslCertificate) {
 
 		OkHttpClient okHttpClient = new OkHttpClient.Builder()
@@ -93,6 +107,15 @@ public class PhilterClient {
 
 	}
 
+	/**
+	 * Send text to Philter to be filtered.
+	 * @param context The context. Contexts can be used to group text based on some arbitrary property.
+	 * @param documentId The document ID. Leave empty for Philter to assign a document ID to the request.
+	 * @param filterProfileName The name of the filter profile to apply to the text.
+	 * @param text The text to be filtered.
+	 * @return The filtered text.
+	 * @throws IOException Thrown if the request can not be completed.
+	 */
 	public FilterResponse filter(String context, String documentId, String filterProfileName, String text) throws IOException {
 
 		final Response<String> response = service.filter(context, documentId, filterProfileName, text).execute();
@@ -108,12 +131,24 @@ public class PhilterClient {
 
 	}
 
+	/**
+	 * Gets the values replaced during a previous filter request. Philter's store feature must be enabled
+	 * for this call to work. Check Philter's documentation for how to enable the store.
+	 * @param documentId The document ID.
+	 * @return A list of {@link FilteredSpan spans}.
+	 * @throws IOException Thrown if the request can not be completed.
+	 */
 	public List<FilteredSpan> replacements(String documentId) throws IOException {
 
 		return service.replacements(documentId).execute().body();
 
 	}
 
+	/**
+	 * Gets the status of Philter.
+	 * @return A {@link Status} object.
+	 * @throws IOException Thrown if the request can not be completed.
+	 */
 	public Status status() throws IOException {
 
 		return service.status().execute().body();

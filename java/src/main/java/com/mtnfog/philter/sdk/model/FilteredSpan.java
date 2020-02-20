@@ -15,6 +15,10 @@
  ******************************************************************************/
 package com.mtnfog.philter.sdk.model;
 
+/**
+ * A section of text that was identified by Philter as sensitive information
+ * and filtered from the input text.
+ */
 public class FilteredSpan {
 
     private int characterStart;
@@ -24,6 +28,10 @@ public class FilteredSpan {
     private String documentId;
     private double confidence;
     private String replacement;
+
+    public FilteredSpan() {
+
+    }
 
     public int getCharacterStart() {
         return characterStart;
