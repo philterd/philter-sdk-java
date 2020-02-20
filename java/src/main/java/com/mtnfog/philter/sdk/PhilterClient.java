@@ -93,13 +93,13 @@ public class PhilterClient {
 
 	}
 
-	public FilterResponse filter(String context, String filterProfileName, String text) throws IOException {
+	public FilterResponse filter(String context, String documentId, String filterProfileName, String text) throws IOException {
 
-		final Response<String> response = service.filter(context, filterProfileName, text).execute();
+		final Response<String> response = service.filter(context, documentId, filterProfileName, text).execute();
 
 		if(response.isSuccessful()) {
 
-			final String documentId = response.headers().get("x-document-id");
+			documentId = response.headers().get("x-document-id");
 			return new FilterResponse(response.body(), context, documentId);
 
 		}

@@ -13,7 +13,7 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  ******************************************************************************/
- package com.mtnfog.philter.sdk.service;
+package com.mtnfog.philter.sdk.service;
 
 import com.mtnfog.philter.sdk.model.FilteredSpan;
 import com.mtnfog.philter.sdk.model.Status;
@@ -26,11 +26,11 @@ public interface PhilterService {
 
 	@Headers({"Accept: text/plain", "Content-Type: text/plain"})
 	@POST("/api/filter")
-	Call<String> filter(@Query("c") String context, @Query("p") String filterProfileName, @Body String text);
+	Call<String> filter(@Query("c") String context, @Query("d") String documentId, @Query("p") String filterProfileName, @Body String text);
 
 	@Headers({"Accept: application/json", "Content-Type: application/fhir+json"})
 	@POST("/api/filter")
-	Call<String> filterFhirV4(@Query("c") String context, @Query("p") String filterProfileName, @Body String json);
+	Call<String> filterFhirV4(@Query("c") String context, @Query("d") String documentId, @Query("p") String filterProfileName, @Body String json);
 
 	@GET("/api/replacements")
 	Call<List<FilteredSpan>> replacements(@Query("d") String documentId);
