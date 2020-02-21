@@ -1,10 +1,10 @@
-# Philter Java Client
+# Philter SDK for Java
 
-This project is a Java client for Philter's REST API. [Philter](https://www.mtnfog.com/products/philter/) identifies and manipulates sensitive information like Protected Health Information (PHI) and personally identifiable information (PII) from natural language text. 
+The **Philter SDK for Java** enables Java developers to easily work with Philter. [Philter](https://www.mtnfog.com/products/philter/) identifies and manipulates sensitive information like Protected Health Information (PHI) and personally identifiable information (PII) from natural language text. 
 
 [![Build Status](https://travis-ci.org/mtnfog/philter-sdk-java.svg?branch=master)](https://travis-ci.org/mtnfog/philter-sdk-java)
 
-# Usage
+## Usage
 
 Clone and build this project:
 
@@ -41,3 +41,9 @@ Snapshot dependencies are available in the Maven Central Snapshot Repository:
   <snapshots><enabled>true</enabled></snapshots>
 </repository>
 ```
+
+## License
+
+This project is licensed under the Apache Software License, version 2.0.
+
+Copyright 2020 Mountain Fog, Inc.
