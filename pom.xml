@@ -2,12 +2,12 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>com.mtnfog</groupId>
-	<artifactId>philter-api-client</artifactId>
-	<name>philter-api-client</name>
+	<artifactId>philter-java-sdk</artifactId>
+	<name>philter-java-sdk</name>
 	<version>1.1.0-SNAPSHOT</version>
 	<packaging>jar</packaging>
-	<description>Java client for Philter.</description>
-	<url>https://github.com/mtnfog/philter-java-client</url>
+	<description>Philter Java SDK.</description>
+	<url>https://github.com/mtnfog/philter-sdk-java</url>
 	<distributionManagement>
 		<snapshotRepository>
 			<id>ossrh</id>
@@ -19,9 +19,9 @@
 		</repository>
 	</distributionManagement>
 	<scm>
-		<connection>scm:git:https://github.com/mtnfog/philter-java-client.git</connection>
-		<developerConnection>scm:git:https://github.com/mtnfog/philter-java-client.git</developerConnection>
-		<url>https://github.com/mtnfog/philter-java-client.git</url>
+		<connection>scm:git:https://github.com/mtnfog/philter-sdk-java.git</connection>
+		<developerConnection>scm:git:https://github.com/mtnfog/philter-sdk-java.git</developerConnection>
+		<url>https://github.com/mtnfog/philter-sdk-java.git</url>
 	</scm>
 	<licenses>
 		<license>
