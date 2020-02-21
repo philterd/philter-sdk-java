@@ -27,8 +27,8 @@ Add the dependency to your project:
 To filter text:
 
 ```
-PhilterClient client = new PhilterClient("https://127.0.0.1:8080", false);
-String filtered = client.filter(text);
+PhilterClient client = new PhilterClient("https://127.0.0.1:8080");
+FilterResponse filterResponse = client.filter(text);
 ```
 
 Snapshot dependencies are available in the Maven Central Snapshot Repository:
