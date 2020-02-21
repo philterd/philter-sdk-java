@@ -1,7 +1,41 @@
-# Philter SDKs
+# Philter Java Client
 
-This project contains SDK clients for [Philter](https://www.mtnfog.com/products/philter/). Philter removes Protected Health Information (PHI) from natural language text. These projects utilize Philter's REST API.
+This project is a Java client for Philter's REST API. [Philter](https://www.mtnfog.com/products/philter/) removes Protected Health Information (PHI) from natural language text. One method of operation is via its REST API and this project provides a convenience interface to its REST API.
 
-# License
+# Usage
 
-All projects in this repository are licensed under the Apache License, version 2.0, and are Copyright 2019 Mountain Fog, Inc.
+Clone and build this project:
+
+```
+git clone https://github.com/mtnfog/philter-java-client.git
+cd philter-java-client
+mvn clean install
+```
+
+Add the dependency to your project:
+
+```
+<dependency>
+  <groupId>com.mtnfog</groupId>
+  <artifactId>philter-api-client</artifactId>
+  <version>1.0.0-SNAPSHOT</version>
+</dependency>
+```
+
+To filter text:
+
+```
+PhilterClient client = new PhilterClient("https://127.0.0.1:8080/api", false);
+String filtered = client.filter(text);
+```
+
+Snapshot dependencies are available in the Maven Central Snapshot Repository:
+
+```
+<repository>
+  <id>snapshots</id>
+  <url>https://oss.sonatype.org/content/repositories/snapshots</url>
+  <releases><enabled>false</enabled></releases>
+  <snapshots><enabled>true</enabled></snapshots>
+</repository>
+```

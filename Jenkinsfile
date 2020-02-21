@@ -10,10 +10,6 @@ pipeline {
     options {
         buildDiscarder(logRotator(numToKeepStr: '3'))
     }
-    parameters {
-        booleanParam(name: 'JAVA', defaultValue: true, description: 'Build Java library')
-        booleanParam(name: 'DOTNET', defaultValue: false, description: 'Build .NET library')
-    }
     stages {
         stage ('Initialize') {
             steps {
@@ -23,32 +19,10 @@ pipeline {
                 '''
             }
         }
-        stage ('Java Build and Release') {
-            when {
-                expression {
-                    if (env.JAVA == "true") {
-                        return true
-                    }
-                    return false
-                }
-            }           
+        stage ('Build and Release') {         
             steps {
                 sh "mvn -f ./java/pom.xml clean install deploy -Dmaven.javadoc.skip=true"
                 //sh "mvn -f ./java/pom.xml --batch-mode release:clean release:prepare release:perform"                
-            }
-        }
-        stage ('.Net Core Build') {
-            when {
-                expression {
-                    if (env.DOTNET == "true") {
-                        return true
-                    }
-                    return false
-                }
-            }   
-            steps {
-                sh "dotnet restore ./dotnetcore"
-                sh "dotnet build ./dotnetcore -c Release"
             }
         }
     }
