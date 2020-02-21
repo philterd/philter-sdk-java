@@ -2,6 +2,8 @@
 
 This project is a Java client for Philter's REST API. [Philter](https://www.mtnfog.com/products/philter/) identifies and manipulates sensitive information like Protected Health Information (PHI) and personally identifiable information (PII) from natural language text. 
 
+[![Build Status](https://travis-ci.org/mtnfog/philter-sdk-java.svg?branch=master)](https://travis-ci.org/mtnfog/philter-sdk-java)
+
 # Usage
 
 Clone and build this project:
