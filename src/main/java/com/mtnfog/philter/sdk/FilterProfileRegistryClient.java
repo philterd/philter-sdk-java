@@ -17,7 +17,7 @@ package com.mtnfog.philter.sdk;
 
 import com.mtnfog.philter.sdk.model.Status;
 import com.mtnfog.philter.sdk.service.FilterProfileRegistryService;
-import com.mtnfog.philter.sdk.util.UnsafeOkHttpClient;
+import okhttp3.ConnectionPool;
 import okhttp3.OkHttpClient;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -27,9 +27,8 @@ import retrofit2.converter.gson.GsonConverterFactory;
 import retrofit2.converter.scalars.ScalarsConverterFactory;
 
 import java.io.IOException;
-import java.security.KeyManagementException;
-import java.security.NoSuchAlgorithmException;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 public class FilterProfileRegistryClient {
 
@@ -37,23 +36,27 @@ public class FilterProfileRegistryClient {
 
 	private FilterProfileRegistryService service;
 
-	public FilterProfileRegistryClient(String endpoint, boolean verifySslCertificate) {
+	public static final int TIMEOUT_SEC = 30;
+	public static final int MAX_IDLE_CONNECTIONS = 20;
+	public static final int KEEP_ALIVE_DURATION_MS = 30 * 1000;
 
-		OkHttpClient okHttpClient = new OkHttpClient();
 
-		if(!verifySslCertificate) {
+	public FilterProfileRegistryClient(String endpoint) {
 
-			try {
+		this(endpoint, null);
 
-				LOGGER.warn("Allowing all SSL certificates is not recommended.");
-				okHttpClient = UnsafeOkHttpClient.getUnsafeOkHttpClient();
+	}
 
-			} catch (NoSuchAlgorithmException | KeyManagementException ex) {
+	public FilterProfileRegistryClient(String endpoint, OkHttpClient okHttpClient) {
 
-				LOGGER.error("Cannot create unsafe HTTP client.", ex);
-				throw new RuntimeException("Cannot create unsafe HTTP client.", ex);
+		if(okHttpClient == null) {
 
-			}
+			okHttpClient = new OkHttpClient.Builder()
+					.connectTimeout(TIMEOUT_SEC, TimeUnit.SECONDS)
+					.writeTimeout(TIMEOUT_SEC, TimeUnit.SECONDS)
+					.readTimeout(TIMEOUT_SEC, TimeUnit.SECONDS)
+					.connectionPool(new ConnectionPool(MAX_IDLE_CONNECTIONS, KEEP_ALIVE_DURATION_MS, TimeUnit.MILLISECONDS))
+					.build();
 
 		}
 

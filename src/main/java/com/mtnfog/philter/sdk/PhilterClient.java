@@ -15,32 +15,23 @@
  ******************************************************************************/
 package com.mtnfog.philter.sdk;
 
+import com.mtnfog.philter.sdk.model.ExplainResponse;
 import com.mtnfog.philter.sdk.model.FilterResponse;
 import com.mtnfog.philter.sdk.model.FilteredSpan;
 import com.mtnfog.philter.sdk.model.Status;
 import com.mtnfog.philter.sdk.service.PhilterService;
-import com.mtnfog.philter.sdk.util.UnsafeOkHttpClient;
 import okhttp3.ConnectionPool;
 import okhttp3.OkHttpClient;
-import okhttp3.ResponseBody;
-import org.apache.commons.io.FileUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import retrofit2.Call;
-import retrofit2.Callback;
 import retrofit2.Response;
 import retrofit2.Retrofit;
 import retrofit2.converter.gson.GsonConverterFactory;
 import retrofit2.converter.scalars.ScalarsConverterFactory;
 
-import java.io.File;
 import java.io.IOException;
-import java.nio.charset.Charset;
-import java.security.KeyManagementException;
-import java.security.NoSuchAlgorithmException;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Client class for Philter's API. Philter finds and manipulates sensitive information
@@ -61,37 +52,26 @@ public class PhilterClient {
 	 * @param endpoint The Philter endpoint, e.g. <code>https://127.0.0.1:8080</code>.
 	 */
 	public PhilterClient(String endpoint) {
-		this(endpoint, true);
+
+		this(endpoint, null);
+
 	}
 
 	/**
 	 * Create a new client.
 	 * @param endpoint The Philter endpoint, e.g. <code>https://127.0.0.1:8080</code>.
-	 * @param verifySslCertificate Set to <code>true</code> to disable SSL certificate verification.
-	 *                             Not recommended for production usage.
+	 * @param okHttpClient Provide a custom {@link OkHttpClient}.
 	 */
-	public PhilterClient(String endpoint, boolean verifySslCertificate) {
+	public PhilterClient(String endpoint, OkHttpClient okHttpClient) {
 
-		OkHttpClient okHttpClient = new OkHttpClient.Builder()
-			.connectTimeout(TIMEOUT_SEC, TimeUnit.SECONDS)
-			.writeTimeout(TIMEOUT_SEC, TimeUnit.SECONDS)
-			.readTimeout(TIMEOUT_SEC, TimeUnit.SECONDS)
-			.connectionPool(new ConnectionPool(MAX_IDLE_CONNECTIONS, KEEP_ALIVE_DURATION_MS, TimeUnit.MILLISECONDS))
-			.build();
+		if(okHttpClient == null) {
 
-		if(!verifySslCertificate) {
-
-			try {
-
-				LOGGER.warn("Allowing all SSL certificates is not recommended.");
-				okHttpClient = UnsafeOkHttpClient.getUnsafeOkHttpClient();
-
-			} catch (NoSuchAlgorithmException | KeyManagementException ex) {
-
-				LOGGER.error("Cannot create unsafe HTTP client.", ex);
-				throw new RuntimeException("Cannot create unsafe HTTP client.", ex);
-
-			}
+			okHttpClient = new OkHttpClient.Builder()
+					.connectTimeout(TIMEOUT_SEC, TimeUnit.SECONDS)
+					.writeTimeout(TIMEOUT_SEC, TimeUnit.SECONDS)
+					.readTimeout(TIMEOUT_SEC, TimeUnit.SECONDS)
+					.connectionPool(new ConnectionPool(MAX_IDLE_CONNECTIONS, KEEP_ALIVE_DURATION_MS, TimeUnit.MILLISECONDS))
+					.build();
 
 		}
 
@@ -124,6 +104,30 @@ public class PhilterClient {
 
 			documentId = response.headers().get("x-document-id");
 			return new FilterResponse(response.body(), context, documentId);
+
+		}
+
+		throw new IOException("Unable to process text. Check Philter log for details.");
+
+	}
+
+	/**
+	 * Send text to Philter to be filtered and get an explanation.
+	 * @param context The context. Contexts can be used to group text based on some arbitrary property.
+	 * @param documentId The document ID. Leave empty for Philter to assign a document ID to the request.
+	 * @param filterProfileName The name of the filter profile to apply to the text.
+	 * @param text The text to be filtered.
+	 * @return The filter {@link ExplainResponse}.
+	 * @throws IOException Thrown if the request can not be completed.
+	 */
+	public ExplainResponse explain(String context, String documentId, String filterProfileName, String text) throws IOException {
+
+		final Response<ExplainResponse> response = service.explain(context, documentId, filterProfileName, text).execute();
+
+		if(response.isSuccessful()) {
+
+			documentId = response.headers().get("x-document-id");
+			return response.body();
 
 		}
 

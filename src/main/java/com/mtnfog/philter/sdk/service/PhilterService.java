@@ -15,6 +15,7 @@
  ******************************************************************************/
 package com.mtnfog.philter.sdk.service;
 
+import com.mtnfog.philter.sdk.model.ExplainResponse;
 import com.mtnfog.philter.sdk.model.FilteredSpan;
 import com.mtnfog.philter.sdk.model.Status;
 import retrofit2.Call;
@@ -28,9 +29,9 @@ public interface PhilterService {
 	@POST("/api/filter")
 	Call<String> filter(@Query("c") String context, @Query("d") String documentId, @Query("p") String filterProfileName, @Body String text);
 
-	@Headers({"Accept: application/json", "Content-Type: application/fhir+json"})
-	@POST("/api/filter")
-	Call<String> filterFhirV4(@Query("c") String context, @Query("d") String documentId, @Query("p") String filterProfileName, @Body String json);
+	@Headers({"Accept: text/plain", "Content-Type: text/plain"})
+	@POST("/api/explain")
+	Call<ExplainResponse> explain(@Query("c") String context, @Query("d") String documentId, @Query("p") String filterProfileName, @Body String text);
 
 	@GET("/api/replacements")
 	Call<List<FilteredSpan>> replacements(@Query("d") String documentId);
