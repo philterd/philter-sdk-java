@@ -19,16 +19,28 @@ import com.google.gson.Gson;
 import org.apache.commons.lang3.builder.EqualsBuilder;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
 
+/**
+ * The response from Philter resulting from a filter request.
+ */
 public class FilterResponse {
 
 	private String filteredText;
     private String context;
     private String documentId;
 
+    /**
+     * Creates a new filter response.
+     */
 	public FilterResponse() {
 
 	}
 
+    /**
+     * Creates a new filter response.
+     * @param filteredText The filtered text.
+     * @param context The context.
+     * @param documentId The document ID.
+     */
     public FilterResponse(String filteredText, String context, String documentId) {
         this.filteredText = filteredText;
         this.context = context;
@@ -47,6 +59,7 @@ public class FilterResponse {
     public boolean equals(Object o) {
         return EqualsBuilder.reflectionEquals(this, o, new String[0]);
     }
+
     public String getFilteredText() {
         return filteredText;
     }

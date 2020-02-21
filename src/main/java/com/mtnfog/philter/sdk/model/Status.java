@@ -15,15 +15,26 @@
  ******************************************************************************/
 package com.mtnfog.philter.sdk.model;
 
+/**
+ * The status of Philter.
+ */
 public class Status {
 
 	private String status;
 	private String version;
 
+	/**
+	 * Creates a new status.
+	 */
 	public Status() {
 
 	}
 
+	/**
+	 * Creates a new status.
+	 * @param status The status text.
+	 * @param version The Philter version.
+	 */
 	public Status(String status, String version) {
 		this.status = status;
 		this.version = version;
