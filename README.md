@@ -20,9 +20,11 @@ Add the dependency to your project:
 <dependency>
   <groupId>com.mtnfog</groupId>
   <artifactId>philter-java-sdk</artifactId>
-  <version>1.0.0-SNAPSHOT</version>
+  <version>1.1.0-SNAPSHOT</version>
 </dependency>
 ```
+
+## Examples
 
 To filter text:
 
@@ -30,6 +32,15 @@ To filter text:
 PhilterClient client = new PhilterClient("https://127.0.0.1:8080");
 FilterResponse filterResponse = client.filter(text);
 ```
+
+To filter text with explanation:
+
+```
+PhilterClient client = new PhilterClient("https://127.0.0.1:8080");
+ExplainResponse explainResponse = client.explain(text);
+```
+
+## Dependency
 
 Snapshot dependencies are available in the Maven Central Snapshot Repository:
 
