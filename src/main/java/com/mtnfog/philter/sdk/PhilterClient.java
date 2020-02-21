@@ -34,8 +34,7 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Client class for Philter's API. Philter finds and manipulates sensitive information
- * in text.
+ * Client class for Philter's API. Philter finds and manipulates sensitive information in text.
  */
 public class PhilterClient {
 

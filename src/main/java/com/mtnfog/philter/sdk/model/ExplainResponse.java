@@ -16,6 +16,8 @@
 package com.mtnfog.philter.sdk.model;
 
 import com.google.gson.Gson;
+import com.google.gson.annotations.Expose;
+import com.google.gson.annotations.SerializedName;
 import org.apache.commons.lang3.builder.EqualsBuilder;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
 
@@ -24,9 +26,20 @@ import org.apache.commons.lang3.builder.HashCodeBuilder;
  */
 public class ExplainResponse {
 
+    @Expose
+    @SerializedName("filteredText")
 	private String filteredText;
+
+    @Expose
+    @SerializedName("context")
     private String context;
+
+    @Expose
+    @SerializedName("documentId")
     private String documentId;
+
+    @Expose
+    @SerializedName("explanation")
     private Explanation explanation;
 
     /**
@@ -71,6 +84,14 @@ public class ExplainResponse {
 
     public void setDocumentId(String documentId) {
         this.documentId = documentId;
+    }
+
+    public Explanation getExplanation() {
+        return explanation;
+    }
+
+    public void setExplanation(Explanation explanation) {
+        this.explanation = explanation;
     }
 
 }

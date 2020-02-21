@@ -15,20 +15,52 @@
  ******************************************************************************/
 package com.mtnfog.philter.sdk.model;
 
+import com.google.gson.annotations.Expose;
+import com.google.gson.annotations.SerializedName;
+
 /**
  * Identifies a section of text that Philter found to contain sensitive information.
  */
 public class Span {
 
+    @Expose
+    @SerializedName("id")
     private String id;
+
+    @Expose
+    @SerializedName("characterStart")
     private int characterStart;
+
+    @Expose
+    @SerializedName("characterEnd")
     private int characterEnd;
+
+    @Expose
+    @SerializedName("filterType")
     private String filterType;
+
+    @Expose
+    @SerializedName("context")
     private String context;
+
+    @Expose
+    @SerializedName("documentId")
     private String documentId;
+
+    @Expose
+    @SerializedName("confidence")
     private double confidence;
+
+    @Expose
+    @SerializedName("text")
     private String text;
+
+    @Expose
+    @SerializedName("replacement")
     private String replacement;
+
+    @Expose
+    @SerializedName("ignored")
     private boolean ignored;
 
     public String getId() {

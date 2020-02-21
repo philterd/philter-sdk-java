@@ -15,12 +15,20 @@
  ******************************************************************************/
 package com.mtnfog.philter.sdk.model;
 
+import com.google.gson.annotations.Expose;
+import com.google.gson.annotations.SerializedName;
+
 /**
  * The status of Philter.
  */
 public class Status {
 
+	@Expose
+	@SerializedName("status")
 	private String status;
+
+	@Expose
+	@SerializedName("version")
 	private String version;
 
 	/**

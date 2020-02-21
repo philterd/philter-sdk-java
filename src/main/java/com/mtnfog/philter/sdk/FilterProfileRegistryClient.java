@@ -30,6 +30,9 @@ import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
+/**
+ * Client class for managing filter profiles either with Philter or with a Philter Profile Registry.
+ */
 public class FilterProfileRegistryClient {
 
 	private static final Logger LOGGER = LogManager.getLogger(FilterProfileRegistryClient.class);
@@ -40,13 +43,21 @@ public class FilterProfileRegistryClient {
 	public static final int MAX_IDLE_CONNECTIONS = 20;
 	public static final int KEEP_ALIVE_DURATION_MS = 30 * 1000;
 
-
+	/**
+	 * Creates a new client.
+	 * @param endpoint The Philter endpoint or the Filter Profile Registry endpoint, e.g. <code>https://127.0.0.1:8080</code>.
+	 */
 	public FilterProfileRegistryClient(String endpoint) {
 
 		this(endpoint, null);
 
 	}
 
+	/**
+	 * Creates a new client.
+	 * @param endpoint The Philter endpoint or the Filter Profile Registry endpoint, e.g. <code>https://127.0.0.1:8080</code>.
+	 * @param okHttpClient A custom {@link OkHttpClient}.
+	 */
 	public FilterProfileRegistryClient(String endpoint, OkHttpClient okHttpClient) {
 
 		if(okHttpClient == null) {
@@ -72,24 +83,46 @@ public class FilterProfileRegistryClient {
 
 	}
 
+	/**
+	 * Gets the status of Philter or the Filter Profile Registry.
+	 * @return The {@link Status}.
+	 * @throws IOException Thrown if the call not be executed.
+	 */
 	public Status status() throws IOException {
 
 		return service.status().execute().body();
 
 	}
 
+	/**
+	 * Gets a list of filter profile names.
+	 * @return A list of filter profile names.
+	 * @throws IOException Thrown if the call not be executed.
+	 */
 	public List<String> get() throws IOException {
 
 		return service.get().execute().body();
 
 	}
 
+	/**
+	 * Gets the content of a filter profile.
+	 * @param filterProfileName The name of the filter profile to get.
+	 * @return The content of the filter profile.
+	 * @throws IOException Thrown if the call not be executed.
+	 */
 	public String get(String filterProfileName) throws IOException {
 
 		return service.get(filterProfileName).execute().body();
 
 	}
 
+	/**
+	 * Saves (or overwrites) the filter profile.
+	 * @param json The body of the filter profile.
+	 * @return <code>true</code> if successful, otherwise <code>false</code>.
+	 * @throws IOException Thrown if the call not be executed.
+	 */
 	public boolean save(String json) throws IOException {
 
 		final Response response = service.save(json).execute();
@@ -97,6 +130,12 @@ public class FilterProfileRegistryClient {
 
 	}
 
+	/**
+	 * Deletes a filter profile.
+	 * @param filterProfileName The name of the filter profile to delete.
+	 * @return <code>true</code> if successful, otherwise <code>false</code>.
+	 * @throws IOException Thrown if the call not be executed.
+	 */
 	public boolean delete(String filterProfileName) throws IOException {
 
 		final Response response = service.delete(filterProfileName).execute();

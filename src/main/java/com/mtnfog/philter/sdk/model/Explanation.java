@@ -15,11 +15,19 @@
  ******************************************************************************/
 package com.mtnfog.philter.sdk.model;
 
+import com.google.gson.annotations.Expose;
+import com.google.gson.annotations.SerializedName;
+
 import java.util.List;
 
 public class Explanation {
 
+    @Expose
+    @SerializedName("appliedSpans")
     private List<Span> appliedSpans;
+
+    @Expose
+    @SerializedName("ignoredSpans")
     private List<Span> ignoredSpans;
 
     public List<Span> getAppliedSpans() {
