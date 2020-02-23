@@ -15,7 +15,7 @@
  ******************************************************************************/
 package com.mtnfog.philter.sdk;
 
-import com.mtnfog.philter.sdk.model.Status;
+import com.mtnfog.philter.sdk.model.StatusResponse;
 import com.mtnfog.philter.sdk.service.FilterProfileRegistryService;
 import okhttp3.ConnectionPool;
 import okhttp3.OkHttpClient;
@@ -85,10 +85,10 @@ public class FilterProfileRegistryClient {
 
 	/**
 	 * Gets the status of Philter or the Filter Profile Registry.
-	 * @return The {@link Status}.
+	 * @return The {@link StatusResponse}.
 	 * @throws IOException Thrown if the call not be executed.
 	 */
-	public Status status() throws IOException {
+	public StatusResponse status() throws IOException {
 
 		return service.status().execute().body();
 

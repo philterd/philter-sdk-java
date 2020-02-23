@@ -17,7 +17,7 @@ package com.mtnfog.philter.sdk.service;
 
 import com.mtnfog.philter.sdk.model.ExplainResponse;
 import com.mtnfog.philter.sdk.model.FilteredSpan;
-import com.mtnfog.philter.sdk.model.Status;
+import com.mtnfog.philter.sdk.model.StatusResponse;
 import retrofit2.Call;
 import retrofit2.http.*;
 
@@ -37,6 +37,6 @@ public interface PhilterService {
 	Call<List<FilteredSpan>> replacements(@Query("d") String documentId);
 
 	@GET("/api/status")
-	Call<Status> status();
+	Call<StatusResponse> status();
 
 }

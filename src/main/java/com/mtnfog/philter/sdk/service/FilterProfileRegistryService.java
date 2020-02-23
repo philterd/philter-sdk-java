@@ -15,7 +15,7 @@
  ******************************************************************************/
 package com.mtnfog.philter.sdk.service;
 
-import com.mtnfog.philter.sdk.model.Status;
+import com.mtnfog.philter.sdk.model.StatusResponse;
 import retrofit2.Call;
 import retrofit2.http.*;
 
@@ -25,7 +25,7 @@ public interface FilterProfileRegistryService {
 
 	@Headers({"Accept: text/plain"})
 	@GET("/api/status")
-	Call<Status> status();
+	Call<StatusResponse> status();
 
 	@Headers({"Accept: application/json"})
 	@GET("/api/profiles")

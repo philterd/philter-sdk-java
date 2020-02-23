@@ -18,7 +18,7 @@ package com.mtnfog.philter.sdk;
 import com.mtnfog.philter.sdk.model.ExplainResponse;
 import com.mtnfog.philter.sdk.model.FilterResponse;
 import com.mtnfog.philter.sdk.model.FilteredSpan;
-import com.mtnfog.philter.sdk.model.Status;
+import com.mtnfog.philter.sdk.model.StatusResponse;
 import com.mtnfog.philter.sdk.service.PhilterService;
 import okhttp3.ConnectionPool;
 import okhttp3.OkHttpClient;
@@ -149,10 +149,10 @@ public class PhilterClient {
 
 	/**
 	 * Gets the status of Philter.
-	 * @return A {@link Status} object.
+	 * @return A {@link StatusResponse} object.
 	 * @throws IOException Thrown if the request can not be completed.
 	 */
-	public Status status() throws IOException {
+	public StatusResponse status() throws IOException {
 
 		return service.status().execute().body();
 

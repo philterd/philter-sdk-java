@@ -21,7 +21,7 @@ import com.google.gson.annotations.SerializedName;
 /**
  * The status of Philter.
  */
-public class Status {
+public class StatusResponse {
 
 	@Expose
 	@SerializedName("status")
@@ -34,7 +34,7 @@ public class Status {
 	/**
 	 * Creates a new status.
 	 */
-	public Status() {
+	public StatusResponse() {
 
 	}
 
@@ -43,7 +43,7 @@ public class Status {
 	 * @param status The status text.
 	 * @param version The Philter version.
 	 */
-	public Status(String status, String version) {
+	public StatusResponse(String status, String version) {
 		this.status = status;
 		this.version = version;
 	}
