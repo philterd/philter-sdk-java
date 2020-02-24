@@ -12,7 +12,7 @@ The **Philter SDK for Java** enables Java developers to easily work with Philter
 <dependency>
   <groupId>com.mtnfog</groupId>
   <artifactId>philter-java-sdk</artifactId>
-  <version>x.x.x</version>
+  <version>1.1.0</version>
 </dependency>
 ```
 
