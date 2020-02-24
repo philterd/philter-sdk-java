@@ -13,7 +13,7 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  ******************************************************************************/
-package com.mtnfog.philter.sdk.model;
+package com.mtnfog.philter.model;
 
 import com.google.gson.Gson;
 import com.google.gson.annotations.Expose;
@@ -22,9 +22,9 @@ import org.apache.commons.lang3.builder.EqualsBuilder;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
 
 /**
- * The response from Philter resulting from a filter request.
+ * The response from Philter resulting from an explain request.
  */
-public class FilterResponse {
+public class ExplainResponse {
 
     @Expose
     @SerializedName("filteredText")
@@ -38,24 +38,16 @@ public class FilterResponse {
     @SerializedName("documentId")
     private String documentId;
 
+    @Expose
+    @SerializedName("explanation")
+    private Explanation explanation;
+
     /**
-     * Creates a new filter response.
+     * Creates a new filter explain response.
      */
-	public FilterResponse() {
+	public ExplainResponse() {
 
 	}
-
-    /**
-     * Creates a new filter response.
-     * @param filteredText The filtered text.
-     * @param context The context.
-     * @param documentId The document ID.
-     */
-    public FilterResponse(String filteredText, String context, String documentId) {
-        this.filteredText = filteredText;
-        this.context = context;
-        this.documentId = documentId;
-    }
 
     public int hashCode() {
         return (new HashCodeBuilder(17, 37)).append(this.filteredText).append(this.context).append(this.documentId).toHashCode();
@@ -92,6 +84,14 @@ public class FilterResponse {
 
     public void setDocumentId(String documentId) {
         this.documentId = documentId;
+    }
+
+    public Explanation getExplanation() {
+        return explanation;
+    }
+
+    public void setExplanation(Explanation explanation) {
+        this.explanation = explanation;
     }
 
 }

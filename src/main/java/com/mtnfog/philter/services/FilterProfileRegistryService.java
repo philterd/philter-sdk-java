@@ -13,37 +13,33 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  ******************************************************************************/
-package com.mtnfog.philter.sdk.model;
+package com.mtnfog.philter.services;
 
-import com.google.gson.annotations.Expose;
-import com.google.gson.annotations.SerializedName;
+import com.mtnfog.philter.model.StatusResponse;
+import retrofit2.Call;
+import retrofit2.http.*;
 
 import java.util.List;
 
-public class Explanation {
+public interface FilterProfileRegistryService {
 
-    @Expose
-    @SerializedName("appliedSpans")
-    private List<Span> appliedSpans;
+	@Headers({"Accept: text/plain"})
+	@GET("/api/status")
+	Call<StatusResponse> status();
 
-    @Expose
-    @SerializedName("ignoredSpans")
-    private List<Span> ignoredSpans;
+	@Headers({"Accept: application/json"})
+	@GET("/api/profiles")
+	Call<List<String>> get();
 
-    public List<Span> getAppliedSpans() {
-        return appliedSpans;
-    }
+	@Headers({"Accept: text/plain"})
+	@GET("/api/profiles/{name}")
+	Call<String> get(@Path("name") String filterProfileName);
 
-    public void setAppliedSpans(List<Span> appliedSpans) {
-        this.appliedSpans = appliedSpans;
-    }
+	@Headers({"Content-Type: application/json"})
+	@POST("/api/profiles")
+	Call<Void> save(@Body String json);
 
-    public List<Span> getIgnoredSpans() {
-        return ignoredSpans;
-    }
-
-    public void setIgnoredSpans(List<Span> ignoredSpans) {
-        this.ignoredSpans = ignoredSpans;
-    }
+	@DELETE("/api/profiles/{name}")
+	Call<Void> delete(@Query("name") String filterProfileName);
 
 }

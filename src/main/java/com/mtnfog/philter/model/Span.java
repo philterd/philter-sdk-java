@@ -13,16 +13,19 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  ******************************************************************************/
-package com.mtnfog.philter.sdk.model;
+package com.mtnfog.philter.model;
 
 import com.google.gson.annotations.Expose;
 import com.google.gson.annotations.SerializedName;
 
 /**
- * A section of text that was identified by Philter as sensitive information
- * and filtered from the input text.
+ * Identifies a section of text that Philter found to contain sensitive information.
  */
-public class FilteredSpan {
+public class Span {
+
+    @Expose
+    @SerializedName("id")
+    private String id;
 
     @Expose
     @SerializedName("characterStart")
@@ -49,11 +52,23 @@ public class FilteredSpan {
     private double confidence;
 
     @Expose
+    @SerializedName("text")
+    private String text;
+
+    @Expose
     @SerializedName("replacement")
     private String replacement;
 
-    public FilteredSpan() {
+    @Expose
+    @SerializedName("ignored")
+    private boolean ignored;
 
+    public String getId() {
+        return id;
+    }
+
+    public void setId(String id) {
+        this.id = id;
     }
 
     public int getCharacterStart() {
@@ -104,12 +119,28 @@ public class FilteredSpan {
         this.confidence = confidence;
     }
 
+    public String getText() {
+        return text;
+    }
+
+    public void setText(String text) {
+        this.text = text;
+    }
+
     public String getReplacement() {
         return replacement;
     }
 
     public void setReplacement(String replacement) {
         this.replacement = replacement;
+    }
+
+    public boolean isIgnored() {
+        return ignored;
+    }
+
+    public void setIgnored(boolean ignored) {
+        this.ignored = ignored;
     }
 
 }

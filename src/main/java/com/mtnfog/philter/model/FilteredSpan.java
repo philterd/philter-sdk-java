@@ -13,22 +13,28 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  ******************************************************************************/
-package com.mtnfog.philter.sdk.model;
+package com.mtnfog.philter.model;
 
-import com.google.gson.Gson;
 import com.google.gson.annotations.Expose;
 import com.google.gson.annotations.SerializedName;
-import org.apache.commons.lang3.builder.EqualsBuilder;
-import org.apache.commons.lang3.builder.HashCodeBuilder;
 
 /**
- * The response from Philter resulting from an explain request.
+ * A section of text that was identified by Philter as sensitive information
+ * and filtered from the input text.
  */
-public class ExplainResponse {
+public class FilteredSpan {
 
     @Expose
-    @SerializedName("filteredText")
-	private String filteredText;
+    @SerializedName("characterStart")
+    private int characterStart;
+
+    @Expose
+    @SerializedName("characterEnd")
+    private int characterEnd;
+
+    @Expose
+    @SerializedName("filterType")
+    private String filterType;
 
     @Expose
     @SerializedName("context")
@@ -39,35 +45,39 @@ public class ExplainResponse {
     private String documentId;
 
     @Expose
-    @SerializedName("explanation")
-    private Explanation explanation;
+    @SerializedName("confidence")
+    private double confidence;
 
-    /**
-     * Creates a new filter explain response.
-     */
-	public ExplainResponse() {
+    @Expose
+    @SerializedName("replacement")
+    private String replacement;
 
-	}
+    public FilteredSpan() {
 
-    public int hashCode() {
-        return (new HashCodeBuilder(17, 37)).append(this.filteredText).append(this.context).append(this.documentId).toHashCode();
     }
 
-    public String toString() {
-        Gson gson = new Gson();
-        return gson.toJson(this);
+    public int getCharacterStart() {
+        return characterStart;
     }
 
-    public boolean equals(Object o) {
-        return EqualsBuilder.reflectionEquals(this, o, new String[0]);
+    public void setCharacterStart(int characterStart) {
+        this.characterStart = characterStart;
     }
 
-    public String getFilteredText() {
-        return filteredText;
+    public int getCharacterEnd() {
+        return characterEnd;
     }
 
-    public void setFilteredText(String filteredText) {
-        this.filteredText = filteredText;
+    public void setCharacterEnd(int characterEnd) {
+        this.characterEnd = characterEnd;
+    }
+
+    public String getFilterType() {
+        return filterType;
+    }
+
+    public void setFilterType(String filterType) {
+        this.filterType = filterType;
     }
 
     public String getContext() {
@@ -86,12 +96,20 @@ public class ExplainResponse {
         this.documentId = documentId;
     }
 
-    public Explanation getExplanation() {
-        return explanation;
+    public double getConfidence() {
+        return confidence;
     }
 
-    public void setExplanation(Explanation explanation) {
-        this.explanation = explanation;
+    public void setConfidence(double confidence) {
+        this.confidence = confidence;
+    }
+
+    public String getReplacement() {
+        return replacement;
+    }
+
+    public void setReplacement(String replacement) {
+        this.replacement = replacement;
     }
 
 }
