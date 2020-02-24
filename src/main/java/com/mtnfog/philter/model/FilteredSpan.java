@@ -52,10 +52,6 @@ public class FilteredSpan {
     @SerializedName("replacement")
     private String replacement;
 
-    public FilteredSpan() {
-
-    }
-
     public int getCharacterStart() {
         return characterStart;
     }

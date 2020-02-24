@@ -42,13 +42,6 @@ public class ExplainResponse {
     @SerializedName("explanation")
     private Explanation explanation;
 
-    /**
-     * Creates a new filter explain response.
-     */
-	public ExplainResponse() {
-
-	}
-
     public int hashCode() {
         return (new HashCodeBuilder(17, 37)).append(this.filteredText).append(this.context).append(this.documentId).toHashCode();
     }

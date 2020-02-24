@@ -31,23 +31,6 @@ public class StatusResponse {
 	@SerializedName("version")
 	private String version;
 
-	/**
-	 * Creates a new status.
-	 */
-	public StatusResponse() {
-
-	}
-
-	/**
-	 * Creates a new status.
-	 * @param status The status text.
-	 * @param version The Philter version.
-	 */
-	public StatusResponse(String status, String version) {
-		this.status = status;
-		this.version = version;
-	}
-
 	public String getStatus() {
 		return status;
 	}

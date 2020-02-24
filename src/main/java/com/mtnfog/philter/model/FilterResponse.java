@@ -40,13 +40,6 @@ public class FilterResponse {
 
     /**
      * Creates a new filter response.
-     */
-	public FilterResponse() {
-
-	}
-
-    /**
-     * Creates a new filter response.
      * @param filteredText The filtered text.
      * @param context The context.
      * @param documentId The document ID.
