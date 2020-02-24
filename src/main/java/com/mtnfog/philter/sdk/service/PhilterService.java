@@ -29,7 +29,7 @@ public interface PhilterService {
 	@POST("/api/filter")
 	Call<String> filter(@Query("c") String context, @Query("d") String documentId, @Query("p") String filterProfileName, @Body String text);
 
-	@Headers({"Accept: text/plain", "Content-Type: text/plain"})
+	@Headers({"Accept: application/json", "Content-Type: text/plain"})
 	@POST("/api/explain")
 	Call<ExplainResponse> explain(@Query("c") String context, @Query("d") String documentId, @Query("p") String filterProfileName, @Body String text);
 
