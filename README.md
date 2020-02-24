@@ -4,7 +4,7 @@ The **Philter SDK for Java** enables Java developers to easily work with Philter
 
 [![Build Status](https://travis-ci.org/mtnfog/philter-sdk-java.svg?branch=master)](https://travis-ci.org/mtnfog/philter-sdk-java)
 ![Maven Central](https://img.shields.io/maven-central/v/com.mtnfog/philter-java/sdk)
-[![javadoc](https://javadoc.io/badge2/com.mtnfog/philter-java-sdk/javadoc.svg)](https://javadoc.io/doc/com.mtnfog/philter-java/sdk)
+[![javadoc](https://javadoc.io/badge2/com.mtnfog/philter-java-sdk/javadoc.svg)](https://javadoc.io/doc/com.mtnfog/philter-java-sdk)
 
 ## Dependency
 
