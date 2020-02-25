@@ -10,6 +10,9 @@ pipeline {
   options {
     buildDiscarder(logRotator(numToKeepStr: '3'))
   }
+  environment {
+    VERSION = readMavenPom().getVersion()
+  }
   stages {
     stage ('Initialize') {
       steps {
@@ -19,10 +22,10 @@ pipeline {
           '''
       }
     }
-    stage ('Build') {         
+    stage ('Build') {
       steps {
         sh "mvn clean install deploy javadoc:javadoc site"
-        sh "./upload-site.sh"
+        sh "aws s3 sync ./target/site/ s3://mtnfog-public/philter-sdk/java/${VERSION}/ --delete"
       }
     }
   }
