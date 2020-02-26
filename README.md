@@ -2,6 +2,8 @@
 
 The **Philter SDK for Java** enables Java developers to easily work with Philter. [Philter](https://www.mtnfog.com/products/philter/) identifies and manipulates sensitive information like Protected Health Information (PHI) and personally identifiable information (PII) from natural language text.
 
+Refer to [Philter API](https://philter.mtnfog.com/api/) documentation for details on the methods available.
+
 [![Build Status](https://travis-ci.org/mtnfog/philter-sdk-java.svg?branch=master)](https://travis-ci.org/mtnfog/philter-sdk-java)
 ![Maven Central](https://img.shields.io/maven-central/v/com.mtnfog/philter-java-sdk)
 [![javadoc](https://javadoc.io/badge2/com.mtnfog/philter-java-sdk/javadoc.svg)](https://javadoc.io/doc/com.mtnfog/philter-java-sdk)
