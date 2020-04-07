@@ -19,11 +19,10 @@ import com.mtnfog.philter.model.FilterResponse;
 import com.mtnfog.philter.model.FilteredSpan;
 import com.mtnfog.philter.model.ExplainResponse;
 import com.mtnfog.philter.model.StatusResponse;
+import com.mtnfog.philter.interceptors.AuthorizationInterceptor;
 import com.mtnfog.philter.services.PhilterService;
 import okhttp3.ConnectionPool;
-import okhttp3.Interceptor;
 import okhttp3.OkHttpClient;
-import okhttp3.Request;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -52,7 +51,7 @@ public class PhilterClient {
 	public static class PhilterClientBuilder {
 
 		private String endpoint;
-		private OkHttpClient okHttpClient;
+		private OkHttpClient.Builder okHttpClientBuilder;
 		private String token;
 
 		public PhilterClientBuilder withEndpoint(String endpoint) {
@@ -60,8 +59,8 @@ public class PhilterClient {
 			return this;
 		}
 
-		public PhilterClientBuilder withOkHttpClient(OkHttpClient okHttpClient) {
-			this.okHttpClient = okHttpClient;
+		public PhilterClientBuilder withOkHttpClientBuilder(OkHttpClient.Builder okHttpClientBuilder) {
+			this.okHttpClientBuilder = okHttpClientBuilder;
 			return this;
 		}
 
@@ -72,37 +71,29 @@ public class PhilterClient {
 
 		public PhilterClient build() {
 
-			return new PhilterClient(endpoint, okHttpClient, token);
+			return new PhilterClient(endpoint, okHttpClientBuilder, token);
 
 		}
 
 	}
 
-	private PhilterClient(String endpoint, OkHttpClient okHttpClient, String token) {
+	private PhilterClient(String endpoint, OkHttpClient.Builder okHttpClientBuilder, String token) {
 
-		if(okHttpClient == null) {
+		if(okHttpClientBuilder == null) {
 
-			okHttpClient = new OkHttpClient.Builder()
+			okHttpClientBuilder = new OkHttpClient.Builder()
 					.connectTimeout(TIMEOUT_SEC, TimeUnit.SECONDS)
 					.writeTimeout(TIMEOUT_SEC, TimeUnit.SECONDS)
 					.readTimeout(TIMEOUT_SEC, TimeUnit.SECONDS)
-					.connectionPool(new ConnectionPool(MAX_IDLE_CONNECTIONS, KEEP_ALIVE_DURATION_MS, TimeUnit.MILLISECONDS))
-					.build();
+					.connectionPool(new ConnectionPool(MAX_IDLE_CONNECTIONS, KEEP_ALIVE_DURATION_MS, TimeUnit.MILLISECONDS));
 
 		}
 
 		if(StringUtils.isNotEmpty(token)) {
-
-			okHttpClient.interceptors().add(chain -> {
-
-				final Request original = chain.request();
-				final Request.Builder requestBuilder = original.newBuilder().addHeader("Authorization", "token:" + token);
-
-				return chain.proceed(requestBuilder.build());
-
-			});
-
+			okHttpClientBuilder.addInterceptor(new AuthorizationInterceptor(token));
 		}
+
+		final OkHttpClient okHttpClient = okHttpClientBuilder.build();
 
 		final Retrofit.Builder builder = new Retrofit.Builder()
 				.baseUrl(endpoint)

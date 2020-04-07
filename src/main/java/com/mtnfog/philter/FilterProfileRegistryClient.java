@@ -16,10 +16,10 @@
 package com.mtnfog.philter;
 
 import com.mtnfog.philter.model.StatusResponse;
+import com.mtnfog.philter.interceptors.AuthorizationInterceptor;
 import com.mtnfog.philter.services.FilterProfileRegistryService;
 import okhttp3.ConnectionPool;
 import okhttp3.OkHttpClient;
-import okhttp3.Request;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -48,7 +48,7 @@ public class FilterProfileRegistryClient {
 	public static class FilterProfileRegistryClientBuilder {
 
 		private String endpoint;
-		private OkHttpClient okHttpClient;
+		private OkHttpClient.Builder okHttpClientBuilder;
 		private String token;
 
 		public FilterProfileRegistryClientBuilder withEndpoint(String endpoint) {
@@ -56,8 +56,8 @@ public class FilterProfileRegistryClient {
 			return this;
 		}
 
-		public FilterProfileRegistryClientBuilder withOkHttpClient(OkHttpClient okHttpClient) {
-			this.okHttpClient = okHttpClient;
+		public FilterProfileRegistryClientBuilder withOkHttpClientBuilder(OkHttpClient.Builder okHttpClientBuilder) {
+			this.okHttpClientBuilder = okHttpClientBuilder;
 			return this;
 		}
 
@@ -68,37 +68,29 @@ public class FilterProfileRegistryClient {
 
 		public FilterProfileRegistryClient build() {
 
-			return new FilterProfileRegistryClient(endpoint, okHttpClient, token);
+			return new FilterProfileRegistryClient(endpoint, okHttpClientBuilder, token);
 
 		}
 
 	}
 
-	private FilterProfileRegistryClient(String endpoint, OkHttpClient okHttpClient, String token) {
+	private FilterProfileRegistryClient(String endpoint, OkHttpClient.Builder okHttpClientBuilder, String token) {
 
-		if(okHttpClient == null) {
+		if(okHttpClientBuilder == null) {
 
-			okHttpClient = new OkHttpClient.Builder()
+			okHttpClientBuilder = new OkHttpClient.Builder()
 					.connectTimeout(TIMEOUT_SEC, TimeUnit.SECONDS)
 					.writeTimeout(TIMEOUT_SEC, TimeUnit.SECONDS)
 					.readTimeout(TIMEOUT_SEC, TimeUnit.SECONDS)
-					.connectionPool(new ConnectionPool(MAX_IDLE_CONNECTIONS, KEEP_ALIVE_DURATION_MS, TimeUnit.MILLISECONDS))
-					.build();
+					.connectionPool(new ConnectionPool(MAX_IDLE_CONNECTIONS, KEEP_ALIVE_DURATION_MS, TimeUnit.MILLISECONDS));
 
 		}
 
 		if(StringUtils.isNotEmpty(token)) {
-
-			okHttpClient.interceptors().add(chain -> {
-
-				final Request original = chain.request();
-				final Request.Builder requestBuilder = original.newBuilder().addHeader("Authorization", "token:" + token);
-
-				return chain.proceed(requestBuilder.build());
-
-			});
-
+			okHttpClientBuilder.addInterceptor(new AuthorizationInterceptor(token));
 		}
+
+		final OkHttpClient okHttpClient = okHttpClientBuilder.build();
 
 		final Retrofit.Builder builder = new Retrofit.Builder()
 		        .baseUrl(endpoint)
