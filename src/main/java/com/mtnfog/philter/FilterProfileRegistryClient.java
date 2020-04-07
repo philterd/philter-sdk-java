@@ -19,6 +19,8 @@ import com.mtnfog.philter.model.StatusResponse;
 import com.mtnfog.philter.services.FilterProfileRegistryService;
 import okhttp3.ConnectionPool;
 import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import retrofit2.Response;
@@ -43,22 +45,36 @@ public class FilterProfileRegistryClient {
 	public static final int MAX_IDLE_CONNECTIONS = 20;
 	public static final int KEEP_ALIVE_DURATION_MS = 30 * 1000;
 
-	/**
-	 * Creates a new client.
-	 * @param endpoint The Philter endpoint or the Filter Profile Registry endpoint, e.g. <code>https://127.0.0.1:8080</code>.
-	 */
-	public FilterProfileRegistryClient(String endpoint) {
+	public static class FilterProfileRegistryClientBuilder {
 
-		this(endpoint, null);
+		private String endpoint;
+		private OkHttpClient okHttpClient;
+		private String token;
+
+		public FilterProfileRegistryClientBuilder withEndpoint(String endpoint) {
+			this.endpoint = endpoint;
+			return this;
+		}
+
+		public FilterProfileRegistryClientBuilder withOkHttpClient(OkHttpClient okHttpClient) {
+			this.okHttpClient = okHttpClient;
+			return this;
+		}
+
+		public FilterProfileRegistryClientBuilder withToken(String token) {
+			this.token = token;
+			return this;
+		}
+
+		public FilterProfileRegistryClient build() {
+
+			return new FilterProfileRegistryClient(endpoint, okHttpClient, token);
+
+		}
 
 	}
 
-	/**
-	 * Creates a new client.
-	 * @param endpoint The Philter endpoint or the Filter Profile Registry endpoint, e.g. <code>https://127.0.0.1:8080</code>.
-	 * @param okHttpClient A custom {@link OkHttpClient}.
-	 */
-	public FilterProfileRegistryClient(String endpoint, OkHttpClient okHttpClient) {
+	private FilterProfileRegistryClient(String endpoint, OkHttpClient okHttpClient, String token) {
 
 		if(okHttpClient == null) {
 
@@ -68,6 +84,19 @@ public class FilterProfileRegistryClient {
 					.readTimeout(TIMEOUT_SEC, TimeUnit.SECONDS)
 					.connectionPool(new ConnectionPool(MAX_IDLE_CONNECTIONS, KEEP_ALIVE_DURATION_MS, TimeUnit.MILLISECONDS))
 					.build();
+
+		}
+
+		if(StringUtils.isNotEmpty(token)) {
+
+			okHttpClient.interceptors().add(chain -> {
+
+				final Request original = chain.request();
+				final Request.Builder requestBuilder = original.newBuilder().addHeader("Authorization", "token:" + token);
+
+				return chain.proceed(requestBuilder.build());
+
+			});
 
 		}
 
