@@ -21,7 +21,10 @@ import com.mtnfog.philter.model.ExplainResponse;
 import com.mtnfog.philter.model.StatusResponse;
 import com.mtnfog.philter.services.PhilterService;
 import okhttp3.ConnectionPool;
+import okhttp3.Interceptor;
 import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import retrofit2.Response;
@@ -46,22 +49,36 @@ public class PhilterClient {
 
 	private PhilterService service;
 
-	/**
-	 * Create a new client.
-	 * @param endpoint The Philter endpoint, e.g. <code>https://127.0.0.1:8080</code>.
-	 */
-	public PhilterClient(String endpoint) {
+	public static class PhilterClientBuilder {
 
-		this(endpoint, null);
+		private String endpoint;
+		private OkHttpClient okHttpClient;
+		private String token;
+
+		public PhilterClientBuilder withEndpoint(String endpoint) {
+			this.endpoint = endpoint;
+			return this;
+		}
+
+		public PhilterClientBuilder withOkHttpClient(OkHttpClient okHttpClient) {
+			this.okHttpClient = okHttpClient;
+			return this;
+		}
+
+		public PhilterClientBuilder withToken(String token) {
+			this.token = token;
+			return this;
+		}
+
+		public PhilterClient build() {
+
+			return new PhilterClient(endpoint, okHttpClient, token);
+
+		}
 
 	}
 
-	/**
-	 * Create a new client.
-	 * @param endpoint The Philter endpoint, e.g. <code>https://127.0.0.1:8080</code>.
-	 * @param okHttpClient Provide a custom {@link OkHttpClient}.
-	 */
-	public PhilterClient(String endpoint, OkHttpClient okHttpClient) {
+	private PhilterClient(String endpoint, OkHttpClient okHttpClient, String token) {
 
 		if(okHttpClient == null) {
 
@@ -74,11 +91,24 @@ public class PhilterClient {
 
 		}
 
+		if(StringUtils.isNotEmpty(token)) {
+
+			okHttpClient.interceptors().add(chain -> {
+
+				final Request original = chain.request();
+				final Request.Builder requestBuilder = original.newBuilder().addHeader("Authorization", "token:" + token);
+
+				return chain.proceed(requestBuilder.build());
+
+			});
+
+		}
+
 		final Retrofit.Builder builder = new Retrofit.Builder()
-		        .baseUrl(endpoint)
-		        .client(okHttpClient)
+				.baseUrl(endpoint)
+				.client(okHttpClient)
 				.addConverterFactory(ScalarsConverterFactory.create())
-		        .addConverterFactory(GsonConverterFactory.create());
+				.addConverterFactory(GsonConverterFactory.create());
 
 		final Retrofit retrofit = builder.build();
 
