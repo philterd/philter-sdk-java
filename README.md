@@ -13,14 +13,14 @@ Refer to [Philter API](https://philter.mtnfog.com/api/) documentation for detail
 With an available running instance of Philter, to filter text:
 
 ```
-PhilterClient client = new PhilterClient("https://127.0.0.1:8080");
+PhilterClient client = new PhilterClient.PhilterClientBuilder().withEndpoint("https://127.0.0.1:8080").build();
 FilterResponse filterResponse = client.filter(text);
 ```
 
 To filter text with explanation:
 
 ```
-PhilterClient client = new PhilterClient("https://127.0.0.1:8080");
+PhilterClient client = new PhilterClient.PhilterClientBuilder().withEndpoint("https://127.0.0.1:8080").build();
 ExplainResponse explainResponse = client.explain(text);
 ```
 
