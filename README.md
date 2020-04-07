@@ -47,6 +47,12 @@ Snapshot dependencies are available in the Maven Central Snapshot Repository by 
 </repository>
 ```
 
+## Release History
+
+* 1.2.0 - Added authentication support and changed artifact name.
+* 1.1.0 - Various fixes. Split SDKs into separate projects.
+* 1.0.0 - Initial release.
+
 ## License
 
 This project is licensed under the Apache Software License, version 2.0.
