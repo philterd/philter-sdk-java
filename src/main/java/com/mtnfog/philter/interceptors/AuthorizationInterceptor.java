@@ -21,7 +21,7 @@ public class AuthorizationInterceptor implements Interceptor {
         final String authentication = "Basic " + Base64.encodeBase64String(("token:" + token).getBytes());
 
         final Request original = chain.request();
-        final Request.Builder requestBuilder = original.newBuilder().addHeader("Authorization", authentication);
+        final Request.Builder requestBuilder = original.newBuilder().header("Authorization", authentication);
 
         return chain.proceed(requestBuilder.build());
 

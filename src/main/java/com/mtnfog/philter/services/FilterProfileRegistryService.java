@@ -23,7 +23,6 @@ import java.util.List;
 
 public interface FilterProfileRegistryService {
 
-	@Headers({"Accept: text/plain"})
 	@GET("/api/status")
 	Call<StatusResponse> status();
 
@@ -40,6 +39,6 @@ public interface FilterProfileRegistryService {
 	Call<Void> save(@Body String json);
 
 	@DELETE("/api/profiles/{name}")
-	Call<Void> delete(@Query("name") String filterProfileName);
+	Call<Void> delete(@Path("name") String filterProfileName);
 
 }

@@ -2,9 +2,11 @@ package com.mtnfog.test.philter;
 
 import com.mtnfog.philter.FilterProfileRegistryClient;
 import com.mtnfog.philter.PhilterClient;
+import com.mtnfog.philter.model.StatusResponse;
 import okhttp3.ConnectionPool;
 import okhttp3.OkHttpClient;
 import org.apache.commons.io.IOUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.Assert;
@@ -78,6 +80,21 @@ public class FilterProfileRegistryClientTest {
         final String json = IOUtils.toString(this.getClass().getResource("/default2.json"), Charset.defaultCharset());
 
         client.save(json);
+
+    }
+
+    @Test
+    public void status() throws Exception {
+
+        final FilterProfileRegistryClient client = new FilterProfileRegistryClient.FilterProfileRegistryClientBuilder()
+                .withEndpoint(ENDPOINT)
+                .withToken(TOKEN)
+                .withOkHttpClientBuilder(getUnsafeOkHttpClientBuilder())
+                .build();
+
+        final StatusResponse statusResponse = client.status();
+
+        Assert.assertTrue(StringUtils.equals("Healthy", statusResponse.getStatus()));
 
     }
 
