@@ -65,6 +65,11 @@
 			    <version>3.8.2</version>
 			</plugin>
 		</plugins>
+		<testResources>
+			<testResource>
+				<directory>${project.basedir}/src/test/resources</directory>
+			</testResource>
+		</testResources>
 	</build>
 	<profiles>
 		<profile>

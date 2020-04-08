@@ -1,0 +1,15 @@
+{
+  "name": "default2",
+  "ignored": [
+  ],
+  "identifiers": {
+    "creditCard": {
+      "creditCardFilterStrategies": [
+        {
+          "strategy": "REDACT",
+          "redactionFormat": "{{{REDACTED-%t}}}"
+        }
+      ]
+    }
+  }
+}

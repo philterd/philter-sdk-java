@@ -4,6 +4,7 @@ import com.mtnfog.philter.FilterProfileRegistryClient;
 import com.mtnfog.philter.PhilterClient;
 import okhttp3.ConnectionPool;
 import okhttp3.OkHttpClient;
+import org.apache.commons.io.IOUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.Assert;
@@ -13,6 +14,7 @@ import org.junit.Test;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
+import java.nio.charset.Charset;
 import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
 import java.util.List;
@@ -61,6 +63,21 @@ public class FilterProfileRegistryClientTest {
         Assert.assertTrue(filterProfile.length() > 0);
 
         LOGGER.info("Filter profile:\n{}", filterProfile);
+
+    }
+
+    @Test
+    public void save() throws Exception {
+
+        final FilterProfileRegistryClient client = new FilterProfileRegistryClient.FilterProfileRegistryClientBuilder()
+                .withEndpoint(ENDPOINT)
+                .withToken(TOKEN)
+                .withOkHttpClientBuilder(getUnsafeOkHttpClientBuilder())
+                .build();
+
+        final String json = IOUtils.toString(this.getClass().getResource("/default2.json"), Charset.defaultCharset());
+
+        client.save(json);
 
     }
 

@@ -136,7 +136,7 @@ public class PhilterClient {
 
 			} else {
 
-				throw new ClientException("Unknown error");
+				throw new ClientException("Unknown error: HTTP " + response.code());
 
 			}
 
@@ -174,7 +174,7 @@ public class PhilterClient {
 
 			} else {
 
-				throw new ClientException("Unknown error");
+				throw new ClientException("Unknown error: HTTP " + response.code());
 
 			}
 
@@ -209,7 +209,7 @@ public class PhilterClient {
 
 			} else {
 
-				throw new ClientException("Unknown error");
+				throw new ClientException("Unknown error: HTTP " + response.code());
 
 			}
 
@@ -238,7 +238,7 @@ public class PhilterClient {
 
 			} else {
 
-				throw new ClientException("Unknown error");
+				throw new ClientException("Unknown error: HTTP " + response.code());
 
 			}
 

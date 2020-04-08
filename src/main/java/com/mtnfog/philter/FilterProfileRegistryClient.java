@@ -124,7 +124,7 @@ public class FilterProfileRegistryClient {
 
 			} else {
 
-				throw new ClientException("Unknown error");
+				throw new ClientException("Unknown error: HTTP " + response.code());
 
 			}
 
@@ -157,7 +157,7 @@ public class FilterProfileRegistryClient {
 
 			} else {
 
-				throw new ClientException("Unknown error");
+				throw new ClientException("Unknown error: HTTP " + response.code());
 
 			}
 
@@ -191,7 +191,7 @@ public class FilterProfileRegistryClient {
 
 			} else {
 
-				throw new ClientException("Unknown error");
+				throw new ClientException("Unknown error: HTTP " + response.code());
 
 			}
 
@@ -221,7 +221,7 @@ public class FilterProfileRegistryClient {
 
 			} else {
 
-				throw new ClientException("Unknown error");
+				throw new ClientException("Unknown error: HTTP " + response.code());
 
 			}
 
@@ -251,7 +251,7 @@ public class FilterProfileRegistryClient {
 
 			} else {
 
-				throw new ClientException("Unknown error");
+				throw new ClientException("Unknown error: HTTP " + response.code());
 
 			}
 
