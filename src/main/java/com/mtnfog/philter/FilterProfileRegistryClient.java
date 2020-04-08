@@ -120,11 +120,11 @@ public class FilterProfileRegistryClient {
 
 			if(response.code() == 503) {
 
-				throw new ServiceUnavailableException();
+				throw new ServiceUnavailableException("Service unavailable");
 
 			} else {
 
-				throw new ClientException();
+				throw new ClientException("Unknown error");
 
 			}
 
@@ -149,15 +149,15 @@ public class FilterProfileRegistryClient {
 
 			if(response.code() == 401) {
 
-				throw new UnauthorizedException();
+				throw new UnauthorizedException("Unauthorized");
 
 			} else if(response.code() == 503) {
 
-				throw new ServiceUnavailableException();
+				throw new ServiceUnavailableException("Service unavailable");
 
 			} else {
 
-				throw new ClientException();
+				throw new ClientException("Unknown error");
 
 			}
 
@@ -183,15 +183,15 @@ public class FilterProfileRegistryClient {
 
 			if(response.code() == 401) {
 
-				throw new UnauthorizedException();
+				throw new UnauthorizedException("Unauthorized");
 
 			} else if(response.code() == 503) {
 
-				throw new ServiceUnavailableException();
+				throw new ServiceUnavailableException("Service unavailable");
 
 			} else {
 
-				throw new ClientException();
+				throw new ClientException("Unknown error");
 
 			}
 
@@ -213,15 +213,15 @@ public class FilterProfileRegistryClient {
 
 			if(response.code() == 401) {
 
-				throw new UnauthorizedException();
+				throw new UnauthorizedException("Unauthorized");
 
 			} else if(response.code() == 503) {
 
-				throw new ServiceUnavailableException();
+				throw new ServiceUnavailableException("Service unavailable");
 
 			} else {
 
-				throw new ClientException();
+				throw new ClientException("Unknown error");
 
 			}
 
@@ -243,15 +243,15 @@ public class FilterProfileRegistryClient {
 
 			if(response.code() == 401) {
 
-				throw new UnauthorizedException();
+				throw new UnauthorizedException("Unauthorized");
 
 			} else if(response.code() == 503) {
 
-				throw new ServiceUnavailableException();
+				throw new ServiceUnavailableException("Service unavailable");
 
 			} else {
 
-				throw new ClientException();
+				throw new ClientException("Unknown error");
 
 			}
 

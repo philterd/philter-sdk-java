@@ -22,6 +22,7 @@ import com.mtnfog.philter.model.FilteredSpan;
 import com.mtnfog.philter.model.StatusResponse;
 import com.mtnfog.philter.model.exceptions.ClientException;
 import com.mtnfog.philter.model.exceptions.ServiceUnavailableException;
+import com.mtnfog.philter.model.exceptions.UnauthorizedException;
 import com.mtnfog.philter.services.PhilterService;
 import okhttp3.ConnectionPool;
 import okhttp3.OkHttpClient;
@@ -125,13 +126,17 @@ public class PhilterClient {
 
 		} else {
 
-			if(response.code() == 503) {
+			if(response.code() == 401) {
 
-				throw new ServiceUnavailableException();
+				throw new UnauthorizedException("Unauthorized");
+
+			} else if(response.code() == 503) {
+
+				throw new ServiceUnavailableException("Service unavailable");
 
 			} else {
 
-				throw new ClientException();
+				throw new ClientException("Unknown error");
 
 			}
 
@@ -159,13 +164,17 @@ public class PhilterClient {
 
 		} else {
 
-			if(response.code() == 503) {
+			if(response.code() == 401) {
 
-				throw new ServiceUnavailableException();
+				throw new UnauthorizedException("Unauthorized");
+
+			} else if(response.code() == 503) {
+
+				throw new ServiceUnavailableException("Service unavailable");
 
 			} else {
 
-				throw new ClientException();
+				throw new ClientException("Unknown error");
 
 			}
 
@@ -190,13 +199,17 @@ public class PhilterClient {
 
 		} else {
 
-			if(response.code() == 503) {
+			if(response.code() == 401) {
 
-				throw new ServiceUnavailableException();
+				throw new UnauthorizedException("Unauthorized");
+
+			} else if(response.code() == 503) {
+
+				throw new ServiceUnavailableException("Service unavailable");
 
 			} else {
 
-				throw new ClientException();
+				throw new ClientException("Unknown error");
 
 			}
 
@@ -221,11 +234,11 @@ public class PhilterClient {
 
 			if(response.code() == 503) {
 
-				throw new ServiceUnavailableException();
+				throw new ServiceUnavailableException("Service unavailable");
 
 			} else {
 
-				throw new ClientException();
+				throw new ClientException("Unknown error");
 
 			}
 
