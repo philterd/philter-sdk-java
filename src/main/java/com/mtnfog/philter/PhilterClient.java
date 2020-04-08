@@ -15,17 +15,17 @@
  ******************************************************************************/
 package com.mtnfog.philter;
 
+import com.mtnfog.philter.interceptors.AuthorizationInterceptor;
+import com.mtnfog.philter.model.ExplainResponse;
 import com.mtnfog.philter.model.FilterResponse;
 import com.mtnfog.philter.model.FilteredSpan;
-import com.mtnfog.philter.model.ExplainResponse;
 import com.mtnfog.philter.model.StatusResponse;
-import com.mtnfog.philter.interceptors.AuthorizationInterceptor;
+import com.mtnfog.philter.model.exceptions.ClientException;
+import com.mtnfog.philter.model.exceptions.ServiceUnavailableException;
 import com.mtnfog.philter.services.PhilterService;
 import okhttp3.ConnectionPool;
 import okhttp3.OkHttpClient;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import retrofit2.Response;
 import retrofit2.Retrofit;
 import retrofit2.converter.gson.GsonConverterFactory;
@@ -39,8 +39,6 @@ import java.util.concurrent.TimeUnit;
  * Client class for Philter's API. Philter finds and manipulates sensitive information in text.
  */
 public class PhilterClient {
-
-	private static final Logger LOGGER = LogManager.getLogger(PhilterClient.class);
 
 	public static final int TIMEOUT_SEC = 30;
 	public static final int MAX_IDLE_CONNECTIONS = 20;
@@ -125,9 +123,19 @@ public class PhilterClient {
 			documentId = response.headers().get("x-document-id");
 			return new FilterResponse(response.body(), context, documentId);
 
-		}
+		} else {
 
-		throw new IOException("Unable to process text. Check Philter log for details.");
+			if(response.code() == 503) {
+
+				throw new ServiceUnavailableException();
+
+			} else {
+
+				throw new ClientException();
+
+			}
+
+		}
 
 	}
 
@@ -149,9 +157,19 @@ public class PhilterClient {
 			documentId = response.headers().get("x-document-id");
 			return response.body();
 
-		}
+		} else {
 
-		throw new IOException("Unable to process text. Check Philter log for details.");
+			if(response.code() == 503) {
+
+				throw new ServiceUnavailableException();
+
+			} else {
+
+				throw new ClientException();
+
+			}
+
+		}
 
 	}
 
@@ -164,7 +182,25 @@ public class PhilterClient {
 	 */
 	public List<FilteredSpan> replacements(String documentId) throws IOException {
 
-		return service.replacements(documentId).execute().body();
+		final Response<List<FilteredSpan>> response = service.replacements(documentId).execute();
+
+		if(response.isSuccessful()) {
+
+			return response.body();
+
+		} else {
+
+			if(response.code() == 503) {
+
+				throw new ServiceUnavailableException();
+
+			} else {
+
+				throw new ClientException();
+
+			}
+
+		}
 
 	}
 
@@ -175,7 +211,25 @@ public class PhilterClient {
 	 */
 	public StatusResponse status() throws IOException {
 
-		return service.status().execute().body();
+		final Response<StatusResponse> response = service.status().execute();
+
+		if(response.isSuccessful()) {
+
+			return response.body();
+
+		} else {
+
+			if(response.code() == 503) {
+
+				throw new ServiceUnavailableException();
+
+			} else {
+
+				throw new ClientException();
+
+			}
+
+		}
 
 	}
 

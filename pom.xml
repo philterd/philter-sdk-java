@@ -40,6 +40,7 @@
 		</developer>
 	</developers>
 	<properties>
+		<commons.codec.version>1.14</commons.codec.version>
 		<commons.collections.version>4.4</commons.collections.version>
 		<commons.io.version>2.6</commons.io.version>
 		<commons.lang3.version>3.10</commons.lang3.version>
@@ -143,6 +144,11 @@
 			<version>${commons.lang3.version}</version>
 		</dependency>
 		<dependency>
+			<groupId>commons-codec</groupId>
+			<artifactId>commons-codec</artifactId>
+			<version>${commons.codec.version}</version>
+		</dependency>
+		<dependency>
 			<groupId>org.apache.commons</groupId>
 			<artifactId>commons-collections4</artifactId>
 			<version>${commons.collections.version}</version>
@@ -166,12 +172,13 @@
 			<groupId>org.apache.logging.log4j</groupId>
 			<artifactId>log4j-core</artifactId>
 			<version>${log4j.version}</version>
+			<scope>test</scope>
 		</dependency>
 		<dependency>
 			<groupId>junit</groupId>
 			<artifactId>junit</artifactId>
-			<scope>test</scope>
 			<version>${junit.version}</version>
+			<scope>test</scope>
 		</dependency>
 	</dependencies>
 </project>

@@ -15,14 +15,15 @@
  ******************************************************************************/
 package com.mtnfog.philter;
 
-import com.mtnfog.philter.model.StatusResponse;
 import com.mtnfog.philter.interceptors.AuthorizationInterceptor;
+import com.mtnfog.philter.model.StatusResponse;
+import com.mtnfog.philter.model.exceptions.ClientException;
+import com.mtnfog.philter.model.exceptions.ServiceUnavailableException;
+import com.mtnfog.philter.model.exceptions.UnauthorizedException;
 import com.mtnfog.philter.services.FilterProfileRegistryService;
 import okhttp3.ConnectionPool;
 import okhttp3.OkHttpClient;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import retrofit2.Response;
 import retrofit2.Retrofit;
 import retrofit2.converter.gson.GsonConverterFactory;
@@ -36,8 +37,6 @@ import java.util.concurrent.TimeUnit;
  * Client class for managing filter profiles either with Philter or with a Philter Profile Registry.
  */
 public class FilterProfileRegistryClient {
-
-	private static final Logger LOGGER = LogManager.getLogger(FilterProfileRegistryClient.class);
 
 	private FilterProfileRegistryService service;
 
@@ -111,7 +110,25 @@ public class FilterProfileRegistryClient {
 	 */
 	public StatusResponse status() throws IOException {
 
-		return service.status().execute().body();
+		final Response<StatusResponse> response = service.status().execute();
+
+		if(response.isSuccessful()) {
+
+			return response.body();
+
+		} else {
+
+			if(response.code() == 503) {
+
+				throw new ServiceUnavailableException();
+
+			} else {
+
+				throw new ClientException();
+
+			}
+
+		}
 
 	}
 
@@ -122,7 +139,29 @@ public class FilterProfileRegistryClient {
 	 */
 	public List<String> get() throws IOException {
 
-		return service.get().execute().body();
+		final Response<List<String>> response = service.get().execute();
+
+		if(response.isSuccessful()) {
+
+			return response.body();
+
+		} else {
+
+			if(response.code() == 401) {
+
+				throw new UnauthorizedException();
+
+			} else if(response.code() == 503) {
+
+				throw new ServiceUnavailableException();
+
+			} else {
+
+				throw new ClientException();
+
+			}
+
+		}
 
 	}
 
@@ -134,7 +173,29 @@ public class FilterProfileRegistryClient {
 	 */
 	public String get(String filterProfileName) throws IOException {
 
-		return service.get(filterProfileName).execute().body();
+		final Response<String> response = service.get(filterProfileName).execute();
+
+		if(response.isSuccessful()) {
+
+			return response.body();
+
+		} else {
+
+			if(response.code() == 401) {
+
+				throw new UnauthorizedException();
+
+			} else if(response.code() == 503) {
+
+				throw new ServiceUnavailableException();
+
+			} else {
+
+				throw new ClientException();
+
+			}
+
+		}
 
 	}
 
@@ -144,10 +205,27 @@ public class FilterProfileRegistryClient {
 	 * @return <code>true</code> if successful, otherwise <code>false</code>.
 	 * @throws IOException Thrown if the call not be executed.
 	 */
-	public boolean save(String json) throws IOException {
+	public void save(String json) throws IOException {
 
-		final Response response = service.save(json).execute();
-		return response.isSuccessful();
+		final Response<Void> response = service.save(json).execute();
+
+		if(!response.isSuccessful()) {
+
+			if(response.code() == 401) {
+
+				throw new UnauthorizedException();
+
+			} else if(response.code() == 503) {
+
+				throw new ServiceUnavailableException();
+
+			} else {
+
+				throw new ClientException();
+
+			}
+
+		}
 
 	}
 
@@ -157,10 +235,27 @@ public class FilterProfileRegistryClient {
 	 * @return <code>true</code> if successful, otherwise <code>false</code>.
 	 * @throws IOException Thrown if the call not be executed.
 	 */
-	public boolean delete(String filterProfileName) throws IOException {
+	public void delete(String filterProfileName) throws IOException {
 
 		final Response response = service.delete(filterProfileName).execute();
-		return response.isSuccessful();
+
+		if(!response.isSuccessful()) {
+
+			if(response.code() == 401) {
+
+				throw new UnauthorizedException();
+
+			} else if(response.code() == 503) {
+
+				throw new ServiceUnavailableException();
+
+			} else {
+
+				throw new ClientException();
+
+			}
+
+		}
 
 	}
 
