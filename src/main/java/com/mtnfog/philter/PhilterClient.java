@@ -246,4 +246,131 @@ public class PhilterClient {
 
 	}
 
+	/**
+	 * Gets a list of filter profile names.
+	 * @return A list of filter profile names.
+	 * @throws IOException Thrown if the call not be executed.
+	 */
+	public List<String> get() throws IOException {
+
+		final Response<List<String>> response = service.get().execute();
+
+		if(response.isSuccessful()) {
+
+			return response.body();
+
+		} else {
+
+			if(response.code() == 401) {
+
+				throw new UnauthorizedException("Unauthorized");
+
+			} else if(response.code() == 503) {
+
+				throw new ServiceUnavailableException("Service unavailable");
+
+			} else {
+
+				throw new ClientException("Unknown error: HTTP " + response.code());
+
+			}
+
+		}
+
+	}
+
+	/**
+	 * Gets the content of a filter profile.
+	 * @param filterProfileName The name of the filter profile to get.
+	 * @return The content of the filter profile.
+	 * @throws IOException Thrown if the call not be executed.
+	 */
+	public String get(String filterProfileName) throws IOException {
+
+		final Response<String> response = service.get(filterProfileName).execute();
+
+		if(response.isSuccessful()) {
+
+			return response.body();
+
+		} else {
+
+			if(response.code() == 401) {
+
+				throw new UnauthorizedException("Unauthorized");
+
+			} else if(response.code() == 503) {
+
+				throw new ServiceUnavailableException("Service unavailable");
+
+			} else {
+
+				throw new ClientException("Unknown error: HTTP " + response.code());
+
+			}
+
+		}
+
+	}
+
+	/**
+	 * Saves (or overwrites) the filter profile.
+	 * @param json The body of the filter profile.
+	 * @return <code>true</code> if successful, otherwise <code>false</code>.
+	 * @throws IOException Thrown if the call not be executed.
+	 */
+	public void save(String json) throws IOException {
+
+		final Response<Void> response = service.save(json).execute();
+
+		if(!response.isSuccessful()) {
+
+			if(response.code() == 401) {
+
+				throw new UnauthorizedException("Unauthorized");
+
+			} else if(response.code() == 503) {
+
+				throw new ServiceUnavailableException("Service unavailable");
+
+			} else {
+
+				throw new ClientException("Unknown error: HTTP " + response.code());
+
+			}
+
+		}
+
+	}
+
+	/**
+	 * Deletes a filter profile.
+	 * @param filterProfileName The name of the filter profile to delete.
+	 * @return <code>true</code> if successful, otherwise <code>false</code>.
+	 * @throws IOException Thrown if the call not be executed.
+	 */
+	public void delete(String filterProfileName) throws IOException {
+
+		final Response response = service.delete(filterProfileName).execute();
+
+		if(!response.isSuccessful()) {
+
+			if(response.code() == 401) {
+
+				throw new UnauthorizedException("Unauthorized");
+
+			} else if(response.code() == 503) {
+
+				throw new ServiceUnavailableException("Service unavailable");
+
+			} else {
+
+				throw new ClientException("Unknown error: HTTP " + response.code());
+
+			}
+
+		}
+
+	}
+
 }

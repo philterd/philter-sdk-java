@@ -1,6 +1,5 @@
 package com.mtnfog.test.philter;
 
-import com.mtnfog.philter.FilterProfileRegistryClient;
 import com.mtnfog.philter.PhilterClient;
 import com.mtnfog.philter.model.StatusResponse;
 import okhttp3.ConnectionPool;
@@ -23,9 +22,9 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 @Ignore
-public class FilterProfileRegistryClientTest {
+public class PhilterClientTest {
 
-    private static final Logger LOGGER = LogManager.getLogger(FilterProfileRegistryClientTest.class);
+    private static final Logger LOGGER = LogManager.getLogger(PhilterClientTest.class);
 
     private static final String ENDPOINT = "https://localhost:8080/";
     private static final String TOKEN = "";
@@ -33,7 +32,7 @@ public class FilterProfileRegistryClientTest {
     @Test
     public void get() throws Exception {
 
-        final FilterProfileRegistryClient client = new FilterProfileRegistryClient.FilterProfileRegistryClientBuilder()
+        final PhilterClient client = new PhilterClient.PhilterClientBuilder()
                 .withEndpoint(ENDPOINT)
                 .withToken(TOKEN)
                 .withOkHttpClientBuilder(getUnsafeOkHttpClientBuilder())
@@ -53,7 +52,7 @@ public class FilterProfileRegistryClientTest {
     @Test
     public void getByName() throws Exception {
 
-        final FilterProfileRegistryClient client = new FilterProfileRegistryClient.FilterProfileRegistryClientBuilder()
+        final PhilterClient client = new PhilterClient.PhilterClientBuilder()
                 .withEndpoint(ENDPOINT)
                 .withToken(TOKEN)
                 .withOkHttpClientBuilder(getUnsafeOkHttpClientBuilder())
@@ -71,7 +70,7 @@ public class FilterProfileRegistryClientTest {
     @Test
     public void save() throws Exception {
 
-        final FilterProfileRegistryClient client = new FilterProfileRegistryClient.FilterProfileRegistryClientBuilder()
+        final PhilterClient client = new PhilterClient.PhilterClientBuilder()
                 .withEndpoint(ENDPOINT)
                 .withToken(TOKEN)
                 .withOkHttpClientBuilder(getUnsafeOkHttpClientBuilder())
@@ -86,7 +85,7 @@ public class FilterProfileRegistryClientTest {
     @Test
     public void status() throws Exception {
 
-        final FilterProfileRegistryClient client = new FilterProfileRegistryClient.FilterProfileRegistryClientBuilder()
+        final PhilterClient client = new PhilterClient.PhilterClientBuilder()
                 .withEndpoint(ENDPOINT)
                 .withToken(TOKEN)
                 .withOkHttpClientBuilder(getUnsafeOkHttpClientBuilder())

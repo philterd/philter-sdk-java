@@ -39,4 +39,19 @@ public interface PhilterService {
 	@GET("/api/status")
 	Call<StatusResponse> status();
 
+	@Headers({"Accept: application/json"})
+	@GET("/api/profiles")
+	Call<List<String>> get();
+
+	@Headers({"Accept: text/plain"})
+	@GET("/api/profiles/{name}")
+	Call<String> get(@Path("name") String filterProfileName);
+
+	@Headers({"Content-Type: application/json"})
+	@POST("/api/profiles")
+	Call<Void> save(@Body String json);
+
+	@DELETE("/api/profiles/{name}")
+	Call<Void> delete(@Path("name") String filterProfileName);
+
 }
