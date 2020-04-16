@@ -38,7 +38,7 @@ public class PhilterClientTest {
                 .withOkHttpClientBuilder(getUnsafeOkHttpClientBuilder())
                 .build();
 
-        final List<String> filterProfileNames = client.get();
+        final List<String> filterProfileNames = client.getFilterProfiles();
 
         Assert.assertTrue(filterProfileNames != null);
         Assert.assertFalse(filterProfileNames.isEmpty());
@@ -58,7 +58,7 @@ public class PhilterClientTest {
                 .withOkHttpClientBuilder(getUnsafeOkHttpClientBuilder())
                 .build();
 
-        final String filterProfile = client.get("default");
+        final String filterProfile = client.getFilterProfile("default");
 
         Assert.assertTrue(filterProfile != null);
         Assert.assertTrue(filterProfile.length() > 0);
@@ -78,7 +78,7 @@ public class PhilterClientTest {
 
         final String json = IOUtils.toString(this.getClass().getResource("/default2.json"), Charset.defaultCharset());
 
-        client.save(json);
+        client.saveFilterProfile(json);
 
     }
 

@@ -251,7 +251,7 @@ public class PhilterClient {
 	 * @return A list of filter profile names.
 	 * @throws IOException Thrown if the call not be executed.
 	 */
-	public List<String> get() throws IOException {
+	public List<String> getFilterProfiles() throws IOException {
 
 		final Response<List<String>> response = service.get().execute();
 
@@ -285,7 +285,7 @@ public class PhilterClient {
 	 * @return The content of the filter profile.
 	 * @throws IOException Thrown if the call not be executed.
 	 */
-	public String get(String filterProfileName) throws IOException {
+	public String getFilterProfile(String filterProfileName) throws IOException {
 
 		final Response<String> response = service.get(filterProfileName).execute();
 
@@ -319,7 +319,7 @@ public class PhilterClient {
 	 * @return <code>true</code> if successful, otherwise <code>false</code>.
 	 * @throws IOException Thrown if the call not be executed.
 	 */
-	public void save(String json) throws IOException {
+	public void saveFilterProfile(String json) throws IOException {
 
 		final Response<Void> response = service.save(json).execute();
 
@@ -349,7 +349,7 @@ public class PhilterClient {
 	 * @return <code>true</code> if successful, otherwise <code>false</code>.
 	 * @throws IOException Thrown if the call not be executed.
 	 */
-	public void delete(String filterProfileName) throws IOException {
+	public void deleteFilterProfile(String filterProfileName) throws IOException {
 
 		final Response response = service.delete(filterProfileName).execute();
 
