@@ -122,10 +122,10 @@ public class PhilterClientTest {
 
         OkHttpClient.Builder builder = new OkHttpClient.Builder();
         builder.sslSocketFactory(sslContext.getSocketFactory(), (X509TrustManager) trustAllCerts[0]);
-        builder.connectTimeout(PhilterClient.TIMEOUT_SEC, TimeUnit.SECONDS);
-        builder.writeTimeout(PhilterClient.TIMEOUT_SEC, TimeUnit.SECONDS);
-        builder.readTimeout(PhilterClient.TIMEOUT_SEC, TimeUnit.SECONDS);
-        builder.connectionPool(new ConnectionPool(PhilterClient.MAX_IDLE_CONNECTIONS, PhilterClient.KEEP_ALIVE_DURATION_MS, TimeUnit.MILLISECONDS));
+        builder.connectTimeout(PhilterClient.DEFAULT_TIMEOUT_SEC, TimeUnit.SECONDS);
+        builder.writeTimeout(PhilterClient.DEFAULT_TIMEOUT_SEC, TimeUnit.SECONDS);
+        builder.readTimeout(PhilterClient.DEFAULT_TIMEOUT_SEC, TimeUnit.SECONDS);
+        builder.connectionPool(new ConnectionPool(PhilterClient.DEFAULT_MAX_IDLE_CONNECTIONS, PhilterClient.DEFAULT_KEEP_ALIVE_DURATION_MS, TimeUnit.MILLISECONDS));
         builder.hostnameVerifier((hostname, session) -> true);
 
         return builder;

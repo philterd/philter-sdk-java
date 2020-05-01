@@ -38,12 +38,13 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * Client class for Philter's API. Philter finds and manipulates sensitive information in text.
+ * For more information on Philter see https://www.mtnfog.com.
  */
 public class PhilterClient {
 
-	public static final int TIMEOUT_SEC = 30;
-	public static final int MAX_IDLE_CONNECTIONS = 20;
-	public static final int KEEP_ALIVE_DURATION_MS = 30 * 1000;
+	public static final int DEFAULT_TIMEOUT_SEC = 30;
+	public static final int DEFAULT_MAX_IDLE_CONNECTIONS = 20;
+	public static final int DEFAULT_KEEP_ALIVE_DURATION_MS = 30 * 1000;
 
 	private PhilterService service;
 
@@ -52,6 +53,9 @@ public class PhilterClient {
 		private String endpoint;
 		private OkHttpClient.Builder okHttpClientBuilder;
 		private String token;
+		private long timeout = DEFAULT_TIMEOUT_SEC;
+		private int maxIdleConnections = DEFAULT_MAX_IDLE_CONNECTIONS;
+		private int keepAliveDurationMs = DEFAULT_KEEP_ALIVE_DURATION_MS;
 
 		public PhilterClientBuilder withEndpoint(String endpoint) {
 			this.endpoint = endpoint;
@@ -68,23 +72,36 @@ public class PhilterClient {
 			return this;
 		}
 
+		public PhilterClientBuilder withTimeout(long timeout) {
+			this.timeout = timeout;
+			return this;
+		}
+
+		public PhilterClientBuilder withMaxIdleConnections(int maxIdleConnections) {
+			this.maxIdleConnections = maxIdleConnections;
+			return this;
+		}
+
+		public PhilterClientBuilder withKeepAliveDurationMs(int keepAliveDurationMs) {
+			this.keepAliveDurationMs = keepAliveDurationMs;
+			return this;
+		}
+
 		public PhilterClient build() {
-
-			return new PhilterClient(endpoint, okHttpClientBuilder, token);
-
+			return new PhilterClient(endpoint, okHttpClientBuilder, token, timeout, maxIdleConnections, keepAliveDurationMs);
 		}
 
 	}
 
-	private PhilterClient(String endpoint, OkHttpClient.Builder okHttpClientBuilder, String token) {
+	private PhilterClient(String endpoint, OkHttpClient.Builder okHttpClientBuilder, String token, long timeout, int maxIdleConnections, int keepAliveDurationMs) {
 
 		if(okHttpClientBuilder == null) {
 
 			okHttpClientBuilder = new OkHttpClient.Builder()
-					.connectTimeout(TIMEOUT_SEC, TimeUnit.SECONDS)
-					.writeTimeout(TIMEOUT_SEC, TimeUnit.SECONDS)
-					.readTimeout(TIMEOUT_SEC, TimeUnit.SECONDS)
-					.connectionPool(new ConnectionPool(MAX_IDLE_CONNECTIONS, KEEP_ALIVE_DURATION_MS, TimeUnit.MILLISECONDS));
+					.connectTimeout(timeout, TimeUnit.SECONDS)
+					.writeTimeout(timeout, TimeUnit.SECONDS)
+					.readTimeout(timeout, TimeUnit.SECONDS)
+					.connectionPool(new ConnectionPool(maxIdleConnections, keepAliveDurationMs, TimeUnit.MILLISECONDS));
 
 		}
 
@@ -103,6 +120,12 @@ public class PhilterClient {
 		final Retrofit retrofit = builder.build();
 
 		service = retrofit.create(PhilterService.class);
+
+	}
+
+	private PhilterClient(String endpoint, OkHttpClient.Builder okHttpClientBuilder, String token) {
+
+		this(endpoint, okHttpClientBuilder, token, DEFAULT_TIMEOUT_SEC, DEFAULT_MAX_IDLE_CONNECTIONS, DEFAULT_KEEP_ALIVE_DURATION_MS);
 
 	}
 
