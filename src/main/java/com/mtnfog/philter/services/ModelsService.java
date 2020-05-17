@@ -19,6 +19,7 @@ import com.mtnfog.philter.model.Model;
 import retrofit2.Call;
 import retrofit2.http.GET;
 import retrofit2.http.Headers;
+import retrofit2.http.Path;
 
 import java.util.List;
 
@@ -27,5 +28,9 @@ public interface ModelsService {
 	@Headers({"Accept: application/json"})
 	@GET("/api/models")
 	Call<List<Model>> getModels();
+
+	@Headers({"Accept: text/plain"})
+	@GET("/api/models/{id}")
+	Call<String> getModelUrl(@Path("id") String id);
 
 }

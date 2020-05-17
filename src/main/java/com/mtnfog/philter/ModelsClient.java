@@ -105,9 +105,44 @@ public class ModelsClient {
 
 	}
 
+	/**
+	 * Gets a list of the available models.
+	 * @return A list of {@link Model models}.
+	 * @throws IOException
+	 */
 	public List<Model> getModels() throws IOException {
 
 		final Response<List<Model>> response = service.getModels().execute();
+
+		if(response.isSuccessful()) {
+
+			return response.body();
+
+		} else {
+
+			if(response.code() == 503) {
+
+				throw new ServiceUnavailableException("Service unavailable");
+
+			} else {
+
+				throw new ClientException("Unknown error: HTTP " + response.code());
+
+			}
+
+		}
+
+	}
+
+	/**
+	 * Gets the download URL for a model.
+	 * @param id The model ID.
+	 * @return A URL.
+	 * @throws IOException
+	 */
+	public String getModelUrl(String id) throws IOException {
+
+		final Response<String> response = service.getModelUrl(id).execute();
 
 		if(response.isSuccessful()) {
 
