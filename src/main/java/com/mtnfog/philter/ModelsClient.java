@@ -32,7 +32,7 @@ import java.util.concurrent.TimeUnit;
 
 public class ModelsClient {
 
-	public static final String ENDPOINT = "https://www.mtnfog.com/api/models";
+	public static final String ENDPOINT = "https://www.mtnfog.com/";
 
 	public static final int DEFAULT_TIMEOUT_SEC = 30;
 	public static final int DEFAULT_MAX_IDLE_CONNECTIONS = 20;
