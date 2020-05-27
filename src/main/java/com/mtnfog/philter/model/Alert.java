@@ -28,10 +28,6 @@ public class Alert {
     private String filterType;
     private String date;
 
-    public Alert() {
-
-    }
-
     public String getDate() {
         return this.date;
     }
