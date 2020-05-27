@@ -15,6 +15,7 @@
  ******************************************************************************/
 package com.mtnfog.philter.services;
 
+import com.mtnfog.philter.model.Alert;
 import com.mtnfog.philter.model.FilteredSpan;
 import com.mtnfog.philter.model.ExplainResponse;
 import com.mtnfog.philter.model.StatusResponse;
@@ -24,6 +25,8 @@ import retrofit2.http.*;
 import java.util.List;
 
 public interface PhilterService {
+
+	// Filtering
 
 	@Headers({"Accept: text/plain", "Content-Type: text/plain"})
 	@POST("/api/filter")
@@ -36,22 +39,34 @@ public interface PhilterService {
 	@GET("/api/replacements")
 	Call<List<FilteredSpan>> replacements(@Query("d") String documentId);
 
+	// Status
+
 	@GET("/api/status")
 	Call<StatusResponse> status();
 
+	// Filter Profiles
+
 	@Headers({"Accept: application/json"})
 	@GET("/api/profiles")
-	Call<List<String>> get();
+	Call<List<String>> getFilterProfile();
 
 	@Headers({"Accept: text/plain"})
 	@GET("/api/profiles/{name}")
-	Call<String> get(@Path("name") String filterProfileName);
+	Call<String> getFilterProfile(@Path("name") String filterProfileName);
 
 	@Headers({"Content-Type: application/json"})
 	@POST("/api/profiles")
-	Call<Void> save(@Body String json);
+	Call<Void> saveFilterProfile(@Body String json);
 
 	@DELETE("/api/profiles/{name}")
-	Call<Void> delete(@Path("name") String filterProfileName);
+	Call<Void> deleteFilterProfile(@Path("name") String filterProfileName);
+
+	// Alerts
+
+	@GET("/api/alerts")
+	Call<List<Alert>> getAlerts();
+
+	@DELETE("/api/alerts/{alertId}")
+	Call<Void> deleteAlert(String alertId);
 
 }

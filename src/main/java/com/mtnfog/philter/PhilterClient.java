@@ -16,10 +16,7 @@
 package com.mtnfog.philter;
 
 import com.mtnfog.philter.interceptors.AuthorizationInterceptor;
-import com.mtnfog.philter.model.ExplainResponse;
-import com.mtnfog.philter.model.FilterResponse;
-import com.mtnfog.philter.model.FilteredSpan;
-import com.mtnfog.philter.model.StatusResponse;
+import com.mtnfog.philter.model.*;
 import com.mtnfog.philter.model.exceptions.ClientException;
 import com.mtnfog.philter.model.exceptions.ServiceUnavailableException;
 import com.mtnfog.philter.model.exceptions.UnauthorizedException;
@@ -276,7 +273,7 @@ public class PhilterClient {
 	 */
 	public List<String> getFilterProfiles() throws IOException {
 
-		final Response<List<String>> response = service.get().execute();
+		final Response<List<String>> response = service.getFilterProfile().execute();
 
 		if(response.isSuccessful()) {
 
@@ -310,7 +307,7 @@ public class PhilterClient {
 	 */
 	public String getFilterProfile(String filterProfileName) throws IOException {
 
-		final Response<String> response = service.get(filterProfileName).execute();
+		final Response<String> response = service.getFilterProfile(filterProfileName).execute();
 
 		if(response.isSuccessful()) {
 
@@ -344,7 +341,7 @@ public class PhilterClient {
 	 */
 	public void saveFilterProfile(String json) throws IOException {
 
-		final Response<Void> response = service.save(json).execute();
+		final Response<Void> response = service.saveFilterProfile(json).execute();
 
 		if(!response.isSuccessful()) {
 
@@ -374,7 +371,69 @@ public class PhilterClient {
 	 */
 	public void deleteFilterProfile(String filterProfileName) throws IOException {
 
-		final Response response = service.delete(filterProfileName).execute();
+		final Response response = service.deleteFilterProfile(filterProfileName).execute();
+
+		if(!response.isSuccessful()) {
+
+			if(response.code() == 401) {
+
+				throw new UnauthorizedException("Unauthorized");
+
+			} else if(response.code() == 503) {
+
+				throw new ServiceUnavailableException("Service unavailable");
+
+			} else {
+
+				throw new ClientException("Unknown error: HTTP " + response.code());
+
+			}
+
+		}
+
+	}
+
+	/**
+	 * Get alerts.
+	 * @return A list of {@link Alert alerts}.
+	 * @throws IOException Thrown if the call not be executed.
+	 */
+	public List<Alert> getAlerts() throws IOException {
+
+		final Response<List<Alert>> response = service.getAlerts().execute();
+
+		if(response.isSuccessful()) {
+
+			return response.body();
+
+		} else {
+
+			if(response.code() == 401) {
+
+				throw new UnauthorizedException("Unauthorized");
+
+			} else if(response.code() == 503) {
+
+				throw new ServiceUnavailableException("Service unavailable");
+
+			} else {
+
+				throw new ClientException("Unknown error: HTTP " + response.code());
+
+			}
+
+		}
+
+	}
+
+	/**
+	 * Delete an alert.
+	 * @param alertId The ID of the alert to delete.
+	 * @throws IOException Thrown if the call not be executed.
+	 */
+	public void deleteAlert(String alertId) throws IOException {
+
+		final Response<Void> response = service.deleteAlert(alertId).execute();
 
 		if(!response.isSuccessful()) {
 
