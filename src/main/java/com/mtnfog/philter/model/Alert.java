@@ -26,7 +26,6 @@ public class Alert {
     private String context;
     private String documentId;
     private String filterType;
-    private boolean viewed;
     private Date date;
 
     public Alert() {
@@ -40,7 +39,6 @@ public class Alert {
         this.context = context;
         this.documentId = documentId;
         this.filterType = filterType;
-        this.viewed = false;
         this.date = new Date();
     }
 
@@ -90,14 +88,6 @@ public class Alert {
 
     public void setId(String id) {
         this.id = id;
-    }
-
-    public boolean isViewed() {
-        return this.viewed;
-    }
-
-    public void setViewed(boolean viewed) {
-        this.viewed = viewed;
     }
 
     public String getFilterProfile() {
