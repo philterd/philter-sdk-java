@@ -67,6 +67,6 @@ public interface PhilterService {
 	Call<List<Alert>> getAlerts();
 
 	@DELETE("/api/alerts/{alertId}")
-	Call<Void> deleteAlert(String alertId);
+	Call<Void> deleteAlert(@Path("alertId") String alertId);
 
 }
