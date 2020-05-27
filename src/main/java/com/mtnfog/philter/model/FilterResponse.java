@@ -51,7 +51,11 @@ public class FilterResponse {
     }
 
     public int hashCode() {
-        return (new HashCodeBuilder(17, 37)).append(this.filteredText).append(this.context).append(this.documentId).toHashCode();
+        return (new HashCodeBuilder(17, 37))
+                .append(this.filteredText)
+                .append(this.context)
+                .append(this.documentId)
+                .toHashCode();
     }
 
     public String toString() {
@@ -60,7 +64,7 @@ public class FilterResponse {
     }
 
     public boolean equals(Object o) {
-        return EqualsBuilder.reflectionEquals(this, o, new String[0]);
+        return EqualsBuilder.reflectionEquals(this, o);
     }
 
     public String getFilteredText() {

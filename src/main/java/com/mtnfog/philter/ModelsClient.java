@@ -30,7 +30,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
-public class ModelsClient {
+public class ModelsClient extends AbstractClient {
 
 	public static final String ENDPOINT = "https://www.mtnfog.com/";
 
@@ -99,12 +99,6 @@ public class ModelsClient {
 
 	}
 
-	private ModelsClient(OkHttpClient.Builder okHttpClientBuilder) {
-
-		this(okHttpClientBuilder, DEFAULT_TIMEOUT_SEC, DEFAULT_MAX_IDLE_CONNECTIONS, DEFAULT_KEEP_ALIVE_DURATION_MS);
-
-	}
-
 	/**
 	 * Gets a list of the available models.
 	 * @return A list of {@link Model models}.
@@ -122,7 +116,7 @@ public class ModelsClient {
 
 			if(response.code() == 503) {
 
-				throw new ServiceUnavailableException("Service unavailable");
+				throw new ServiceUnavailableException(SERVICE_UNAVAILABLE);
 
 			} else {
 
@@ -152,7 +146,7 @@ public class ModelsClient {
 
 			if(response.code() == 503) {
 
-				throw new ServiceUnavailableException("Service unavailable");
+				throw new ServiceUnavailableException(SERVICE_UNAVAILABLE);
 
 			} else {
 

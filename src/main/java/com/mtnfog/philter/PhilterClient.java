@@ -37,7 +37,7 @@ import java.util.concurrent.TimeUnit;
  * Client class for Philter's API. Philter finds and manipulates sensitive information in text.
  * For more information on Philter see https://www.mtnfog.com.
  */
-public class PhilterClient {
+public class PhilterClient extends AbstractClient {
 
 	public static final int DEFAULT_TIMEOUT_SEC = 30;
 	public static final int DEFAULT_MAX_IDLE_CONNECTIONS = 20;
@@ -120,12 +120,6 @@ public class PhilterClient {
 
 	}
 
-	private PhilterClient(String endpoint, OkHttpClient.Builder okHttpClientBuilder, String token) {
-
-		this(endpoint, okHttpClientBuilder, token, DEFAULT_TIMEOUT_SEC, DEFAULT_MAX_IDLE_CONNECTIONS, DEFAULT_KEEP_ALIVE_DURATION_MS);
-
-	}
-
 	/**
 	 * Send text to Philter to be filtered.
 	 * @param context The context. Contexts can be used to group text based on some arbitrary property.
@@ -148,11 +142,11 @@ public class PhilterClient {
 
 			if(response.code() == 401) {
 
-				throw new UnauthorizedException("Unauthorized");
+				throw new UnauthorizedException(UNAUTHORIZED);
 
 			} else if(response.code() == 503) {
 
-				throw new ServiceUnavailableException("Service unavailable");
+				throw new ServiceUnavailableException(SERVICE_UNAVAILABLE);
 
 			} else {
 
@@ -179,18 +173,17 @@ public class PhilterClient {
 
 		if(response.isSuccessful()) {
 
-			documentId = response.headers().get("x-document-id");
 			return response.body();
 
 		} else {
 
 			if(response.code() == 401) {
 
-				throw new UnauthorizedException("Unauthorized");
+				throw new UnauthorizedException(UNAUTHORIZED);
 
 			} else if(response.code() == 503) {
 
-				throw new ServiceUnavailableException("Service unavailable");
+				throw new ServiceUnavailableException(SERVICE_UNAVAILABLE);
 
 			} else {
 
@@ -221,11 +214,11 @@ public class PhilterClient {
 
 			if(response.code() == 401) {
 
-				throw new UnauthorizedException("Unauthorized");
+				throw new UnauthorizedException(UNAUTHORIZED);
 
 			} else if(response.code() == 503) {
 
-				throw new ServiceUnavailableException("Service unavailable");
+				throw new ServiceUnavailableException(SERVICE_UNAVAILABLE);
 
 			} else {
 
@@ -254,7 +247,7 @@ public class PhilterClient {
 
 			if(response.code() == 503) {
 
-				throw new ServiceUnavailableException("Service unavailable");
+				throw new ServiceUnavailableException(SERVICE_UNAVAILABLE);
 
 			} else {
 
@@ -283,11 +276,11 @@ public class PhilterClient {
 
 			if(response.code() == 401) {
 
-				throw new UnauthorizedException("Unauthorized");
+				throw new UnauthorizedException(UNAUTHORIZED);
 
 			} else if(response.code() == 503) {
 
-				throw new ServiceUnavailableException("Service unavailable");
+				throw new ServiceUnavailableException(SERVICE_UNAVAILABLE);
 
 			} else {
 
@@ -317,11 +310,11 @@ public class PhilterClient {
 
 			if(response.code() == 401) {
 
-				throw new UnauthorizedException("Unauthorized");
+				throw new UnauthorizedException(UNAUTHORIZED);
 
 			} else if(response.code() == 503) {
 
-				throw new ServiceUnavailableException("Service unavailable");
+				throw new ServiceUnavailableException(SERVICE_UNAVAILABLE);
 
 			} else {
 
@@ -347,11 +340,11 @@ public class PhilterClient {
 
 			if(response.code() == 401) {
 
-				throw new UnauthorizedException("Unauthorized");
+				throw new UnauthorizedException(UNAUTHORIZED);
 
 			} else if(response.code() == 503) {
 
-				throw new ServiceUnavailableException("Service unavailable");
+				throw new ServiceUnavailableException(SERVICE_UNAVAILABLE);
 
 			} else {
 
@@ -371,17 +364,17 @@ public class PhilterClient {
 	 */
 	public void deleteFilterProfile(String filterProfileName) throws IOException {
 
-		final Response response = service.deleteFilterProfile(filterProfileName).execute();
+		final Response<Void> response = service.deleteFilterProfile(filterProfileName).execute();
 
 		if(!response.isSuccessful()) {
 
 			if(response.code() == 401) {
 
-				throw new UnauthorizedException("Unauthorized");
+				throw new UnauthorizedException(UNAUTHORIZED);
 
 			} else if(response.code() == 503) {
 
-				throw new ServiceUnavailableException("Service unavailable");
+				throw new ServiceUnavailableException(SERVICE_UNAVAILABLE);
 
 			} else {
 
@@ -410,11 +403,11 @@ public class PhilterClient {
 
 			if(response.code() == 401) {
 
-				throw new UnauthorizedException("Unauthorized");
+				throw new UnauthorizedException(UNAUTHORIZED);
 
 			} else if(response.code() == 503) {
 
-				throw new ServiceUnavailableException("Service unavailable");
+				throw new ServiceUnavailableException(SERVICE_UNAVAILABLE);
 
 			} else {
 
@@ -439,11 +432,11 @@ public class PhilterClient {
 
 			if(response.code() == 401) {
 
-				throw new UnauthorizedException("Unauthorized");
+				throw new UnauthorizedException(UNAUTHORIZED);
 
 			} else if(response.code() == 503) {
 
-				throw new ServiceUnavailableException("Service unavailable");
+				throw new ServiceUnavailableException(SERVICE_UNAVAILABLE);
 
 			} else {
 
