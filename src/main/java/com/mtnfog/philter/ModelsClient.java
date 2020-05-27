@@ -30,6 +30,9 @@ import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
+/**
+ * Client for accessing Philter models API.
+ */
 public class ModelsClient extends AbstractClient {
 
 	public static final String ENDPOINT = "https://www.mtnfog.com/";
@@ -102,7 +105,7 @@ public class ModelsClient extends AbstractClient {
 	/**
 	 * Gets a list of the available models.
 	 * @return A list of {@link Model models}.
-	 * @throws IOException
+	 * @throws IOException Thrown if the call not be executed.
 	 */
 	public List<Model> getModels() throws IOException {
 
@@ -132,7 +135,7 @@ public class ModelsClient extends AbstractClient {
 	 * Gets the download URL for a model.
 	 * @param id The model ID.
 	 * @return A URL.
-	 * @throws IOException
+	 * @throws IOException Thrown if the call not be executed.
 	 */
 	public String getModelUrl(String id) throws IOException {
 
