@@ -60,6 +60,10 @@ public class Span {
     private String replacement;
 
     @Expose
+    @SerializedName("salt")
+    private String salt;
+
+    @Expose
     @SerializedName("ignored")
     private boolean ignored;
 
@@ -141,6 +145,14 @@ public class Span {
 
     public void setIgnored(boolean ignored) {
         this.ignored = ignored;
+    }
+
+    public String getSalt() {
+        return salt;
+    }
+
+    public void setSalt(String salt) {
+        this.salt = salt;
     }
 
 }
