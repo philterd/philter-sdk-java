@@ -51,6 +51,7 @@ Snapshot dependencies are available in the Maven Central Snapshot Repository by 
 
 * 1.2.0:
   * Added option for API authentication support.
+  * Added `salt` to `Span` for when the `HASH_SHA256_REPLACE` filter strategy is applied by Philter.
   * Changed artifact name to `philter-sdk-java`
   * Added alerts retrieval/deletion to client.
 * 1.1.0:
