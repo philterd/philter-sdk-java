@@ -31,8 +31,8 @@ Release dependencies are available in Maven Central.
 ```
 <dependency>
   <groupId>com.mtnfog</groupId>
-  <artifactId>philter-java-sdk</artifactId>
-  <version>1.1.0</version>
+  <artifactId>philter-sdk-java</artifactId>
+  <version>1.2.0</version>
 </dependency>
 ```
 
@@ -49,9 +49,15 @@ Snapshot dependencies are available in the Maven Central Snapshot Repository by 
 
 ## Release History
 
-* 1.2.0 - Added authentication support and changed artifact name.
-* 1.1.0 - Various fixes. Split SDKs into separate projects.
-* 1.0.0 - Initial release.
+* 1.2.0:
+  * Added option for API authentication support.
+  * Changed artifact name to `philter-sdk-java`
+  * Added alerts retrieval/deletion to client.
+* 1.1.0:
+  * Various changes/fixes.
+  * Split SDKs into separate projects.
+* 1.0.0:
+  * Initial release.
 
 ## License
 
