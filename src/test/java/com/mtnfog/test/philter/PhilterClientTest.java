@@ -42,14 +42,12 @@ public class PhilterClientTest {
     private static final Logger LOGGER = LogManager.getLogger(PhilterClientTest.class);
 
     private static final String ENDPOINT = "https://localhost:8080/";
-    private static final String TOKEN = "";
 
     @Test
     public void get() throws Exception {
 
         final PhilterClient client = new PhilterClient.PhilterClientBuilder()
                 .withEndpoint(ENDPOINT)
-                .withToken(TOKEN)
                 .withOkHttpClientBuilder(getUnsafeOkHttpClientBuilder())
                 .build();
 
@@ -69,7 +67,6 @@ public class PhilterClientTest {
 
         final PhilterClient client = new PhilterClient.PhilterClientBuilder()
                 .withEndpoint(ENDPOINT)
-                .withToken(TOKEN)
                 .withOkHttpClientBuilder(getUnsafeOkHttpClientBuilder())
                 .build();
 
@@ -87,7 +84,6 @@ public class PhilterClientTest {
 
         final PhilterClient client = new PhilterClient.PhilterClientBuilder()
                 .withEndpoint(ENDPOINT)
-                .withToken(TOKEN)
                 .withOkHttpClientBuilder(getUnsafeOkHttpClientBuilder())
                 .build();
 
@@ -102,7 +98,6 @@ public class PhilterClientTest {
 
         final PhilterClient client = new PhilterClient.PhilterClientBuilder()
                 .withEndpoint(ENDPOINT)
-                .withToken(TOKEN)
                 .withOkHttpClientBuilder(getUnsafeOkHttpClientBuilder())
                 .build();
 
