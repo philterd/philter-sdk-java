@@ -133,6 +133,8 @@ public class PhilterClientTest {
 
         final PhilterClient client = new PhilterClient.PhilterClientBuilder()
                 .withEndpoint(ENDPOINT)
+                .withSslConfiguration("/tmp/client-test.jks", "changeit",
+                        "/tmp/keystore-server.jks", "changeit")
                 .withOkHttpClientBuilder(getUnsafeOkHttpClientBuilder())
                 .build();
 
