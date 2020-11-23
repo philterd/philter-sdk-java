@@ -28,6 +28,7 @@ import org.junit.Ignore;
 import org.junit.Test;
 
 import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLHandshakeException;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
 import java.nio.charset.Charset;
@@ -41,14 +42,46 @@ public class PhilterClientTest {
 
     private static final Logger LOGGER = LogManager.getLogger(PhilterClientTest.class);
 
-    private static final String ENDPOINT = "https://localhost:8080/";
+    private static final String ENDPOINT = "https://philter:8080/";
+
+    @Test
+    public void filter() throws Exception {
+
+        final PhilterClient client = new PhilterClient.PhilterClientBuilder()
+                .withEndpoint(ENDPOINT)
+                .withSslConfiguration("/tmp/client-test.jks", "changeit",
+                        "/tmp/keystore-server.jks", "changeit")
+                .build();
+
+        final List<String> filterProfileNames = client.getFilterProfiles();
+
+        Assert.assertTrue(filterProfileNames != null);
+        Assert.assertFalse(filterProfileNames.isEmpty());
+
+        for(final String name : filterProfileNames) {
+            LOGGER.info("Filter profile: {}",  name);
+        }
+
+    }
+
+    @Test(expected = SSLHandshakeException.class)
+    public void filterNoCertificate() throws Exception {
+
+        final PhilterClient client = new PhilterClient.PhilterClientBuilder()
+                .withEndpoint(ENDPOINT)
+                .build();
+
+        client.getFilterProfiles();
+
+    }
 
     @Test
     public void get() throws Exception {
 
         final PhilterClient client = new PhilterClient.PhilterClientBuilder()
                 .withEndpoint(ENDPOINT)
-                .withOkHttpClientBuilder(getUnsafeOkHttpClientBuilder())
+                .withSslConfiguration("/tmp/client-test.jks", "changeit",
+                        "/tmp/keystore-server.jks", "changeit")
                 .build();
 
         final List<String> filterProfileNames = client.getFilterProfiles();
@@ -67,7 +100,8 @@ public class PhilterClientTest {
 
         final PhilterClient client = new PhilterClient.PhilterClientBuilder()
                 .withEndpoint(ENDPOINT)
-                .withOkHttpClientBuilder(getUnsafeOkHttpClientBuilder())
+                .withSslConfiguration("/tmp/client-test.jks", "changeit",
+                        "/tmp/keystore-server.jks", "changeit")
                 .build();
 
         final String filterProfile = client.getFilterProfile("default");
@@ -84,7 +118,8 @@ public class PhilterClientTest {
 
         final PhilterClient client = new PhilterClient.PhilterClientBuilder()
                 .withEndpoint(ENDPOINT)
-                .withOkHttpClientBuilder(getUnsafeOkHttpClientBuilder())
+                .withSslConfiguration("/tmp/client-test.jks", "changeit",
+                        "/tmp/keystore-server.jks", "changeit")
                 .build();
 
         final String json = IOUtils.toString(this.getClass().getResource("/default2.json"), Charset.defaultCharset());

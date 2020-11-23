@@ -20,20 +20,17 @@ import com.mtnfog.philter.model.exceptions.ClientException;
 import com.mtnfog.philter.model.exceptions.ServiceUnavailableException;
 import com.mtnfog.philter.model.exceptions.UnauthorizedException;
 import com.mtnfog.philter.services.PhilterService;
+import nl.altindag.sslcontext.SSLFactory;
 import okhttp3.ConnectionPool;
 import okhttp3.OkHttpClient;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.http.ssl.SSLContexts;
 import retrofit2.Response;
 import retrofit2.Retrofit;
 import retrofit2.converter.gson.GsonConverterFactory;
 import retrofit2.converter.scalars.ScalarsConverterFactory;
 
-import javax.net.ssl.*;
-import java.io.FileInputStream;
 import java.io.IOException;
-import java.security.KeyStore;
-import java.util.Arrays;
+import java.nio.file.Paths;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -58,6 +55,8 @@ public class PhilterClient extends AbstractClient {
 		private int keepAliveDurationMs = DEFAULT_KEEP_ALIVE_DURATION_MS;
 		private String keystore;
 		private String keystorePassword;
+		private String truststore;
+		private String truststorePassword;
 
 		public PhilterClientBuilder withEndpoint(String endpoint) {
 			this.endpoint = endpoint;
@@ -84,20 +83,23 @@ public class PhilterClient extends AbstractClient {
 			return this;
 		}
 
-		public PhilterClientBuilder withSslConfiguration(String keystore, String keystorePassword) {
+		public PhilterClientBuilder withSslConfiguration(String keystore, String keystorePassword, String truststore, String truststorePassword) {
 			this.keystore = keystore;
 			this.keystorePassword = keystorePassword;
+			this.truststore = truststore;
+			this.truststorePassword = truststorePassword;
 			return this;
 		}
 
 		public PhilterClient build() throws Exception {
-			return new PhilterClient(endpoint, okHttpClientBuilder, timeout, maxIdleConnections, keepAliveDurationMs, keystore, keystorePassword);
+			return new PhilterClient(endpoint, okHttpClientBuilder, timeout, maxIdleConnections, keepAliveDurationMs, keystore,
+					keystorePassword, truststore, truststorePassword);
 		}
 
 	}
 
 	private PhilterClient(String endpoint, OkHttpClient.Builder okHttpClientBuilder, long timeout, int maxIdleConnections, int keepAliveDurationMs,
-		String keystore, String keystorePassword) throws Exception {
+		String keystore, String keystorePassword, String truststore, String truststorePassword) throws Exception {
 
 		if(okHttpClientBuilder == null) {
 
@@ -110,7 +112,7 @@ public class PhilterClient extends AbstractClient {
 		}
 
 		if(StringUtils.isNotEmpty(keystore)) {
-			configureSSL(okHttpClientBuilder, keystore, keystorePassword);
+			configureSSL(okHttpClientBuilder, keystore, keystorePassword, truststore, truststorePassword);
 		}
 
 		final OkHttpClient okHttpClient = okHttpClientBuilder.build();
@@ -127,24 +129,15 @@ public class PhilterClient extends AbstractClient {
 
 	}
 
-	public void configureSSL(final OkHttpClient.Builder okHttpClientBuilder, String keystore, String keystorePassword) throws Exception {
+	public void configureSSL(final OkHttpClient.Builder okHttpClientBuilder, String keystore, String keystorePassword,
+							 String truststore, String truststorePassword) throws Exception {
 
-		final KeyStore keyStore = KeyStore.getInstance("JKS");
-		keyStore.load(new FileInputStream(keystore), keystorePassword.toCharArray());
+		final SSLFactory sslFactory = SSLFactory.builder()
+				.withIdentityMaterial(Paths.get(keystore), keystorePassword.toCharArray())
+				.withTrustMaterial(Paths.get(truststore), truststorePassword.toCharArray())
+				.build();
 
-		final SSLContext sslContext = SSLContexts.custom().loadKeyMaterial(keyStore, keystorePassword.toCharArray()).build();
-		final SSLSocketFactory sslSocketFactory = sslContext.getSocketFactory();
-
-		final TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
-		trustManagerFactory.init((KeyStore) null);
-		TrustManager[] trustManagers = trustManagerFactory.getTrustManagers();
-
-		if (trustManagers.length != 1 || !(trustManagers[0] instanceof X509TrustManager)) {
-			throw new IllegalStateException("Unexpected default trust managers: " + Arrays.toString(trustManagers));
-		}
-
-		final X509TrustManager trustManager = (X509TrustManager) trustManagers[0];
-		okHttpClientBuilder.sslSocketFactory(sslSocketFactory, trustManager);
+		okHttpClientBuilder.sslSocketFactory(sslFactory.getSslSocketFactory(), sslFactory.getTrustManager().get());
 
 	}
 
