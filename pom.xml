@@ -23,7 +23,7 @@
 		<developerConnection>scm:git:git@github.com:mtnfog/philter-sdk-java.git</developerConnection>
 		<url>https://github.com/mtnfog/philter-sdk-java.git</url>
 	  <tag>HEAD</tag>
-  </scm>
+	</scm>
 	<licenses>
 		<license>
 			<name>Apache License, Version 2</name>
