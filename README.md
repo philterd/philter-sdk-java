@@ -52,6 +52,7 @@ Snapshot dependencies are available in the Maven Central Snapshot Repository by 
 * 1.3.0:
   * Added support for SSL authentication.
   * Removed token-based API authentication.
+  * Removed models client.
 * 1.2.0:
   * Added option for API authentication support.
   * Added `salt` to `Span` for when the `HASH_SHA256_REPLACE` filter strategy is applied by Philter.

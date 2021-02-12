@@ -129,8 +129,8 @@ public class PhilterClient extends AbstractClient {
 
 	}
 
-	public void configureSSL(final OkHttpClient.Builder okHttpClientBuilder, String keystore, String keystorePassword,
-							 String truststore, String truststorePassword) throws Exception {
+	private void configureSSL(final OkHttpClient.Builder okHttpClientBuilder, String keystore, String keystorePassword,
+							 String truststore, String truststorePassword) {
 
 		final SSLFactory sslFactory = SSLFactory.builder()
 				.withIdentityMaterial(Paths.get(keystore), keystorePassword.toCharArray())
