@@ -19,6 +19,9 @@ import com.mtnfog.philter.model.Alert;
 import com.mtnfog.philter.model.FilteredSpan;
 import com.mtnfog.philter.model.ExplainResponse;
 import com.mtnfog.philter.model.StatusResponse;
+import okhttp3.MultipartBody;
+import okhttp3.RequestBody;
+import okhttp3.ResponseBody;
 import retrofit2.Call;
 import retrofit2.http.*;
 
@@ -31,6 +34,11 @@ public interface PhilterService {
 	@Headers({"Accept: text/plain", "Content-Type: text/plain"})
 	@POST("/api/filter")
 	Call<String> filter(@Query("c") String context, @Query("d") String documentId, @Query("p") String filterProfileName, @Body String text);
+
+	@Streaming
+	@Headers({"Accept: application/zip", "Content-Type: application/pdf"})
+	@POST("/api/filter")
+	Call<ResponseBody> filter(@Query("c") String context, @Query("d") String documentId, @Query("p") String filterProfileName, @Body RequestBody bytes);
 
 	@Headers({"Accept: application/json", "Content-Type: text/plain"})
 	@POST("/api/explain")

@@ -51,6 +51,7 @@ Snapshot dependencies are available in the Maven Central Snapshot Repository by 
 
 * 1.3.0:
   * Added support for SSL authentication.
+  * Added support for filtering PDF documents.
   * Removed token-based API authentication.
   * Removed models client.
 * 1.2.0:

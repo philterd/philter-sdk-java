@@ -16,9 +16,11 @@
 package com.mtnfog.test.philter;
 
 import com.mtnfog.philter.PhilterClient;
+import com.mtnfog.philter.model.BinaryFilterResponse;
 import com.mtnfog.philter.model.StatusResponse;
 import okhttp3.ConnectionPool;
 import okhttp3.OkHttpClient;
+import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.LogManager;
@@ -31,6 +33,7 @@ import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLHandshakeException;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
+import java.io.File;
 import java.nio.charset.Charset;
 import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
@@ -42,15 +45,32 @@ public class PhilterClientTest {
 
     private static final Logger LOGGER = LogManager.getLogger(PhilterClientTest.class);
 
-    private static final String ENDPOINT = "https://philter:8080/";
+    private static final String ENDPOINT = "https://10.0.2.227:8080/";
 
     @Test
-    public void filter() throws Exception {
+    public void filterPdf() throws Exception {
 
         final PhilterClient client = new PhilterClient.PhilterClientBuilder()
                 .withEndpoint(ENDPOINT)
-                .withSslConfiguration("/tmp/client-test.jks", "changeit",
-                        "/tmp/keystore-server.jks", "changeit")
+                .withOkHttpClientBuilder(getUnsafeOkHttpClientBuilder())
+                .withTimeout(300)
+                .build();
+
+        final File file = new File("pdf-file-name-here");
+        final BinaryFilterResponse binaryFilterResponse = client.filter("context", "docid", "default", file);
+
+        final File tempFile = File.createTempFile("philter", ".zip");
+        FileUtils.writeByteArrayToFile(tempFile, binaryFilterResponse.getContent());
+        System.out.println("Response written to " + tempFile.getAbsolutePath());
+
+    }
+
+    @Test
+    public void getFilterProfiles() throws Exception {
+
+        final PhilterClient client = new PhilterClient.PhilterClientBuilder()
+                .withEndpoint(ENDPOINT)
+                .withOkHttpClientBuilder(getUnsafeOkHttpClientBuilder())
                 .build();
 
         final List<String> filterProfileNames = client.getFilterProfiles();
@@ -65,7 +85,7 @@ public class PhilterClientTest {
     }
 
     @Test(expected = SSLHandshakeException.class)
-    public void filterNoCertificate() throws Exception {
+    public void getFilterProfilesNoCertificate() throws Exception {
 
         final PhilterClient client = new PhilterClient.PhilterClientBuilder()
                 .withEndpoint(ENDPOINT)

@@ -21,15 +21,18 @@ import com.mtnfog.philter.model.exceptions.ServiceUnavailableException;
 import com.mtnfog.philter.model.exceptions.UnauthorizedException;
 import com.mtnfog.philter.services.PhilterService;
 import nl.altindag.sslcontext.SSLFactory;
-import okhttp3.ConnectionPool;
-import okhttp3.OkHttpClient;
+import okhttp3.*;
+import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
 import retrofit2.Response;
 import retrofit2.Retrofit;
 import retrofit2.converter.gson.GsonConverterFactory;
 import retrofit2.converter.scalars.ScalarsConverterFactory;
 
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -158,6 +161,47 @@ public class PhilterClient extends AbstractClient {
 
 			documentId = response.headers().get("x-document-id");
 			return new FilterResponse(response.body(), context, documentId);
+
+		} else {
+
+			if(response.code() == 401) {
+
+				throw new UnauthorizedException(UNAUTHORIZED);
+
+			} else if(response.code() == 503) {
+
+				throw new ServiceUnavailableException(SERVICE_UNAVAILABLE);
+
+			} else {
+
+				throw new ClientException("Unknown error: HTTP " + response.code());
+
+			}
+
+		}
+
+	}
+
+	/**
+	 * Send a PDF document to Philter to be filtered.
+	 * @param context The context. Contexts can be used to group text based on some arbitrary property.
+	 * @param documentId The document ID. Leave empty for Philter to assign a document ID to the request.
+	 * @param filterProfileName The name of the filter profile to apply to the text.
+	 * @param file The PDF file to be filtered.
+	 * @return The filtered text.
+	 * @throws IOException Thrown if the request can not be completed.
+	 */
+	public BinaryFilterResponse filter(String context, String documentId, String filterProfileName, File file) throws IOException {
+
+		final byte[] params = FileUtils.readFileToByteArray(file);
+		final RequestBody body = RequestBody.create(MediaType.parse("application/pdf"), params);
+
+		final Response<ResponseBody> response = service.filter(context, documentId, filterProfileName, body).execute();
+
+		if(response.isSuccessful()) {
+
+			documentId = response.headers().get("x-document-id");
+			return new BinaryFilterResponse(context, documentId, response.body().bytes());
 
 		} else {
 
