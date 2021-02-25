@@ -394,7 +394,6 @@ public class PhilterClient extends AbstractClient {
 	/**
 	 * Saves (or overwrites) the filter profile.
 	 * @param json The body of the filter profile.
-	 * @return If successful returns <code>true</code>, otherwise <code>false</code>.
 	 * @throws IOException Thrown if the call not be executed.
 	 */
 	public void saveFilterProfile(String json) throws IOException {
@@ -424,7 +423,6 @@ public class PhilterClient extends AbstractClient {
 	/**
 	 * Deletes a filter profile.
 	 * @param filterProfileName The name of the filter profile to delete.
-	 * @return <code>true</code> if successful, otherwise <code>false</code>.
 	 * @throws IOException Thrown if the call not be executed.
 	 */
 	public void deleteFilterProfile(String filterProfileName) throws IOException {
