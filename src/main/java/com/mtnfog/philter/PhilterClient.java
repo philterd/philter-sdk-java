@@ -394,7 +394,7 @@ public class PhilterClient extends AbstractClient {
 	/**
 	 * Saves (or overwrites) the filter profile.
 	 * @param json The body of the filter profile.
-	 * @return <code>true</code> if successful, otherwise <code>false</code>.
+	 * @return If successful returns <code>true</code>, otherwise <code>false</code>.
 	 * @throws IOException Thrown if the call not be executed.
 	 */
 	public void saveFilterProfile(String json) throws IOException {
