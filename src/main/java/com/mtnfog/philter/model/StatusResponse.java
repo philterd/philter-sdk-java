@@ -31,6 +31,10 @@ public class StatusResponse {
 	@SerializedName("version")
 	private String version;
 
+	@Expose
+	@SerializedName("lens")
+	private String lens;
+
 	public String getStatus() {
 		return status;
 	}
@@ -45,6 +49,14 @@ public class StatusResponse {
 
 	public void setVersion(String version) {
 		this.version = version;
+	}
+
+	public String getLens() {
+		return lens;
+	}
+
+	public void setLens(String lens) {
+		this.lens = lens;
 	}
 
 }
