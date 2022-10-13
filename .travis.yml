@@ -1,5 +1,0 @@
-language: java
-os: linux
-jdk: openjdk11
-sudo: false
-script: mvn clean install
