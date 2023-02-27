@@ -9,15 +9,33 @@
 	<description>Philter Java SDK.</description>
 	<url>https://github.com/mtnfog/philter-sdk-java</url>
 	<distributionManagement>
-		<snapshotRepository>
+		<repository>
+	     <id>github</id>
+	     <name>GitHub Philter Java SDK Apache Maven Packages</name>
+	     <url>https://maven.pkg.github.com/philterd/phileas</url>
+	   </repository>
+		<!--<snapshotRepository>
 			<id>ossrh</id>
 			<url>https://oss.sonatype.org/content/repositories/snapshots</url>
 		</snapshotRepository>
 		<repository>
 			<id>ossrh</id>
 			<url>https://oss.sonatype.org/service/local/staging/deploy/maven2/</url>
-		</repository>
+		</repository>-->
 	</distributionManagement>
+	<repositories>
+		<repository>
+		  <id>central</id>
+		  <url>https://repo1.maven.org/maven2</url>
+		</repository>
+		<repository>
+			<id>github</id>
+			<url>https://maven.pkg.github.com/philterd/philter-sdk-java</url>
+			<snapshots>
+				<enabled>true</enabled>
+			</snapshots>
+		</repository>
+	</repositories>
 	<scm>
 		<connection>scm:git:https://github.com/mtnfog/philter-sdk-java.git</connection>
 		<developerConnection>scm:git:git@github.com:mtnfog/philter-sdk-java.git</developerConnection>
