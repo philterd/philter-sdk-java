@@ -22,6 +22,6 @@ jobs:
           architecture: x64
           cache: maven
       - name: Publish to GitHub Packages
-        run: mvn --batch-mode --update-snapshots package deploy -DskipTests=true
+        run: mvn --batch-mode --update-snapshots package deploy
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}    
