@@ -1,12 +1,8 @@
 # Philter SDK for Java
 
-The **Philter SDK for Java** enables Java developers to easily work with Philter. [Philter](https://www.mtnfog.com/products/philter/) identifies and manipulates sensitive information like Protected Health Information (PHI) and personally identifiable information (PII) from natural language text.
+The **Philter SDK for Java** enables Java developers to easily redact text using [Philter](https://www.mtnfog.com/products/philter/). Philter is an API-based product that identifies and manipulates sensitive information such as Protected Health Information (PHI) and personally identifiable information (PII) in natural language text. Philter is built upon the open source PII/PHI detection engine [Phileas](https://github.com/philterd/phileas).
 
-Refer to [Philter API](https://philter.mtnfog.com/api/) documentation for details on the methods available.
-
-[![Build Status](https://travis-ci.org/mtnfog/philter-sdk-java.svg?branch=master)](https://travis-ci.org/mtnfog/philter-sdk-java)
-![Maven Central](https://img.shields.io/maven-central/v/com.mtnfog/philter-java-sdk)
-[![javadoc](https://javadoc.io/badge2/com.mtnfog/philter-java-sdk/javadoc.svg)](https://javadoc.io/doc/com.mtnfog/philter-java-sdk)
+Refer to the [Philter API](https://philter.mtnfog.com/api/) documentation for details on the methods available.
 
 ## Example Usage
 
@@ -49,6 +45,8 @@ Snapshot dependencies are available in the Maven Central Snapshot Repository by 
 
 ## Release History
 
+* 1.3.1:
+  * Changed from com.mtnfog to io.philterd.
 * 1.3.0:
   * Added support for SSL authentication.
   * Added support for filtering PDF documents.
@@ -70,5 +68,5 @@ Snapshot dependencies are available in the Maven Central Snapshot Repository by 
 
 This project is licensed under the Apache License, version 2.0.
 
-Copyright 2020 Mountain Fog, Inc.
+Copyright 2019-2023 Mountain Fog, Inc.
 Philter is a registered trademark of Mountain Fog, Inc.
