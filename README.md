@@ -26,7 +26,7 @@ Release dependencies are available in Maven Central.
 
 ```
 <dependency>
-  <groupId>com.mtnfog</groupId>
+  <groupId>io.philterd</groupId>
   <artifactId>philter-sdk-java</artifactId>
   <version>1.3.0</version>
 </dependency>
@@ -37,7 +37,7 @@ Snapshot dependencies are available in the Maven Central Snapshot Repository by 
 ```
 <repository>
   <id>snapshots</id>
-  <url>https://oss.sonatype.org/content/repositories/snapshots</url>
+  <url>https://s01.oss.sonatype.org/content/repositories/snapshots</url>
   <releases><enabled>false</enabled></releases>
   <snapshots><enabled>true</enabled></snapshots>
 </repository>
