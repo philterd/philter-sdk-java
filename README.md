@@ -1,6 +1,6 @@
 # Philter SDK for Java
 
-The **Philter SDK for Java** enables Java developers to easily redact text using [Philter](https://www.mtnfog.com/products/philter/). Philter is an API-based product that identifies and manipulates sensitive information such as Protected Health Information (PHI) and personally identifiable information (PII) in natural language text. Philter is built upon the open source PII/PHI detection engine [Phileas](https://github.com/philterd/phileas).
+The **Philter SDK for Java** is an API client for [Philter](https://www.mtnfog.com/products/philter/). Philter identifies and manipulates sensitive information such as Protected Health Information (PHI) and personally identifiable information (PII) in natural language text. Philter is built upon the open source PII/PHI detection engine [Phileas](https://github.com/philterd/phileas).
 
 Refer to the [Philter API](https://philter.mtnfog.com/api/) documentation for details on the methods available.
 
