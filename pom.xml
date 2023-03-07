@@ -9,33 +9,15 @@
 	<description>Philter Java SDK.</description>
 	<url>https://github.com/philterd/philter-sdk-java</url>
 	<distributionManagement>
-		<repository>
-	     <id>github</id>
-	     <name>GitHub Philter Java SDK Apache Maven Packages</name>
-	     <url>https://maven.pkg.github.com/philterd/philter-sdk-java</url>
-	   </repository>
-		<!--<snapshotRepository>
-			<id>ossrh</id>
-			<url>https://oss.sonatype.org/content/repositories/snapshots</url>
-		</snapshotRepository>
-		<repository>
-			<id>ossrh</id>
-			<url>https://oss.sonatype.org/service/local/staging/deploy/maven2/</url>
-		</repository>-->
+	  <snapshotRepository>
+	    <id>ossrh</id>
+	    <url>https://s01.oss.sonatype.org/content/repositories/snapshots</url>
+	  </snapshotRepository>
+	  <repository>
+	    <id>ossrh</id>
+	    <url>https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/</url>
+	  </repository>
 	</distributionManagement>
-	<repositories>
-		<repository>
-		  <id>central</id>
-		  <url>https://repo1.maven.org/maven2</url>
-		</repository>
-		<repository>
-			<id>github</id>
-			<url>https://maven.pkg.github.com/philterd/philter-sdk-java</url>
-			<snapshots>
-				<enabled>true</enabled>
-			</snapshots>
-		</repository>
-	</repositories>
 	<scm>
 		<connection>scm:git:https://github.com/philterd/philter-sdk-java.git</connection>
 		<developerConnection>scm:git:git@github.com:philterd/philter-sdk-java.git</developerConnection>
