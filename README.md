@@ -26,7 +26,7 @@ Release dependencies are available in Maven Central.
 
 ```
 <dependency>
-  <groupId>io.philterd</groupId>
+  <groupId>ai.philterd</groupId>
   <artifactId>philter-sdk-java</artifactId>
   <version>1.3.0</version>
 </dependency>
@@ -46,7 +46,7 @@ Snapshot dependencies are available in the Maven Central Snapshot Repository by 
 ## Release History
 
 * 1.3.1:
-  * Changed from com.mtnfog to io.philterd.
+  * Changed from com.mtnfog to ai.philterd.
 * 1.3.0:
   * Added support for SSL authentication.
   * Added support for filtering PDF documents.
