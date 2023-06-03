@@ -68,5 +68,5 @@ Snapshot dependencies are available in the Maven Central Snapshot Repository by 
 
 This project is licensed under the Apache License, version 2.0.
 
-Copyright 2019-2023 Mountain Fog, Inc.
-Philter is a registered trademark of Mountain Fog, Inc.
+Copyright 2023 Philterd, LLC.
+Philter is a registered trademark of Philterd, LLC.
