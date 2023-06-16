@@ -15,9 +15,9 @@
  ******************************************************************************/
 package com.mtnfog.test.philter;
 
-import com.mtnfog.philter.PhilterClient;
-import com.mtnfog.philter.model.BinaryFilterResponse;
-import com.mtnfog.philter.model.StatusResponse;
+import ai.philterd.philter.PhilterClient;
+import ai.philterd.philter.model.BinaryFilterResponse;
+import ai.philterd.philter.model.StatusResponse;
 import okhttp3.ConnectionPool;
 import okhttp3.OkHttpClient;
 import org.apache.commons.io.FileUtils;

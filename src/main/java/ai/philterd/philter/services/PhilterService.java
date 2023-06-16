@@ -13,13 +13,12 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  ******************************************************************************/
-package com.mtnfog.philter.services;
+package ai.philterd.philter.services;
 
-import com.mtnfog.philter.model.Alert;
-import com.mtnfog.philter.model.FilteredSpan;
-import com.mtnfog.philter.model.ExplainResponse;
-import com.mtnfog.philter.model.StatusResponse;
-import okhttp3.MultipartBody;
+import ai.philterd.philter.model.Alert;
+import ai.philterd.philter.model.FilteredSpan;
+import ai.philterd.philter.model.ExplainResponse;
+import ai.philterd.philter.model.StatusResponse;
 import okhttp3.RequestBody;
 import okhttp3.ResponseBody;
 import retrofit2.Call;

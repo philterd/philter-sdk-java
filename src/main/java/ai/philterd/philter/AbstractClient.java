@@ -1,4 +1,4 @@
-package com.mtnfog.philter;
+package ai.philterd.philter;
 
 public abstract class AbstractClient {
 

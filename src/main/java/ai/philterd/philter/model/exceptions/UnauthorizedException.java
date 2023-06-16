@@ -1,4 +1,4 @@
-package com.mtnfog.philter.model.exceptions;
+package ai.philterd.philter.model.exceptions;
 
 public class UnauthorizedException extends RuntimeException {
 

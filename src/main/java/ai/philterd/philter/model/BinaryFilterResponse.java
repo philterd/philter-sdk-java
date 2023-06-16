@@ -13,37 +13,42 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  ******************************************************************************/
-package com.mtnfog.philter.model;
+package ai.philterd.philter.model;
 
-import com.google.gson.annotations.Expose;
-import com.google.gson.annotations.SerializedName;
+public class BinaryFilterResponse {
 
-import java.util.List;
+    private byte[] content;
+    private String context;
+    private String documentId;
 
-public class Explanation {
-
-    @Expose
-    @SerializedName("appliedSpans")
-    private List<Span> appliedSpans;
-
-    @Expose
-    @SerializedName("ignoredSpans")
-    private List<Span> ignoredSpans;
-
-    public List<Span> getAppliedSpans() {
-        return appliedSpans;
+    public BinaryFilterResponse(String context, String documentId, byte[] content) {
+        this.context = context;
+        this.documentId = documentId;
+        this.content = content;
     }
 
-    public void setAppliedSpans(List<Span> appliedSpans) {
-        this.appliedSpans = appliedSpans;
+    public byte[] getContent() {
+        return content;
     }
 
-    public List<Span> getIgnoredSpans() {
-        return ignoredSpans;
+    public void setContent(byte[] content) {
+        this.content = content;
     }
 
-    public void setIgnoredSpans(List<Span> ignoredSpans) {
-        this.ignoredSpans = ignoredSpans;
+    public String getContext() {
+        return context;
+    }
+
+    public void setContext(String context) {
+        this.context = context;
+    }
+
+    public String getDocumentId() {
+        return documentId;
+    }
+
+    public void setDocumentId(String documentId) {
+        this.documentId = documentId;
     }
 
 }
