@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright 2020 Mountain Fog, Inc.
+ * Copyright 2023 Philterd, LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License.  You may obtain a copy
@@ -32,16 +32,16 @@ public interface PhilterService {
 
 	@Headers({"Accept: text/plain", "Content-Type: text/plain"})
 	@POST("/api/filter")
-	Call<String> filter(@Query("c") String context, @Query("d") String documentId, @Query("p") String filterProfileName, @Body String text);
+	Call<String> filter(@Query("c") String context, @Query("d") String documentId, @Query("p") String policyName, @Body String text);
 
 	@Streaming
 	@Headers({"Accept: application/zip", "Content-Type: application/pdf"})
 	@POST("/api/filter")
-	Call<ResponseBody> filter(@Query("c") String context, @Query("d") String documentId, @Query("p") String filterProfileName, @Body RequestBody bytes);
+	Call<ResponseBody> filter(@Query("c") String context, @Query("d") String documentId, @Query("p") String policyName, @Body RequestBody bytes);
 
 	@Headers({"Accept: application/json", "Content-Type: text/plain"})
 	@POST("/api/explain")
-	Call<ExplainResponse> explain(@Query("c") String context, @Query("d") String documentId, @Query("p") String filterProfileName, @Body String text);
+	Call<ExplainResponse> explain(@Query("c") String context, @Query("d") String documentId, @Query("p") String policyName, @Body String text);
 
 	@GET("/api/replacements")
 	Call<List<FilteredSpan>> replacements(@Query("d") String documentId);
@@ -54,19 +54,19 @@ public interface PhilterService {
 	// Filter Profiles
 
 	@Headers({"Accept: application/json"})
-	@GET("/api/profiles")
-	Call<List<String>> getFilterProfile();
+	@GET("/api/policies")
+	Call<List<String>> Policy();
 
 	@Headers({"Accept: text/plain"})
-	@GET("/api/profiles/{name}")
-	Call<String> getFilterProfile(@Path("name") String filterProfileName);
+	@GET("/api/policies/{name}")
+	Call<String> Policy(@Path("name") String policyName);
 
 	@Headers({"Content-Type: application/json"})
-	@POST("/api/profiles")
-	Call<Void> saveFilterProfile(@Body String json);
+	@POST("/api/policies")
+	Call<Void> savePolicy(@Body String json);
 
-	@DELETE("/api/profiles/{name}")
-	Call<Void> deleteFilterProfile(@Path("name") String filterProfileName);
+	@DELETE("/api/policies/{name}")
+	Call<Void> deletePolicy(@Path("name") String policyName);
 
 	// Alerts
 
