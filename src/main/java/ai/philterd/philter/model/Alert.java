@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright 2020 Mountain Fog, Inc.
+ * Copyright 2023 Philterd, LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License.  You may obtain a copy
@@ -76,11 +76,11 @@ public class Alert {
         this.id = id;
     }
 
-    public String getFilterProfile() {
+    public String Policy() {
         return this.filterProfile;
     }
 
-    public void setFilterProfile(String filterProfile) {
+    public void setPolicy(String filterProfile) {
         this.filterProfile = filterProfile;
     }
 

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright 2020 Mountain Fog, Inc.
+ * Copyright 2023 Philterd, LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License.  You may obtain a copy
@@ -37,7 +37,7 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * Client class for Philter's API. Philter finds and manipulates sensitive information in text.
- * For more information on Philter see https://www.mtnfog.com.
+ * For more information on Philter see https://www.philterd.ai.
  */
 public class PhilterClient extends AbstractClient {
 
@@ -146,14 +146,14 @@ public class PhilterClient extends AbstractClient {
 	 * Send text to Philter to be filtered.
 	 * @param context The context. Contexts can be used to group text based on some arbitrary property.
 	 * @param documentId The document ID. Leave empty for Philter to assign a document ID to the request.
-	 * @param filterProfileName The name of the filter profile to apply to the text.
+	 * @param policyName The name of the policy to apply to the text.
 	 * @param text The text to be filtered.
 	 * @return The filtered text.
 	 * @throws IOException Thrown if the request can not be completed.
 	 */
-	public FilterResponse filter(String context, String documentId, String filterProfileName, String text) throws IOException {
+	public FilterResponse filter(String context, String documentId, String policyName, String text) throws IOException {
 
-		final Response<String> response = service.filter(context, documentId, filterProfileName, text).execute();
+		final Response<String> response = service.filter(context, documentId, policyName, text).execute();
 
 		if(response.isSuccessful()) {
 
@@ -184,17 +184,17 @@ public class PhilterClient extends AbstractClient {
 	 * Send a PDF document to Philter to be filtered.
 	 * @param context The context. Contexts can be used to group text based on some arbitrary property.
 	 * @param documentId The document ID. Leave empty for Philter to assign a document ID to the request.
-	 * @param filterProfileName The name of the filter profile to apply to the text.
+	 * @param policyName The name of the policy to apply to the text.
 	 * @param file The PDF file to be filtered.
 	 * @return The filtered text.
 	 * @throws IOException Thrown if the request can not be completed.
 	 */
-	public BinaryFilterResponse filter(String context, String documentId, String filterProfileName, File file) throws IOException {
+	public BinaryFilterResponse filter(String context, String documentId, String policyName, File file) throws IOException {
 
 		final byte[] params = FileUtils.readFileToByteArray(file);
 		final RequestBody body = RequestBody.create(MediaType.parse("application/pdf"), params);
 
-		final Response<ResponseBody> response = service.filter(context, documentId, filterProfileName, body).execute();
+		final Response<ResponseBody> response = service.filter(context, documentId, policyName, body).execute();
 
 		if(response.isSuccessful()) {
 
@@ -225,14 +225,14 @@ public class PhilterClient extends AbstractClient {
 	 * Send text to Philter to be filtered and get an explanation.
 	 * @param context The context. Contexts can be used to group text based on some arbitrary property.
 	 * @param documentId The document ID. Leave empty for Philter to assign a document ID to the request.
-	 * @param filterProfileName The name of the filter profile to apply to the text.
+	 * @param policyName The name of the policy to apply to the text.
 	 * @param text The text to be filtered.
 	 * @return The filter {@link ExplainResponse}.
 	 * @throws IOException Thrown if the request can not be completed.
 	 */
-	public ExplainResponse explain(String context, String documentId, String filterProfileName, String text) throws IOException {
+	public ExplainResponse explain(String context, String documentId, String policyName, String text) throws IOException {
 
-		final Response<ExplainResponse> response = service.explain(context, documentId, filterProfileName, text).execute();
+		final Response<ExplainResponse> response = service.explain(context, documentId, policyName, text).execute();
 
 		if(response.isSuccessful()) {
 
@@ -323,13 +323,13 @@ public class PhilterClient extends AbstractClient {
 	}
 
 	/**
-	 * Gets a list of filter profile names.
-	 * @return A list of filter profile names.
+	 * Gets a list of policy names.
+	 * @return A list of policy names.
 	 * @throws IOException Thrown if the call not be executed.
 	 */
-	public List<String> getFilterProfiles() throws IOException {
+	public List<String> getPolicies() throws IOException {
 
-		final Response<List<String>> response = service.getFilterProfile().execute();
+		final Response<List<String>> response = service.Policy().execute();
 
 		if(response.isSuccessful()) {
 
@@ -356,14 +356,14 @@ public class PhilterClient extends AbstractClient {
 	}
 
 	/**
-	 * Gets the content of a filter profile.
-	 * @param filterProfileName The name of the filter profile to get.
-	 * @return The content of the filter profile.
+	 * Gets the content of a policy.
+	 * @param policyName The name of the policy to get.
+	 * @return The content of the policy.
 	 * @throws IOException Thrown if the call not be executed.
 	 */
-	public String getFilterProfile(String filterProfileName) throws IOException {
+	public String Policy(String policyName) throws IOException {
 
-		final Response<String> response = service.getFilterProfile(filterProfileName).execute();
+		final Response<String> response = service.Policy(policyName).execute();
 
 		if(response.isSuccessful()) {
 
@@ -390,13 +390,13 @@ public class PhilterClient extends AbstractClient {
 	}
 
 	/**
-	 * Saves (or overwrites) the filter profile.
-	 * @param json The body of the filter profile.
+	 * Saves (or overwrites) the policy.
+	 * @param json The body of the policy.
 	 * @throws IOException Thrown if the call not be executed.
 	 */
-	public void saveFilterProfile(String json) throws IOException {
+	public void savePolicy(String json) throws IOException {
 
-		final Response<Void> response = service.saveFilterProfile(json).execute();
+		final Response<Void> response = service.savePolicy(json).execute();
 
 		if(!response.isSuccessful()) {
 
@@ -419,13 +419,13 @@ public class PhilterClient extends AbstractClient {
 	}
 
 	/**
-	 * Deletes a filter profile.
-	 * @param filterProfileName The name of the filter profile to delete.
+	 * Deletes a policy.
+	 * @param policyName The name of the policy to delete.
 	 * @throws IOException Thrown if the call not be executed.
 	 */
-	public void deleteFilterProfile(String filterProfileName) throws IOException {
+	public void deletePolicy(String policyName) throws IOException {
 
-		final Response<Void> response = service.deleteFilterProfile(filterProfileName).execute();
+		final Response<Void> response = service.deletePolicy(policyName).execute();
 
 		if(!response.isSuccessful()) {
 

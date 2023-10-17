@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright 2020 Mountain Fog, Inc.
+ * Copyright 2023 Philterd, LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License.  You may obtain a copy
@@ -66,32 +66,32 @@ public class PhilterClientTest {
     }
 
     @Test
-    public void getFilterProfiles() throws Exception {
+    public void getPolicies() throws Exception {
 
         final PhilterClient client = new PhilterClient.PhilterClientBuilder()
                 .withEndpoint(ENDPOINT)
                 .withOkHttpClientBuilder(getUnsafeOkHttpClientBuilder())
                 .build();
 
-        final List<String> filterProfileNames = client.getFilterProfiles();
+        final List<String> policyNames = client.getPolicies();
 
-        Assert.assertTrue(filterProfileNames != null);
-        Assert.assertFalse(filterProfileNames.isEmpty());
+        Assert.assertTrue(policyNames != null);
+        Assert.assertFalse(policyNames.isEmpty());
 
-        for(final String name : filterProfileNames) {
-            LOGGER.info("Filter profile: {}",  name);
+        for(final String name : policyNames) {
+            LOGGER.info("Policy: {}",  name);
         }
 
     }
 
     @Test(expected = SSLHandshakeException.class)
-    public void getFilterProfilesNoCertificate() throws Exception {
+    public void getPoliciesNoCertificate() throws Exception {
 
         final PhilterClient client = new PhilterClient.PhilterClientBuilder()
                 .withEndpoint(ENDPOINT)
                 .build();
 
-        client.getFilterProfiles();
+        client.getPolicies();
 
     }
 
@@ -104,13 +104,13 @@ public class PhilterClientTest {
                         "/tmp/keystore-server.jks", "changeit")
                 .build();
 
-        final List<String> filterProfileNames = client.getFilterProfiles();
+        final List<String> policyNames = client.getPolicies();
 
-        Assert.assertTrue(filterProfileNames != null);
-        Assert.assertFalse(filterProfileNames.isEmpty());
+        Assert.assertTrue(policyNames != null);
+        Assert.assertFalse(policyNames.isEmpty());
 
-        for(final String name : filterProfileNames) {
-            LOGGER.info("Filter profile: {}",  name);
+        for(final String name : policyNames) {
+            LOGGER.info("Policy: {}",  name);
         }
 
     }
@@ -124,12 +124,12 @@ public class PhilterClientTest {
                         "/tmp/keystore-server.jks", "changeit")
                 .build();
 
-        final String filterProfile = client.getFilterProfile("default");
+        final String filterProfile = client.Policy("default");
 
         Assert.assertTrue(filterProfile != null);
         Assert.assertTrue(filterProfile.length() > 0);
 
-        LOGGER.info("Filter profile:\n{}", filterProfile);
+        LOGGER.info("Policy:\n{}", filterProfile);
 
     }
 
@@ -144,7 +144,7 @@ public class PhilterClientTest {
 
         final String json = IOUtils.toString(this.getClass().getResource("/default2.json"), Charset.defaultCharset());
 
-        client.saveFilterProfile(json);
+        client.savePolicy(json);
 
     }
 
