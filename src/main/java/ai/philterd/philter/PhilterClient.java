@@ -259,41 +259,6 @@ public class PhilterClient extends AbstractClient {
 	}
 
 	/**
-	 * Gets the values replaced during a previous filter request. Philter's store feature must be enabled
-	 * for this call to work. Check Philter's documentation for how to enable the store.
-	 * @param documentId The document ID.
-	 * @return A list of {@link FilteredSpan spans}.
-	 * @throws IOException Thrown if the request can not be completed.
-	 */
-	public List<FilteredSpan> replacements(String documentId) throws IOException {
-
-		final Response<List<FilteredSpan>> response = service.replacements(documentId).execute();
-
-		if(response.isSuccessful()) {
-
-			return response.body();
-
-		} else {
-
-			if(response.code() == 401) {
-
-				throw new UnauthorizedException(UNAUTHORIZED);
-
-			} else if(response.code() == 503) {
-
-				throw new ServiceUnavailableException(SERVICE_UNAVAILABLE);
-
-			} else {
-
-				throw new ClientException("Unknown error: HTTP " + response.code());
-
-			}
-
-		}
-
-	}
-
-	/**
 	 * Gets the status of Philter.
 	 * @return A {@link StatusResponse} object.
 	 * @throws IOException Thrown if the request can not be completed.
