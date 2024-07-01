@@ -17,12 +17,10 @@ package com.mtnfog.test.philter;
 
 import ai.philterd.philter.PhilterClient;
 import ai.philterd.philter.model.BinaryFilterResponse;
-import ai.philterd.philter.model.StatusResponse;
 import okhttp3.ConnectionPool;
 import okhttp3.OkHttpClient;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
-import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.Assert;
@@ -158,9 +156,9 @@ public class PhilterClientTest {
                 .withOkHttpClientBuilder(getUnsafeOkHttpClientBuilder())
                 .build();
 
-        final StatusResponse statusResponse = client.status();
+        final String status = client.status();
 
-        Assert.assertTrue(StringUtils.equals("Healthy", statusResponse.getStatus()));
+        Assert.assertTrue(status.startsWith("Healhty:"));
 
     }
 

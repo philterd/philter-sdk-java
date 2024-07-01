@@ -295,12 +295,12 @@ public class PhilterClient extends AbstractClient {
 
 	/**
 	 * Gets the status of Philter.
-	 * @return A {@link StatusResponse} object.
+	 * @return A string containing the status of Philter.
 	 * @throws IOException Thrown if the request can not be completed.
 	 */
-	public StatusResponse status() throws IOException {
+	public String status() throws IOException {
 
-		final Response<StatusResponse> response = service.status().execute();
+		final Response<String> response = service.status().execute();
 
 		if(response.isSuccessful()) {
 

@@ -18,7 +18,6 @@ package ai.philterd.philter.services;
 import ai.philterd.philter.model.Alert;
 import ai.philterd.philter.model.FilteredSpan;
 import ai.philterd.philter.model.ExplainResponse;
-import ai.philterd.philter.model.StatusResponse;
 import okhttp3.RequestBody;
 import okhttp3.ResponseBody;
 import retrofit2.Call;
@@ -49,7 +48,7 @@ public interface PhilterService {
 	// Status
 
 	@GET("/api/status")
-	Call<StatusResponse> status();
+	Call<String> status();
 
 	// Filter Profiles
 
