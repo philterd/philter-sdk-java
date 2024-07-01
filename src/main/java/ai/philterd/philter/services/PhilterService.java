@@ -42,15 +42,12 @@ public interface PhilterService {
 	@POST("/api/explain")
 	Call<ExplainResponse> explain(@Query("c") String context, @Query("d") String documentId, @Query("p") String policyName, @Body String text);
 
-	@GET("/api/replacements")
-	Call<List<FilteredSpan>> replacements(@Query("d") String documentId);
-
 	// Status
 
 	@GET("/api/status")
 	Call<String> status();
 
-	// Filter Profiles
+	// Policies
 
 	@Headers({"Accept: application/json"})
 	@GET("/api/policies")

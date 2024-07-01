@@ -26,7 +26,7 @@ Release dependencies are available in Maven Central.
 
 ```
 <dependency>
-  <groupId>com.mtnfog</groupId>
+  <groupId>ai.philterd</groupId>
   <artifactId>philter-sdk-java</artifactId>
   <version>1.3.0</version>
 </dependency>
