@@ -1,6 +1,6 @@
 # Philter SDK for Java
 
-The **Philter SDK for Java** is an API client for [Philter](https://www.mtnfog.com/products/philter/). Philter identifies and manipulates sensitive information such as Protected Health Information (PHI) and personally identifiable information (PII) in natural language text. Philter is built upon the open source PII/PHI detection engine [Phileas](https://github.com/philterd/phileas).
+The **Philter SDK for Java** is an API client for [Philter](https://www.philterd.ai). Philter identifies and manipulates sensitive information such as Protected Health Information (PHI) and personally identifiable information (PII) in natural language text. Philter is built upon the open source PII/PHI detection engine [Phileas](https://github.com/philterd/phileas).
 
 Refer to the [Philter API](https://docs.philterd.ai/philter/latest/api-1-readme.html) documentation for details on the methods available.
 
@@ -69,5 +69,5 @@ ExplainResponse explainResponse = client.explain(text);
 
 This project is licensed under the Apache License, version 2.0.
 
-Copyright 2023 Philterd, LLC.
+Copyright 2024 Philterd, LLC.
 Philter is a registered trademark of Philterd, LLC.
