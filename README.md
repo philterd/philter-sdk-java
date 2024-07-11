@@ -6,7 +6,7 @@ Refer to the [Philter API](https://docs.philterd.ai/philter/latest/api-1-readme.
 
 ## Snapshots and Releases
 
-Phileas snapshots and releases are available in our [Maven repositories](https://artifacts.philterd.ai/) so add the following to your Maven configuration:
+Snapshots and releases are available in our [Maven repositories](https://artifacts.philterd.ai/) so add the following to your Maven configuration:
 
 ```
 <repository>
