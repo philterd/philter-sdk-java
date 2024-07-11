@@ -8,16 +8,18 @@
 	<packaging>jar</packaging>
 	<description>Java SDK client for Philter</description>
 	<url>https://github.com/philterd/philter-sdk-java</url>
-	<distributionManagement>
-	  <snapshotRepository>
-	    <id>ossrh</id>
-	    <url>https://s01.oss.sonatype.org/content/repositories/snapshots</url>
-	  </snapshotRepository>
-	  <repository>
-	    <id>ossrh</id>
-	    <url>https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/</url>
-	  </repository>
-	</distributionManagement>
+    <distributionManagement>
+        <snapshotRepository>
+			  <id>philterd-repository-snapshots</id>
+			  <name>Philterd Snapshots Repository</name>
+			  <url>https://artifacts.philterd.ai/snapshots</url>
+		</snapshotRepository>
+		<repository>
+			  <id>philterd-repository-releases</id>
+			  <name>Philterd Repository</name>
+			  <url>https://artifacts.philterd.ai/releases</url>
+		</repository>
+    </distributionManagement>
 	<scm>
 		<connection>scm:git:https://github.com/philterd/philter-sdk-java.git</connection>
 		<developerConnection>scm:git:git@github.com:philterd/philter-sdk-java.git</developerConnection>
