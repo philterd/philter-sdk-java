@@ -15,11 +15,5 @@ jobs:
           distribution: adopt
           architecture: x64
           cache: maven
-          server-id: philterd-repository-snapshots
-          server-username: MAVEN_USERNAME
-          server-password: MAVEN_PASSWORD
-      - name: Build and Deploy
-        run: mvn --batch-mode --update-snapshots test deploy
-        env:
-          MAVEN_USERNAME: ${{ secrets.PHILTERD_ARTIFACTS_USER }}
-          MAVEN_PASSWORD: ${{ secrets.PHILTERD_ARTIFACTS_TOKEN }}
+      - name: Build
+        run: mvn --batch-mode --update-snapshots test
