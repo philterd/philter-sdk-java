@@ -37,7 +37,7 @@
 		<commons.lang3.version>3.18.0</commons.lang3.version>
 		<junit.version>4.13.2</junit.version>
 		<httpclient.version>4.5.13</httpclient.version>
-		<log4j.version>2.17.2</log4j.version>
+		<log4j.version>2.25.3</log4j.version>
 		<okhttp.version>4.9.2</okhttp.version>
 		<retrofit.version>2.9.0</retrofit.version>
 		<ayza.version>10.0.0</ayza.version>
