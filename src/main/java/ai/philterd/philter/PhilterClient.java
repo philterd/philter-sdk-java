@@ -15,13 +15,19 @@
  ******************************************************************************/
 package ai.philterd.philter;
 
-import ai.philterd.philter.model.*;
+import ai.philterd.philter.model.BinaryFilterResponse;
+import ai.philterd.philter.model.ExplainResponse;
+import ai.philterd.philter.model.FilterResponse;
 import ai.philterd.philter.model.exceptions.ClientException;
 import ai.philterd.philter.model.exceptions.ServiceUnavailableException;
 import ai.philterd.philter.model.exceptions.UnauthorizedException;
 import ai.philterd.philter.services.PhilterService;
 import nl.altindag.sslcontext.SSLFactory;
-import okhttp3.*;
+import okhttp3.ConnectionPool;
+import okhttp3.MediaType;
+import okhttp3.OkHttpClient;
+import okhttp3.RequestBody;
+import okhttp3.ResponseBody;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
 import retrofit2.Response;
@@ -356,12 +362,13 @@ public class PhilterClient extends AbstractClient {
 
 	/**
 	 * Saves (or overwrites) the policy.
+	 * @param name The name of the policy.
 	 * @param json The body of the policy.
 	 * @throws IOException Thrown if the call not be executed.
 	 */
-	public void savePolicy(String json) throws IOException {
+	public void savePolicy(String name, String json) throws IOException {
 
-		final Response<Void> response = service.savePolicy(json).execute();
+		final Response<Void> response = service.savePolicy(name, json).execute();
 
 		if(!response.isSuccessful()) {
 
@@ -391,68 +398,6 @@ public class PhilterClient extends AbstractClient {
 	public void deletePolicy(String policyName) throws IOException {
 
 		final Response<Void> response = service.deletePolicy(policyName).execute();
-
-		if(!response.isSuccessful()) {
-
-			if(response.code() == 401) {
-
-				throw new UnauthorizedException(UNAUTHORIZED);
-
-			} else if(response.code() == 503) {
-
-				throw new ServiceUnavailableException(SERVICE_UNAVAILABLE);
-
-			} else {
-
-				throw new ClientException("Unknown error: HTTP " + response.code());
-
-			}
-
-		}
-
-	}
-
-	/**
-	 * Get alerts.
-	 * @return A list of {@link Alert alerts}.
-	 * @throws IOException Thrown if the call not be executed.
-	 */
-	public List<Alert> getAlerts() throws IOException {
-
-		final Response<List<Alert>> response = service.getAlerts().execute();
-
-		if(response.isSuccessful()) {
-
-			return response.body();
-
-		} else {
-
-			if(response.code() == 401) {
-
-				throw new UnauthorizedException(UNAUTHORIZED);
-
-			} else if(response.code() == 503) {
-
-				throw new ServiceUnavailableException(SERVICE_UNAVAILABLE);
-
-			} else {
-
-				throw new ClientException("Unknown error: HTTP " + response.code());
-
-			}
-
-		}
-
-	}
-
-	/**
-	 * Delete an alert.
-	 * @param alertId The ID of the alert to delete.
-	 * @throws IOException Thrown if the call not be executed.
-	 */
-	public void deleteAlert(String alertId) throws IOException {
-
-		final Response<Void> response = service.deleteAlert(alertId).execute();
 
 		if(!response.isSuccessful()) {
 

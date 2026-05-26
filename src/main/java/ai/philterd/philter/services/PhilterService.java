@@ -59,17 +59,9 @@ public interface PhilterService {
 
 	@Headers({"Content-Type: application/json"})
 	@POST("/api/policies")
-	Call<Void> savePolicy(@Body String json);
+	Call<Void> savePolicy(@Query("name") String name, @Body String json);
 
 	@DELETE("/api/policies/{name}")
 	Call<Void> deletePolicy(@Path("name") String policyName);
-
-	// Alerts
-
-	@GET("/api/alerts")
-	Call<List<Alert>> getAlerts();
-
-	@DELETE("/api/alerts/{alertId}")
-	Call<Void> deleteAlert(@Path("alertId") String alertId);
 
 }

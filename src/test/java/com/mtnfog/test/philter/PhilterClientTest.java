@@ -142,7 +142,7 @@ public class PhilterClientTest {
 
         final String json = IOUtils.toString(this.getClass().getResource("/default2.json"), Charset.defaultCharset());
 
-        client.savePolicy(json);
+        client.savePolicy("default2", json);
 
     }
 
