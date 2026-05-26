@@ -22,7 +22,8 @@ import ai.philterd.philter.model.exceptions.ClientException;
 import ai.philterd.philter.model.exceptions.ServiceUnavailableException;
 import ai.philterd.philter.model.exceptions.UnauthorizedException;
 import ai.philterd.philter.services.PhilterService;
-import nl.altindag.sslcontext.SSLFactory;
+
+import nl.altindag.ssl.SSLFactory;
 import okhttp3.ConnectionPool;
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
@@ -106,7 +107,7 @@ public class PhilterClient extends AbstractClient {
 	}
 
 	private PhilterClient(String endpoint, OkHttpClient.Builder okHttpClientBuilder, long timeout, int maxIdleConnections, int keepAliveDurationMs,
-		String keystore, String keystorePassword, String truststore, String truststorePassword) throws Exception {
+	                      String keystore, String keystorePassword, String truststore, String truststorePassword) throws Exception {
 
 		if(okHttpClientBuilder == null) {
 
