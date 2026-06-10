@@ -20,30 +20,57 @@ import com.google.gson.annotations.SerializedName;
 
 import java.util.List;
 
-public class Explanation {
+/**
+ * A request to re-identify previously redacted values.
+ */
+public class ReidentifyRequest {
 
     @Expose
-    @SerializedName("appliedSpans")
-    private List<Span> appliedSpans;
+    @SerializedName("policyName")
+    private String policyName;
 
     @Expose
-    @SerializedName("ignoredSpans")
-    private List<Span> ignoredSpans;
+    @SerializedName("reason")
+    private String reason;
 
-    public List<Span> getAppliedSpans() {
-        return appliedSpans;
+    @Expose
+    @SerializedName("strategy")
+    private String strategy;
+
+    @Expose
+    @SerializedName("values")
+    private List<String> values;
+
+    public String getPolicyName() {
+        return policyName;
     }
 
-    public void setAppliedSpans(List<Span> appliedSpans) {
-        this.appliedSpans = appliedSpans;
+    public void setPolicyName(String policyName) {
+        this.policyName = policyName;
     }
 
-    public List<Span> getIgnoredSpans() {
-        return ignoredSpans;
+    public String getReason() {
+        return reason;
     }
 
-    public void setIgnoredSpans(List<Span> ignoredSpans) {
-        this.ignoredSpans = ignoredSpans;
+    public void setReason(String reason) {
+        this.reason = reason;
+    }
+
+    public String getStrategy() {
+        return strategy;
+    }
+
+    public void setStrategy(String strategy) {
+        this.strategy = strategy;
+    }
+
+    public List<String> getValues() {
+        return values;
+    }
+
+    public void setValues(List<String> values) {
+        this.values = values;
     }
 
 }

@@ -13,12 +13,26 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  ******************************************************************************/
-package ai.philterd.philter.model.exceptions;
+package ai.philterd.philter.model;
 
-public class UnauthorizedException extends RuntimeException {
+import com.google.gson.annotations.Expose;
+import com.google.gson.annotations.SerializedName;
 
-    public UnauthorizedException(String message) {
-        super(message);
+/**
+ * The response returned after rolling a policy back to a prior revision.
+ */
+public class PolicyRollbackResponse {
+
+    @Expose
+    @SerializedName("revision")
+    private int revision;
+
+    public int getRevision() {
+        return revision;
+    }
+
+    public void setRevision(int revision) {
+        this.revision = revision;
     }
 
 }

@@ -13,12 +13,26 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  ******************************************************************************/
-package ai.philterd.philter.model.exceptions;
+package ai.philterd.philter.model;
 
-public class UnauthorizedException extends RuntimeException {
+import com.google.gson.annotations.Expose;
+import com.google.gson.annotations.SerializedName;
 
-    public UnauthorizedException(String message) {
-        super(message);
+/**
+ * A generic message response returned by various Philter endpoints.
+ */
+public class GenericResponse {
+
+    @Expose
+    @SerializedName("message")
+    private String message;
+
+    public String getMessage() {
+        return message;
+    }
+
+    public void setMessage(String message) {
+        this.message = message;
     }
 
 }

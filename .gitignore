@@ -1,15 +1,12 @@
-.metadata
-.cache
-.checkstyle
-bin/
-.settings/
+# Maven build output
 target/
-.classpath
-.project
-.cache-main
-.cache-tests
+
+# Logs
 *.log
+
+# IntelliJ IDEA
 .idea/
 *.iml
-obj/
+
+# VS Code
 .vscode/

@@ -18,32 +18,45 @@ package ai.philterd.philter.model;
 import com.google.gson.annotations.Expose;
 import com.google.gson.annotations.SerializedName;
 
-import java.util.List;
-
-public class Explanation {
-
-    @Expose
-    @SerializedName("appliedSpans")
-    private List<Span> appliedSpans;
+/**
+ * A summary of a single revision of a policy.
+ */
+public class PolicyVersionSummary {
 
     @Expose
-    @SerializedName("ignoredSpans")
-    private List<Span> ignoredSpans;
+    @SerializedName("capturedTimestamp")
+    private String capturedTimestamp;
 
-    public List<Span> getAppliedSpans() {
-        return appliedSpans;
+    @Expose
+    @SerializedName("contentHash")
+    private String contentHash;
+
+    @Expose
+    @SerializedName("revision")
+    private int revision;
+
+    public String getCapturedTimestamp() {
+        return capturedTimestamp;
     }
 
-    public void setAppliedSpans(List<Span> appliedSpans) {
-        this.appliedSpans = appliedSpans;
+    public void setCapturedTimestamp(String capturedTimestamp) {
+        this.capturedTimestamp = capturedTimestamp;
     }
 
-    public List<Span> getIgnoredSpans() {
-        return ignoredSpans;
+    public String getContentHash() {
+        return contentHash;
     }
 
-    public void setIgnoredSpans(List<Span> ignoredSpans) {
-        this.ignoredSpans = ignoredSpans;
+    public void setContentHash(String contentHash) {
+        this.contentHash = contentHash;
+    }
+
+    public int getRevision() {
+        return revision;
+    }
+
+    public void setRevision(int revision) {
+        this.revision = revision;
     }
 
 }

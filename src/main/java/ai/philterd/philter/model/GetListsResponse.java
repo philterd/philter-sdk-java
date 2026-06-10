@@ -13,12 +13,28 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  ******************************************************************************/
-package ai.philterd.philter.model.exceptions;
+package ai.philterd.philter.model;
 
-public class UnauthorizedException extends RuntimeException {
+import com.google.gson.annotations.Expose;
+import com.google.gson.annotations.SerializedName;
 
-    public UnauthorizedException(String message) {
-        super(message);
+import java.util.List;
+
+/**
+ * The response containing the values of a custom list.
+ */
+public class GetListsResponse {
+
+    @Expose
+    @SerializedName("lists")
+    private List<String> lists;
+
+    public List<String> getLists() {
+        return lists;
+    }
+
+    public void setLists(List<String> lists) {
+        this.lists = lists;
     }
 
 }

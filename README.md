@@ -5,79 +5,77 @@ sensitive information such as Protected Health Information (PHI) and personally 
 natural language text. Philter is built upon the open source PII/PHI detection
 engine [Phileas](https://github.com/philterd/phileas).
 
-Refer to the [Philter API](https://docs.philterd.ai/philter/latest/api-1-readme.html) documentation for details on the
-methods available.
+Refer to the [Philter API specification](https://github.com/philterd/philter/blob/main/docs/docs/api_and_sdks/openapi.json)
+for details on the available endpoints.
 
-## Snapshots and Releases
+## Installation
 
-As of version 1.6.0-SNAPSHOT, snapshots and releases are available from Maven Central. Previous versions were available
-from our [Maven repositories](https://artifacts.philterd.ai/) so add the following to your Maven configuration:
+Releases are available from [Maven Central](https://central.sonatype.com/artifact/ai.philterd/philter-sdk-java). Add the
+dependency to your Maven configuration:
 
 ```
-<repository>
-    <id>philterd-repository-releases</id>
-    <url>https://artifacts.philterd.ai/releases</url>
-    <snapshots>
-        <enabled>false</enabled>
-    </snapshots>
-</repository>
-<repository>
-    <id>philterd-repository-snapshots</id>
-    <url>https://artifacts.philterd.ai/snapshots</url>
-    <snapshots>
-        <enabled>true</enabled>
-    </snapshots>
-</repository>
+<dependency>
+    <groupId>ai.philterd</groupId>
+    <artifactId>philter-sdk-java</artifactId>
+    <version>2.0.0</version>
+</dependency>
 ```
+
+## Compatibility
+
+As of version 2.0.0, this client targets the **Philter 4.0.0** API. Earlier versions of the client are not
+compatible with Philter 4.0.0 and later.
 
 ## Example Usage
 
 With an available running instance of Philter, to filter text:
 
 ```
-PhilterClient client = new PhilterClient.PhilterClientBuilder().withEndpoint("https://127.0.0.1:8080").build();
-FilterResponse filterResponse = client.filter(text);
+PhilterClient client = new PhilterClient.PhilterClientBuilder()
+        .withEndpoint("https://127.0.0.1:8080")
+        .withApiKey("your-api-key")
+        .build();
+
+FilterResponse filterResponse = client.filter("context", "default", text);
 ```
 
 To filter text with explanation:
 
 ```
-PhilterClient client = new PhilterClient.PhilterClientBuilder().withEndpoint("https://127.0.0.1:8080").build();
-ExplainResponse explainResponse = client.explain(text);
+ExplainResponse explainResponse = client.explain("context", "default", text);
 ```
+
+Philter 4.0.0 expects an `Authorization` header on nearly every endpoint. Provide its value with
+`withApiKey(...)`; the value is sent verbatim, so include any scheme prefix (for example `"Bearer "`) if your
+deployment requires it. The `health()` endpoint does not require authentication.
+
+In addition to filtering, the client covers the full Philter 4.0.0 API: policies (including versions, diffs, and
+rollbacks), contexts, documents, legal holds, the redaction ledger, custom lists, redact lists, and re-identification.
+
+## Testing
+
+Unit tests run against a mocked HTTP server and execute on every build with no external dependencies.
+
+Live integration tests (`PhilterClientTest`) run against a real Philter instance and are skipped unless
+`PHILTER_ENDPOINT` is set. To run them:
+
+```
+export PHILTER_ENDPOINT=https://localhost:8080/
+export PHILTER_API_KEY=your-api-key   # optional
+export PHILTER_INSECURE=true          # optional, to trust self-signed certificates
+mvn test
+```
+
+Additional optional variables: `PHILTER_KEYSTORE`, `PHILTER_KEYSTORE_PASSWORD`, `PHILTER_TRUSTSTORE`,
+`PHILTER_TRUSTSTORE_PASSWORD` (for mutual TLS) and `PHILTER_PDF_FILE` (to enable the PDF filtering test).
 
 ## Release History
 
-* 1.6.0 (not yet released):
-   * Updated dependencies. 
-   * Now available from Maven central.
-* 1.5.0:
-   * Updated dependencies.
-* 1.4.0:
-    * Modified /api/status response.
-    * Renamed profiles to policies.
-* 1.3.1:
-    * Changed from com.mtnfog to ai.philterd.
-* 1.3.0:
-    * Added support for SSL authentication.
-    * Added support for filtering PDF documents.
-    * Removed token-based API authentication.
-    * Removed models client.
-* 1.2.0:
-    * Added option for API authentication support.
-    * Added `salt` to `Span` for when the `HASH_SHA256_REPLACE` filter strategy is applied by Philter.
-    * Changed artifact name to `philter-sdk-java`
-    * Added alerts retrieval/deletion to client.
-    * Added models client.
-* 1.1.0:
-    * Various changes/fixes.
-    * Split SDKs into separate projects.
-* 1.0.0:
-    * Initial release.
+See [RELEASE_NOTES.md](RELEASE_NOTES.md) for the release history.
 
 ## License
 
 This project is licensed under the Apache License, version 2.0.
 
-Copyright 2024 Philterd, LLC.
+Copyright 2026 Philterd, LLC.
 Philter is a registered trademark of Philterd, LLC.
