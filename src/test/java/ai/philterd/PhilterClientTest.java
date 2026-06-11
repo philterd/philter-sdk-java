@@ -50,8 +50,6 @@ import java.util.concurrent.TimeUnit;
  *   <li>{@code PHILTER_ENDPOINT} (required) - e.g. {@code https://localhost:8080/}</li>
  *   <li>{@code PHILTER_API_KEY} (optional) - value sent in the Authorization header</li>
  *   <li>{@code PHILTER_INSECURE} (optional) - {@code true} to trust self-signed certificates</li>
- *   <li>{@code PHILTER_KEYSTORE}, {@code PHILTER_KEYSTORE_PASSWORD}, {@code PHILTER_TRUSTSTORE},
- *       {@code PHILTER_TRUSTSTORE_PASSWORD} (optional) - for mutual TLS</li>
  *   <li>{@code PHILTER_PDF_FILE} (optional) - path to a PDF used by the PDF filtering test</li>
  * </ul>
  */
@@ -84,12 +82,6 @@ public class PhilterClientTest {
 
         if (INSECURE) {
             builder.withOkHttpClientBuilder(getUnsafeOkHttpClientBuilder());
-        }
-
-        final String keystore = System.getenv("PHILTER_KEYSTORE");
-        if (keystore != null && !keystore.isBlank()) {
-            builder.withSslConfiguration(keystore, System.getenv("PHILTER_KEYSTORE_PASSWORD"),
-                    System.getenv("PHILTER_TRUSTSTORE"), System.getenv("PHILTER_TRUSTSTORE_PASSWORD"));
         }
 
         return builder.build();

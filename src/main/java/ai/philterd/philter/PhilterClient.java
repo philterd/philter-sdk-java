@@ -28,7 +28,6 @@ import ai.philterd.philter.model.ReidentifyRequest;
 import ai.philterd.philter.model.StatusResponse;
 import ai.philterd.philter.services.PhilterService;
 
-import nl.altindag.ssl.SSLFactory;
 import okhttp3.ConnectionPool;
 import okhttp3.Interceptor;
 import okhttp3.MediaType;
@@ -45,7 +44,6 @@ import retrofit2.converter.scalars.ScalarsConverterFactory;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Paths;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -87,10 +85,6 @@ public class PhilterClient extends AbstractClient {
 		private int maxIdleConnections = DEFAULT_MAX_IDLE_CONNECTIONS;
 		private int keepAliveDurationMs = DEFAULT_KEEP_ALIVE_DURATION_MS;
 		private String apiKey;
-		private String keystore;
-		private String keystorePassword;
-		private String truststore;
-		private String truststorePassword;
 
 		/**
 		 * Sets the base URL of the Philter instance, for example {@code https://localhost:8080}. Required.
@@ -163,36 +157,17 @@ public class PhilterClient extends AbstractClient {
 		}
 
 		/**
-		 * Configures mutual TLS using the given key and trust stores. When set, the client presents the
-		 * identity material from the keystore and validates the server against the truststore.
-		 * @param keystore Path to the keystore containing the client identity material.
-		 * @param keystorePassword Password for the keystore.
-		 * @param truststore Path to the truststore containing the trusted certificates.
-		 * @param truststorePassword Password for the truststore.
-		 * @return This builder.
-		 */
-		public PhilterClientBuilder withSslConfiguration(String keystore, String keystorePassword, String truststore, String truststorePassword) {
-			this.keystore = keystore;
-			this.keystorePassword = keystorePassword;
-			this.truststore = truststore;
-			this.truststorePassword = truststorePassword;
-			return this;
-		}
-
-		/**
 		 * Builds the configured {@link PhilterClient}.
 		 * @return A new {@link PhilterClient}.
-		 * @throws Exception Thrown if the client cannot be created, for example if the SSL configuration is invalid.
 		 */
-		public PhilterClient build() throws Exception {
-			return new PhilterClient(endpoint, okHttpClientBuilder, timeout, maxIdleConnections, keepAliveDurationMs, apiKey,
-					keystore, keystorePassword, truststore, truststorePassword);
+		public PhilterClient build() {
+			return new PhilterClient(endpoint, okHttpClientBuilder, timeout, maxIdleConnections, keepAliveDurationMs, apiKey);
 		}
 
 	}
 
 	private PhilterClient(String endpoint, OkHttpClient.Builder okHttpClientBuilder, long timeout, int maxIdleConnections, int keepAliveDurationMs,
-	                      String apiKey, String keystore, String keystorePassword, String truststore, String truststorePassword) throws Exception {
+	                      String apiKey) {
 
 		if(okHttpClientBuilder == null) {
 
@@ -208,10 +183,6 @@ public class PhilterClient extends AbstractClient {
 			okHttpClientBuilder.addInterceptor(new AuthorizationInterceptor(apiKey));
 		}
 
-		if(StringUtils.isNotEmpty(keystore)) {
-			configureSSL(okHttpClientBuilder, keystore, keystorePassword, truststore, truststorePassword);
-		}
-
 		final OkHttpClient okHttpClient = okHttpClientBuilder.build();
 
 		final Retrofit.Builder builder = new Retrofit.Builder()
@@ -223,18 +194,6 @@ public class PhilterClient extends AbstractClient {
 		final Retrofit retrofit = builder.build();
 
 		service = retrofit.create(PhilterService.class);
-
-	}
-
-	private void configureSSL(final OkHttpClient.Builder okHttpClientBuilder, String keystore, String keystorePassword,
-							 String truststore, String truststorePassword) {
-
-		final SSLFactory sslFactory = SSLFactory.builder()
-				.withIdentityMaterial(Paths.get(keystore), keystorePassword.toCharArray())
-				.withTrustMaterial(Paths.get(truststore), truststorePassword.toCharArray())
-				.build();
-
-		okHttpClientBuilder.sslSocketFactory(sslFactory.getSslSocketFactory(), sslFactory.getTrustManager().get());
 
 	}
 

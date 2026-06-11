@@ -40,7 +40,6 @@
 		<log4j.version>2.25.4</log4j.version>
 		<okhttp.version>4.9.2</okhttp.version>
 		<retrofit.version>2.9.0</retrofit.version>
-		<ayza.version>10.0.0</ayza.version>
 	</properties>
 	<build>
 		<plugins>
@@ -168,11 +167,6 @@
 			<groupId>commons-io</groupId>
 			<artifactId>commons-io</artifactId>
 			<version>${commons.io.version}</version>
-		</dependency>
-		<dependency>
-			<groupId>io.github.hakky54</groupId>
-			<artifactId>ayza</artifactId>
-			<version>${ayza.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>com.squareup.retrofit2</groupId>

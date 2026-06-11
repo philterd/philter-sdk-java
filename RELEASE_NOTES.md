@@ -18,6 +18,8 @@ is not backward compatible with earlier versions of the client.
 * The text `filter` request now forces synchronous processing so the filtered text is returned directly.
 * Replaced the `status()` string response with the structured `StatusResponse` object and added the unauthenticated
   `health()` endpoint.
+* Removed mTLS / SSL client-certificate support (`withSslConfiguration(...)`) and the `ayza` dependency. It may be
+  reintroduced in a future release if needed.
 
 ### New functionality
 
@@ -35,7 +37,7 @@ is not backward compatible with earlier versions of the client.
 
 * Targets Java 11 bytecode (via `<release>11</release>`) for broad consumer compatibility, while building with a current JDK.
 * Migrated artifact publishing to Maven Central.
-* Renamed the `sslcontext-kickstart` dependency to `ayza` (#12) and upgraded OkHttp from 3.14.9 to 4.9.2 (#13).
+* Upgraded OkHttp from 3.14.9 to 4.9.2 (#13).
 * Updated dependencies: `commons-lang3` (#11), `commons-io` (#10), and `log4j-core` (#14, #15).
 * Added mocked unit tests (OkHttp `MockWebServer`) covering the full client surface, plus env-gated live
   integration tests that run against a real Philter instance when `PHILTER_ENDPOINT` is configured.

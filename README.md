@@ -28,6 +28,9 @@ compatible with Philter 4.0.0 and later.
 
 ## Example Usage
 
+See the [Developer Guide](DEVELOPER.md) for a full, example-driven walkthrough of redacting text and documents,
+managing policies, and the rest of the API.
+
 With an available running instance of Philter, to filter text:
 
 ```
@@ -66,8 +69,7 @@ export PHILTER_INSECURE=true          # optional, to trust self-signed certifica
 mvn test
 ```
 
-Additional optional variables: `PHILTER_KEYSTORE`, `PHILTER_KEYSTORE_PASSWORD`, `PHILTER_TRUSTSTORE`,
-`PHILTER_TRUSTSTORE_PASSWORD` (for mutual TLS) and `PHILTER_PDF_FILE` (to enable the PDF filtering test).
+Additional optional variable: `PHILTER_PDF_FILE` (to enable the PDF filtering test).
 
 ## Release History
 
