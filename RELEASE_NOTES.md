@@ -3,7 +3,7 @@
 Release notes for the Philter SDK for Java. Dates for tagged releases are taken from their git tags and
 [GitHub releases](https://github.com/philterd/philter-sdk-java/releases).
 
-## 2.0.0 (unreleased)
+## 2.0.0 (2026-06-12)
 
 **Compatible with Philter 4.0.0.** This is a major release that updates the client for the Philter 4.0.0 API and
 is not backward compatible with earlier versions of the client.
