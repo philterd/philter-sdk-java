@@ -26,6 +26,11 @@ dependency to your Maven configuration:
 As of version 2.0.0, this client targets the **Philter 4.0.0** API. Earlier versions of the client are not
 compatible with Philter 4.0.0 and later.
 
+| philter-sdk-java | Philter API |
+|------------------|-------------|
+| 2.0.0 and later  | 4.0.0       |
+| 1.x              | 1.x – 3.x   |
+
 ## Example Usage
 
 See the [Developer Guide](DEVELOPER.md) for a full, example-driven walkthrough of redacting text and documents,

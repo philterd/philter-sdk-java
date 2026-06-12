@@ -31,6 +31,7 @@ import ai.philterd.philter.model.exceptions.ClientException;
 import ai.philterd.philter.model.exceptions.ServiceUnavailableException;
 import ai.philterd.philter.model.exceptions.UnauthorizedException;
 import okhttp3.HttpUrl;
+import okhttp3.OkHttpClient;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import okhttp3.mockwebserver.RecordedRequest;
@@ -175,6 +176,28 @@ public class PhilterClientMockTest {
 
         final RecordedRequest request = server.takeRequest();
         Assert.assertNull(request.getHeader("Authorization"));
+    }
+
+    @Test
+    public void suppliedOkHttpClientBuilderIsUsedAndAuthIsLayeredOnTop() throws Exception {
+
+        server.enqueue(new MockResponse().setResponseCode(200).setBody("[]"));
+
+        // An interceptor on the supplied builder proves the builder is actually used; the API key
+        // proves the Authorization interceptor is still layered on top of the supplied builder.
+        final OkHttpClient.Builder supplied = new OkHttpClient.Builder()
+                .addInterceptor(chain -> chain.proceed(
+                        chain.request().newBuilder().header("X-Custom", "custom-value").build()));
+
+        final PhilterClient client = clientBuilder()
+                .withOkHttpClientBuilder(supplied)
+                .withApiKey("secret-key")
+                .build();
+        client.getPolicies();
+
+        final RecordedRequest request = server.takeRequest();
+        Assert.assertEquals("custom-value", request.getHeader("X-Custom"));
+        Assert.assertEquals("secret-key", request.getHeader("Authorization"));
     }
 
     // Status.
@@ -398,6 +421,7 @@ public class PhilterClientMockTest {
 
         // Contexts.
         verify(c, "GET", "/api/contexts", Map.of(), "[]", c::getContexts);
+        verify(c, "GET", "/api/contexts/c1", Map.of(), "{}", () -> c.getContext("c1"));
         verify(c, "PUT", "/api/contexts/c1", Map.of("entity_type_disambiguation", "true", "ledger", "false"), "{}",
                 () -> c.updateContext("c1", true, false));
         verify(c, "DELETE", "/api/contexts/c1", Map.of(), "{}", () -> c.deleteContext("c1"));
@@ -426,6 +450,7 @@ public class PhilterClientMockTest {
         verify(c, "GET", "/api/ledger/d1/valid", Map.of(), "true", () -> c.isLedgerValid("d1"));
 
         // Custom lists.
+        verify(c, "GET", "/api/lists", Map.of(), "[]", c::getLists);
         verify(c, "DELETE", "/api/lists/l1", Map.of(), "", () -> c.deleteList("l1"));
 
         // Redact lists.
