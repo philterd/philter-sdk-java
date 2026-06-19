@@ -21,6 +21,31 @@ dependency to your Maven configuration:
 </dependency>
 ```
 
+To track the latest development build, depend on the current `-SNAPSHOT` version and add the Maven Central snapshot repository to your build (snapshots are not served from the default Maven Central repository):
+
+```
+<repositories>
+    <repository>
+        <id>central-portal-snapshots</id>
+        <url>https://central.sonatype.com/repository/maven-snapshots/</url>
+        <releases>
+            <enabled>false</enabled>
+        </releases>
+        <snapshots>
+            <enabled>true</enabled>
+        </snapshots>
+    </repository>
+</repositories>
+
+<dependency>
+    <groupId>ai.philterd</groupId>
+    <artifactId>philter-sdk-java</artifactId>
+    <version>2.1.0-SNAPSHOT</version>
+</dependency>
+```
+
+Snapshots are development builds: they are mutable and are periodically pruned, so pin a release version for anything you need to reproduce.
+
 ## Compatibility
 
 As of version 2.0.0, this client targets the **Philter 4.0.0** API. Earlier versions of the client are not
