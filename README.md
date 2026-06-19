@@ -58,8 +58,8 @@ compatible with Philter 4.0.0 and later.
 
 ## Example Usage
 
-See the [Developer Guide](DEVELOPER.md) for a full, example-driven walkthrough of redacting text and documents,
-managing policies, and the rest of the API.
+See the [documentation site](https://philterd.github.io/philter-sdk-java/) for a full, example-driven walkthrough of
+redacting text and documents, managing policies, and the rest of the API.
 
 With an available running instance of Philter, to filter text:
 

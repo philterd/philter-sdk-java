@@ -1,0 +1,29 @@
+site_name: Philter SDK for Java
+repo_url: https://github.com/philterd/philter-sdk-java
+site_url: https://philterd.github.io/philter-sdk-java/
+edit_uri: '?query=docs/docs/'
+copyright: Copyright 2026 Philterd, LLC
+site_author: philterd
+site_description: User guide for the Philter SDK for Java, the API client for Philter.
+theme:
+  name: material
+  locale: en
+  palette:
+    primary: red
+nav:
+  - Home: index.md
+  - Concepts: concepts.md
+  - Creating a Client: creating-a-client.md
+  - Redacting Text: redacting-text.md
+  - Inspecting Redactions (Explain): explain.md
+  - Redacting PDF Documents: pdf.md
+  - Policies: policies.md
+  - Contexts: contexts.md
+  - Re-identification: re-identification.md
+  - Custom Lists: custom-lists.md
+  - Server Health: health.md
+  - Error Handling: error-handling.md
+  - End-to-End Example: end-to-end-example.md
+extra:
+  version:
+    provider: mike
