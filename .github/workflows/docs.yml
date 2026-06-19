@@ -3,6 +3,12 @@ on:
   push:
     tags:
       - '[0-9]+.[0-9]+.[0-9]+'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version label to deploy (e.g. 2.0.0, or dev for an on-demand preview)'
+        required: true
+        default: 'dev'
 permissions:
   contents: write
 jobs:
@@ -28,8 +34,17 @@ jobs:
             mkdocs-material-
       - run: pip install -r requirements.txt
         working-directory: ./docs
+      # On a tag push the version is the tag name; on a manual run it is the
+      # workflow_dispatch input.
+      - name: Resolve the version label
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "DOCS_VERSION=${{ github.event.inputs.version }}" >> "$GITHUB_ENV"
+          else
+            echo "DOCS_VERSION=${GITHUB_REF_NAME}" >> "$GITHUB_ENV"
+          fi
       - name: Deploy versioned docs
         working-directory: ./docs
         run: |
-          mike deploy --push --update-aliases "${GITHUB_REF_NAME}" latest
+          mike deploy --push --update-aliases "${DOCS_VERSION}" latest
           mike set-default --push latest
