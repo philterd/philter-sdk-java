@@ -15,7 +15,6 @@
  ******************************************************************************/
 package ai.philterd.philter;
 
-import ai.philterd.philter.model.Alert;
 import ai.philterd.philter.model.BinaryFilterResponse;
 import ai.philterd.philter.model.ExplainResponse;
 import ai.philterd.philter.model.FilterResponse;
@@ -342,15 +341,14 @@ public class PhilterClient {
 	/**
 	 * Send text to Philter to be filtered.
 	 * @param context The context. Contexts can be used to group text based on some arbitrary property.
-	 * @param documentId The document ID. Leave empty for Philter to assign a document ID to the request.
 	 * @param policyName The name of the policy to apply to the text.
 	 * @param text The text to be filtered.
 	 * @return The filtered text.
 	 * @throws IOException Thrown if the request can not be completed.
 	 */
-	public FilterResponse filter(String context, String documentId, String policyName, String text) throws IOException {
+	public FilterResponse filter(String context, String policyName, String text) throws IOException {
 
-		final HttpRequest request = request(uri("/api/filter", "c", context, "d", documentId, "p", policyName))
+		final HttpRequest request = request(uri("/api/filter", "c", context, "p", policyName))
 				.header("Accept", "text/plain")
 				.header("Content-Type", "text/plain")
 				.POST(HttpRequest.BodyPublishers.ofString(text, StandardCharsets.UTF_8))
@@ -360,7 +358,7 @@ public class PhilterClient {
 
 		if(isSuccessful(response)) {
 
-			documentId = response.headers().firstValue(DOCUMENT_ID_HEADER).orElse(null);
+			final String documentId = response.headers().firstValue(DOCUMENT_ID_HEADER).orElse(null);
 			return new FilterResponse(response.body(), context, documentId);
 
 		}
@@ -372,18 +370,34 @@ public class PhilterClient {
 	/**
 	 * Send a PDF document to Philter to be filtered.
 	 * @param context The context. Contexts can be used to group text based on some arbitrary property.
-	 * @param documentId The document ID. Leave empty for Philter to assign a document ID to the request.
 	 * @param policyName The name of the policy to apply to the text.
 	 * @param file The PDF file to be filtered.
 	 * @return The filtered document as a ZIP archive.
 	 * @throws IOException Thrown if the request can not be completed.
 	 */
-	public BinaryFilterResponse filter(String context, String documentId, String policyName, File file) throws IOException {
+	public BinaryFilterResponse filter(String context, String policyName, File file) throws IOException {
+		return filterBinary(context, policyName, file, "application/zip");
+	}
+
+	/**
+	 * Send a PDF document to Philter to be filtered, receiving the filtered document as a PDF
+	 * rather than as a ZIP archive.
+	 * @param context The context. Contexts can be used to group text based on some arbitrary property.
+	 * @param policyName The name of the policy to apply to the text.
+	 * @param file The PDF file to be filtered.
+	 * @return The filtered document as a PDF.
+	 * @throws IOException Thrown if the request can not be completed.
+	 */
+	public BinaryFilterResponse filterToPdf(String context, String policyName, File file) throws IOException {
+		return filterBinary(context, policyName, file, "application/pdf");
+	}
+
+	private BinaryFilterResponse filterBinary(String context, String policyName, File file, String accept) throws IOException {
 
 		final byte[] content = Files.readAllBytes(file.toPath());
 
-		final HttpRequest request = request(uri("/api/filter", "c", context, "d", documentId, "p", policyName))
-				.header("Accept", "application/zip")
+		final HttpRequest request = request(uri("/api/filter", "c", context, "p", policyName))
+				.header("Accept", accept)
 				.header("Content-Type", "application/pdf")
 				.POST(HttpRequest.BodyPublishers.ofByteArray(content))
 				.build();
@@ -392,7 +406,7 @@ public class PhilterClient {
 
 		if(isSuccessful(response)) {
 
-			documentId = response.headers().firstValue(DOCUMENT_ID_HEADER).orElse(null);
+			final String documentId = response.headers().firstValue(DOCUMENT_ID_HEADER).orElse(null);
 			return new BinaryFilterResponse(context, documentId, response.body());
 
 		}
@@ -404,15 +418,14 @@ public class PhilterClient {
 	/**
 	 * Send text to Philter to be filtered and get an explanation.
 	 * @param context The context. Contexts can be used to group text based on some arbitrary property.
-	 * @param documentId The document ID. Leave empty for Philter to assign a document ID to the request.
 	 * @param policyName The name of the policy to apply to the text.
 	 * @param text The text to be filtered.
 	 * @return The filter {@link ExplainResponse}.
 	 * @throws IOException Thrown if the request can not be completed.
 	 */
-	public ExplainResponse explain(String context, String documentId, String policyName, String text) throws IOException {
+	public ExplainResponse explain(String context, String policyName, String text) throws IOException {
 
-		final HttpRequest request = request(uri("/api/explain", "c", context, "d", documentId, "p", policyName))
+		final HttpRequest request = request(uri("/api/explain", "c", context, "p", policyName))
 				.header("Accept", "application/json")
 				.header("Content-Type", "text/plain")
 				.POST(HttpRequest.BodyPublishers.ofString(text, StandardCharsets.UTF_8))
@@ -473,7 +486,8 @@ public class PhilterClient {
 	public String Policy(String policyName) throws IOException {
 
 		final HttpRequest request = request(uri("/api/policies/" + encode(policyName)))
-				.header("Accept", "text/plain")
+				// Philter serialises the policy as JSON; asking for text/plain draws a 406.
+				.header("Accept", "application/json")
 				.GET()
 				.build();
 
@@ -483,12 +497,17 @@ public class PhilterClient {
 
 	/**
 	 * Saves (or overwrites) the policy.
+	 *
+	 * <p>The name is sent as the {@code name} query parameter, which Philter requires. It is not
+	 * carried in the policy body, so it cannot be derived from {@code json}.</p>
+	 *
+	 * @param name The name to save the policy under.
 	 * @param json The body of the policy.
 	 * @throws IOException Thrown if the call not be executed.
 	 */
-	public void savePolicy(String json) throws IOException {
+	public void savePolicy(String name, String json) throws IOException {
 
-		final HttpRequest request = request(uri("/api/policies"))
+		final HttpRequest request = request(uri("/api/policies", "name", name))
 				.header("Content-Type", "application/json")
 				.POST(HttpRequest.BodyPublishers.ofString(json, StandardCharsets.UTF_8))
 				.build();
@@ -504,30 +523,6 @@ public class PhilterClient {
 	 */
 	public void deletePolicy(String policyName) throws IOException {
 		sendExpectingNoContent(request(uri("/api/policies/" + encode(policyName))).DELETE().build());
-	}
-
-	// Alerts.
-
-	/**
-	 * Get alerts.
-	 * @return A list of {@link Alert alerts}.
-	 * @throws IOException Thrown if the call not be executed.
-	 */
-	public List<Alert> getAlerts() throws IOException {
-
-		final HttpRequest request = request(uri("/api/alerts")).GET().build();
-
-		return gson.fromJson(sendExpectingString(request), new TypeToken<List<Alert>>() {}.getType());
-
-	}
-
-	/**
-	 * Delete an alert.
-	 * @param alertId The ID of the alert to delete.
-	 * @throws IOException Thrown if the call not be executed.
-	 */
-	public void deleteAlert(String alertId) throws IOException {
-		sendExpectingNoContent(request(uri("/api/alerts/" + encode(alertId))).DELETE().build());
 	}
 
 }

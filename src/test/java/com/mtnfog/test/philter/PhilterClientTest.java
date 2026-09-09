@@ -55,7 +55,7 @@ public class PhilterClientTest {
                 .build();
 
         final File file = new File("pdf-file-name-here");
-        final BinaryFilterResponse binaryFilterResponse = client.filter("context", "docid", "default", file);
+        final BinaryFilterResponse binaryFilterResponse = client.filter("context", "default", file);
 
         final File tempFile = File.createTempFile("philter", ".zip");
         Files.write(tempFile.toPath(), binaryFilterResponse.getContent());
@@ -143,7 +143,7 @@ public class PhilterClientTest {
         final byte[] bytes = Files.readAllBytes(Paths.get(Objects.requireNonNull(this.getClass().getResource("/default2.json")).toURI()));
         final String json = new String(bytes, Charset.defaultCharset());
 
-        client.savePolicy(json);
+        client.savePolicy("default", json);
 
     }
 

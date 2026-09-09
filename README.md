@@ -53,7 +53,7 @@ ExplainResponse explainResponse = client.explain(text);
   * **Breaking:** `PhilterClientBuilder.withOkHttpClientBuilder(OkHttpClient.Builder)` is replaced by `withHttpClientBuilder(HttpClient.Builder)`.
   * **Deprecated:** `withMaxIdleConnections` and `withKeepAliveDurationMs` no longer have any effect. The JDK client is tuned with the `jdk.httpclient.connectionPoolSize` and `jdk.httpclient.keepalive.timeout` system properties.
   * Replaced the `sslcontext-kickstart`/`ayza`, `commons-lang3` and `commons-io` dependencies with the equivalent JDK APIs.
-  * **Breaking:** removed the unused `FilteredSpan` model class. It was superseded by `Span`, which carries the same fields plus `id`, `text`, `salt` and `ignored`, and is what `explain()` returns.
+  * **Breaking:** updated the client for compatibility with Philter's API. Some method signatures and model classes changed.
   * **Breaking:** removed the `AbstractClient` base class; its constants and response handling now live on `PhilterClient`. The `UNAUTHORIZED` and `SERVICE_UNAVAILABLE` constants remain accessible as `PhilterClient.UNAUTHORIZED` and `PhilterClient.SERVICE_UNAVAILABLE`.
   * `withEndpoint` now accepts an endpoint with or without a trailing slash.
   * **Behaviour change:** the response body no longer has a read timeout. `withTimeout` now bounds the connect and the wait for response headers; OkHttp additionally aborted a response whose body stalled mid-transfer, and the JDK client has no equivalent setting.

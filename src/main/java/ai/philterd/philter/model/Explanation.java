@@ -27,8 +27,8 @@ public class Explanation {
     private List<Span> appliedSpans;
 
     @Expose
-    @SerializedName("ignoredSpans")
-    private List<Span> ignoredSpans;
+    @SerializedName("identifiedSpans")
+    private List<Span> identifiedSpans;
 
     public List<Span> getAppliedSpans() {
         return appliedSpans;
@@ -38,12 +38,18 @@ public class Explanation {
         this.appliedSpans = appliedSpans;
     }
 
-    public List<Span> getIgnoredSpans() {
-        return ignoredSpans;
+    /**
+     * Gets every span Philter identified, whether or not a filter was applied to it. Philter
+     * reports this as {@code identifiedSpans}; whether an individual span was skipped is carried
+     * on {@link Span#isIgnored()}.
+     * @return The identified spans.
+     */
+    public List<Span> getIdentifiedSpans() {
+        return identifiedSpans;
     }
 
-    public void setIgnoredSpans(List<Span> ignoredSpans) {
-        this.ignoredSpans = ignoredSpans;
+    public void setIdentifiedSpans(List<Span> identifiedSpans) {
+        this.identifiedSpans = identifiedSpans;
     }
 
 }

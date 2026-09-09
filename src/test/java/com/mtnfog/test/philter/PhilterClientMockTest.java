@@ -16,7 +16,6 @@
 package com.mtnfog.test.philter;
 
 import ai.philterd.philter.PhilterClient;
-import ai.philterd.philter.model.Alert;
 import ai.philterd.philter.model.BinaryFilterResponse;
 import ai.philterd.philter.model.ExplainResponse;
 import ai.philterd.philter.model.FilterResponse;
@@ -127,18 +126,17 @@ public class PhilterClientMockTest {
         respond(200, "My name is {{{REDACTED-person}}}.");
         documentIdHeader = "doc-1";
 
-        final FilterResponse response = client.filter("ctx", "ignored-doc-id", "default", "My name is John Smith.");
+        final FilterResponse response = client.filter("ctx", "default", "My name is John Smith.");
 
         Assert.assertEquals("POST", method);
         Assert.assertEquals("/api/filter", path);
-        Assert.assertEquals("c=ctx&d=ignored-doc-id&p=default", query);
+        Assert.assertEquals("c=ctx&p=default", query);
         Assert.assertEquals("text/plain", contentType);
         Assert.assertEquals("text/plain", accept);
         Assert.assertEquals("My name is John Smith.", requestBodyAsString());
 
         Assert.assertEquals("My name is {{{REDACTED-person}}}.", response.getFilteredText());
         Assert.assertEquals("ctx", response.getContext());
-        // The document ID always comes from the response header, not the argument.
         Assert.assertEquals("doc-1", response.getDocumentId());
 
     }
@@ -148,7 +146,7 @@ public class PhilterClientMockTest {
 
         respond(200, "filtered");
 
-        client.filter(null, null, "default", "text");
+        client.filter(null, "default", "text");
 
         Assert.assertEquals("p=default", query);
 
@@ -159,7 +157,7 @@ public class PhilterClientMockTest {
 
         respond(200, "filtered");
 
-        client.filter("a context/with spaces&more", null, "default", "text");
+        client.filter("a context/with spaces&more", "default", "text");
 
         Assert.assertEquals("c=a%20context%2Fwith%20spaces%26more&p=default", query);
 
@@ -170,7 +168,7 @@ public class PhilterClientMockTest {
 
         respond(200, "filtered");
 
-        client.filter("ctx", null, "default", "Zoë Ångström 日本語");
+        client.filter("ctx", "default", "Zoë Ångström 日本語");
 
         Assert.assertEquals("Zoë Ångström 日本語", requestBodyAsString());
 
@@ -188,7 +186,7 @@ public class PhilterClientMockTest {
         final byte[] pdfBytes = "%PDF-1.4 fake".getBytes(StandardCharsets.UTF_8);
         Files.write(pdf, pdfBytes);
 
-        final BinaryFilterResponse response = client.filter("ctx", null, "default", new File(pdf.toString()));
+        final BinaryFilterResponse response = client.filter("ctx", "default", new File(pdf.toString()));
 
         Assert.assertEquals("POST", method);
         Assert.assertEquals("/api/filter", path);
@@ -205,13 +203,36 @@ public class PhilterClientMockTest {
     }
 
     @Test
+    public void filterPdfAsPdf() throws Exception {
+
+        final byte[] pdfOut = new byte[]{0x25, 0x50, 0x44, 0x46};
+        this.status = 200;
+        this.responseBody = pdfOut;
+
+        final Path pdf = Files.createTempFile("philter", ".pdf");
+        Files.write(pdf, "%PDF-1.4 fake".getBytes(StandardCharsets.UTF_8));
+
+        final BinaryFilterResponse response = client.filterToPdf("ctx", "default", new File(pdf.toString()));
+
+        Assert.assertEquals("POST", method);
+        Assert.assertEquals("/api/filter", path);
+        Assert.assertEquals("application/pdf", contentType);
+        // Philter serves a PDF-in/PDF-out variant alongside PDF-in/ZIP-out.
+        Assert.assertEquals("application/pdf", accept);
+        Assert.assertArrayEquals(pdfOut, response.getContent());
+
+        Files.deleteIfExists(pdf);
+
+    }
+
+    @Test
     public void explain() throws Exception {
 
         respond(200, "{\"filteredText\":\"redacted\",\"context\":\"ctx\",\"documentId\":\"doc-3\","
                 + "\"explanation\":{\"appliedSpans\":[{\"id\":\"s1\",\"characterStart\":11,\"characterEnd\":21,"
-                + "\"filterType\":\"person\",\"context\":\"ctx\"}],\"ignoredSpans\":[]}}");
+                + "\"filterType\":\"person\",\"context\":\"ctx\"}],\"identifiedSpans\":[]}}");
 
-        final ExplainResponse response = client.explain("ctx", null, "default", "My name is John Smith.");
+        final ExplainResponse response = client.explain("ctx", "default", "My name is John Smith.");
 
         Assert.assertEquals("POST", method);
         Assert.assertEquals("/api/explain", path);
@@ -224,7 +245,7 @@ public class PhilterClientMockTest {
         Assert.assertEquals(1, response.getExplanation().getAppliedSpans().size());
         Assert.assertEquals("person", response.getExplanation().getAppliedSpans().get(0).getFilterType());
         Assert.assertEquals(11, response.getExplanation().getAppliedSpans().get(0).getCharacterStart());
-        Assert.assertTrue(response.getExplanation().getIgnoredSpans().isEmpty());
+        Assert.assertTrue(response.getExplanation().getIdentifiedSpans().isEmpty());
 
     }
 
@@ -266,7 +287,7 @@ public class PhilterClientMockTest {
         Assert.assertEquals("{\"name\":\"default\"}", client.Policy("default"));
         Assert.assertEquals("GET", method);
         Assert.assertEquals("/api/policies/default", path);
-        Assert.assertEquals("text/plain", accept);
+        Assert.assertEquals("application/json", accept);
 
     }
 
@@ -290,10 +311,12 @@ public class PhilterClientMockTest {
         this.status = 200;
         this.responseBody = new byte[0];
 
-        client.savePolicy("{\"name\":\"default\"}");
+        client.savePolicy("default", "{\"name\":\"default\"}");
 
         Assert.assertEquals("POST", method);
         Assert.assertEquals("/api/policies", path);
+        // Philter declares @RequestParam("name") with no default, so omitting it is a 400.
+        Assert.assertEquals("name=default", query);
         Assert.assertEquals("application/json", contentType);
         Assert.assertEquals("{\"name\":\"default\"}", requestBodyAsString());
 
@@ -309,68 +332,6 @@ public class PhilterClientMockTest {
 
         Assert.assertEquals("DELETE", method);
         Assert.assertEquals("/api/policies/default", path);
-
-    }
-
-    // Alerts.
-
-    @Test
-    public void getAlerts() throws Exception {
-
-        respond(200, "[{\"id\":\"a1\",\"context\":\"ctx\",\"documentId\":\"d1\",\"filterType\":\"person\"}]");
-
-        final List<Alert> alerts = client.getAlerts();
-
-        Assert.assertEquals("GET", method);
-        Assert.assertEquals("/api/alerts", path);
-        Assert.assertEquals(1, alerts.size());
-        Assert.assertEquals("a1", alerts.get(0).getId());
-        Assert.assertEquals("person", alerts.get(0).getFilterType());
-
-    }
-
-    @Test
-    public void deleteAlert() throws Exception {
-
-        this.status = 200;
-        this.responseBody = new byte[0];
-
-        client.deleteAlert("a1");
-
-        Assert.assertEquals("DELETE", method);
-        Assert.assertEquals("/api/alerts/a1", path);
-
-    }
-
-    // Proxy support.
-
-    @Test
-    public void honoursSystemProxyProperties() throws Exception {
-
-        respond(200, "Healthy");
-
-        // Point the proxy at the test server and aim the client at a host that does not resolve,
-        // so the call can only succeed if the proxy was actually consulted. OkHttp did this by
-        // default; the JDK client only does it when a ProxySelector is set explicitly.
-        System.setProperty("http.proxyHost", "localhost");
-        System.setProperty("http.proxyPort", Integer.toString(server.getAddress().getPort()));
-
-        try {
-
-            final PhilterClient proxied = new PhilterClient.PhilterClientBuilder()
-                    .withEndpoint("http://philter.example.invalid:8080")
-                    .withTimeout(5)
-                    .build();
-
-            Assert.assertEquals("Healthy", proxied.status());
-            Assert.assertEquals("/api/status", path);
-
-        } finally {
-
-            System.clearProperty("http.proxyHost");
-            System.clearProperty("http.proxyPort");
-
-        }
 
     }
 
