@@ -1,12 +1,12 @@
 /*******************************************************************************
- * Copyright 2023 Philterd, LLC
- *
+ * Copyright 2026 Philterd, LLC
+ * <p>
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License.  You may obtain a copy
  * of the License at
- *
+ * <p>
  *   http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
  * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
@@ -17,10 +17,6 @@ package com.mtnfog.test.philter;
 
 import ai.philterd.philter.PhilterClient;
 import ai.philterd.philter.model.BinaryFilterResponse;
-import okhttp3.ConnectionPool;
-import okhttp3.OkHttpClient;
-import org.apache.commons.io.FileUtils;
-import org.apache.commons.io.IOUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.Assert;
@@ -33,10 +29,13 @@ import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
 import java.io.File;
 import java.nio.charset.Charset;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.net.http.HttpClient;
 import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
+import java.time.Duration;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 @Ignore
 public class PhilterClientTest {
@@ -50,7 +49,7 @@ public class PhilterClientTest {
 
         final PhilterClient client = new PhilterClient.PhilterClientBuilder()
                 .withEndpoint(ENDPOINT)
-                .withOkHttpClientBuilder(getUnsafeOkHttpClientBuilder())
+                .withHttpClientBuilder(getUnsafeHttpClientBuilder())
                 .withTimeout(300)
                 .build();
 
@@ -58,7 +57,7 @@ public class PhilterClientTest {
         final BinaryFilterResponse binaryFilterResponse = client.filter("context", "docid", "default", file);
 
         final File tempFile = File.createTempFile("philter", ".zip");
-        FileUtils.writeByteArrayToFile(tempFile, binaryFilterResponse.getContent());
+        Files.write(tempFile.toPath(), binaryFilterResponse.getContent());
         System.out.println("Response written to " + tempFile.getAbsolutePath());
 
     }
@@ -68,7 +67,7 @@ public class PhilterClientTest {
 
         final PhilterClient client = new PhilterClient.PhilterClientBuilder()
                 .withEndpoint(ENDPOINT)
-                .withOkHttpClientBuilder(getUnsafeOkHttpClientBuilder())
+                .withHttpClientBuilder(getUnsafeHttpClientBuilder())
                 .build();
 
         final List<String> policyNames = client.getPolicies();
@@ -140,7 +139,8 @@ public class PhilterClientTest {
                         "/tmp/keystore-server.jks", "changeit")
                 .build();
 
-        final String json = IOUtils.toString(this.getClass().getResource("/default2.json"), Charset.defaultCharset());
+        final byte[] bytes = Files.readAllBytes(Paths.get(this.getClass().getResource("/default2.json").toURI()));
+        final String json = new String(bytes, Charset.defaultCharset());
 
         client.savePolicy(json);
 
@@ -153,7 +153,7 @@ public class PhilterClientTest {
                 .withEndpoint(ENDPOINT)
                 .withSslConfiguration("/tmp/client-test.jks", "changeit",
                         "/tmp/keystore-server.jks", "changeit")
-                .withOkHttpClientBuilder(getUnsafeOkHttpClientBuilder())
+                .withHttpClientBuilder(getUnsafeHttpClientBuilder())
                 .build();
 
         final String status = client.status();
@@ -163,7 +163,7 @@ public class PhilterClientTest {
     }
 
     // This is used to test against Philter running with a self-signed certificate.
-    private OkHttpClient.Builder getUnsafeOkHttpClientBuilder() throws NoSuchAlgorithmException, KeyManagementException {
+    private HttpClient.Builder getUnsafeHttpClientBuilder() throws NoSuchAlgorithmException, KeyManagementException {
 
         final TrustManager[] trustAllCerts = new TrustManager[] { new X509TrustManager() {
 
@@ -182,18 +182,16 @@ public class PhilterClientTest {
 
         } };
 
-        final SSLContext sslContext = SSLContext.getInstance("SSL");
+        final SSLContext sslContext = SSLContext.getInstance("TLS");
         sslContext.init(null, trustAllCerts, new java.security.SecureRandom());
 
-        OkHttpClient.Builder builder = new OkHttpClient.Builder();
-        builder.sslSocketFactory(sslContext.getSocketFactory(), (X509TrustManager) trustAllCerts[0]);
-        builder.connectTimeout(PhilterClient.DEFAULT_TIMEOUT_SEC, TimeUnit.SECONDS);
-        builder.writeTimeout(PhilterClient.DEFAULT_TIMEOUT_SEC, TimeUnit.SECONDS);
-        builder.readTimeout(PhilterClient.DEFAULT_TIMEOUT_SEC, TimeUnit.SECONDS);
-        builder.connectionPool(new ConnectionPool(PhilterClient.DEFAULT_MAX_IDLE_CONNECTIONS, PhilterClient.DEFAULT_KEEP_ALIVE_DURATION_MS, TimeUnit.MILLISECONDS));
-        builder.hostnameVerifier((hostname, session) -> true);
+        // The JDK client checks the hostname inside its TLS engine, so a trust-all manager alone is
+        // not enough for a certificate whose name does not match; this also disables that check.
+        System.setProperty("jdk.internal.httpclient.disableHostnameVerification", "true");
 
-        return builder;
+        return HttpClient.newBuilder()
+                .sslContext(sslContext)
+                .connectTimeout(Duration.ofSeconds(PhilterClient.DEFAULT_TIMEOUT_SEC));
 
     }
 

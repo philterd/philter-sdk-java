@@ -1,12 +1,12 @@
 /*******************************************************************************
- * Copyright 2023 Philterd, LLC
- *
+ * Copyright 2026 Philterd, LLC
+ * <p>
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License.  You may obtain a copy
  * of the License at
- *
+ * <p>
  *   http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
  * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
@@ -15,45 +15,72 @@
  ******************************************************************************/
 package ai.philterd.philter;
 
-import ai.philterd.philter.model.*;
+import ai.philterd.philter.model.Alert;
+import ai.philterd.philter.model.BinaryFilterResponse;
+import ai.philterd.philter.model.ExplainResponse;
+import ai.philterd.philter.model.FilterResponse;
 import ai.philterd.philter.model.exceptions.ClientException;
 import ai.philterd.philter.model.exceptions.ServiceUnavailableException;
 import ai.philterd.philter.model.exceptions.UnauthorizedException;
-import ai.philterd.philter.services.PhilterService;
-import nl.altindag.ssl.SSLFactory;
-import okhttp3.*;
-import org.apache.commons.io.FileUtils;
-import org.apache.commons.lang3.StringUtils;
-import retrofit2.Response;
-import retrofit2.Retrofit;
-import retrofit2.converter.gson.GsonConverterFactory;
-import retrofit2.converter.scalars.ScalarsConverterFactory;
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 
+import javax.net.ssl.KeyManagerFactory;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.TrustManagerFactory;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
+import java.net.URI;
+import java.net.URLEncoder;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.security.GeneralSecurityException;
+import java.security.KeyStore;
+import java.time.Duration;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Client class for Philter's API. Philter finds and manipulates sensitive information in text.
- * For more information on Philter see https://www.philterd.ai.
+ * For more information on Philter see <a href="https://www.philterd.ai">Philterd</a>.
  */
-public class PhilterClient extends AbstractClient {
+public class PhilterClient {
+
+	public static final String UNAUTHORIZED = "Unauthorized";
+	public static final String SERVICE_UNAVAILABLE = "Service unavailable";
 
 	public static final int DEFAULT_TIMEOUT_SEC = 30;
+
+	/**
+	 * @deprecated The JDK HTTP client does not expose per-client connection pool sizing. Use the
+	 * {@code jdk.httpclient.connectionPoolSize} system property instead.
+	 */
+	@Deprecated
 	public static final int DEFAULT_MAX_IDLE_CONNECTIONS = 20;
+
+	/**
+	 * @deprecated The JDK HTTP client does not expose per-client keep-alive tuning. Use the
+	 * {@code jdk.httpclient.keepalive.timeout} system property instead.
+	 */
+	@Deprecated
 	public static final int DEFAULT_KEEP_ALIVE_DURATION_MS = 30 * 1000;
 
-	private PhilterService service;
+	private static final String DOCUMENT_ID_HEADER = "x-document-id";
+
+	private final HttpClient httpClient;
+	private final URI endpoint;
+	private final Duration timeout;
+	private final Gson gson = new Gson();
 
 	public static class PhilterClientBuilder {
 
 		private String endpoint;
-		private OkHttpClient.Builder okHttpClientBuilder;
+		private HttpClient.Builder httpClientBuilder;
 		private long timeout = DEFAULT_TIMEOUT_SEC;
-		private int maxIdleConnections = DEFAULT_MAX_IDLE_CONNECTIONS;
-		private int keepAliveDurationMs = DEFAULT_KEEP_ALIVE_DURATION_MS;
 		private String keystore;
 		private String keystorePassword;
 		private String truststore;
@@ -64,23 +91,51 @@ public class PhilterClient extends AbstractClient {
 			return this;
 		}
 
-		public PhilterClientBuilder withOkHttpClientBuilder(OkHttpClient.Builder okHttpClientBuilder) {
-			this.okHttpClientBuilder = okHttpClientBuilder;
+		/**
+		 * Supplies a pre-configured {@link HttpClient.Builder}, for cases such as proxies, a custom
+		 * executor, or a bespoke {@link SSLContext}. When given, the {@code timeout} setting is not
+		 * applied to the client and should be configured on the supplied builder instead. Any SSL
+		 * configuration from {@link #withSslConfiguration} is still applied on top of it.
+		 *
+		 * <p>This replaces the {@code withOkHttpClientBuilder} method of earlier releases.</p>
+		 *
+		 * @param httpClientBuilder The HTTP client builder to use.
+		 * @return This builder.
+		 */
+		public PhilterClientBuilder withHttpClientBuilder(HttpClient.Builder httpClientBuilder) {
+			this.httpClientBuilder = httpClientBuilder;
 			return this;
 		}
 
+		/**
+		 * Sets the connect timeout and the per-request timeout, in seconds.
+		 * @param timeout The timeout in seconds.
+		 * @return This builder.
+		 */
 		public PhilterClientBuilder withTimeout(long timeout) {
 			this.timeout = timeout;
 			return this;
 		}
 
+		/**
+		 * @param maxIdleConnections Ignored.
+		 * @return This builder.
+		 * @deprecated Has no effect. The JDK HTTP client sizes its connection pool through the
+		 * {@code jdk.httpclient.connectionPoolSize} system property.
+		 */
+		@Deprecated
 		public PhilterClientBuilder withMaxIdleConnections(int maxIdleConnections) {
-			this.maxIdleConnections = maxIdleConnections;
 			return this;
 		}
 
+		/**
+		 * @param keepAliveDurationMs Ignored.
+		 * @return This builder.
+		 * @deprecated Has no effect. The JDK HTTP client tunes keep-alive through the
+		 * {@code jdk.httpclient.keepalive.timeout} system property.
+		 */
+		@Deprecated
 		public PhilterClientBuilder withKeepAliveDurationMs(int keepAliveDurationMs) {
-			this.keepAliveDurationMs = keepAliveDurationMs;
 			return this;
 		}
 
@@ -93,54 +148,187 @@ public class PhilterClient extends AbstractClient {
 		}
 
 		public PhilterClient build() throws Exception {
-			return new PhilterClient(endpoint, okHttpClientBuilder, timeout, maxIdleConnections, keepAliveDurationMs, keystore,
-					keystorePassword, truststore, truststorePassword);
+			return new PhilterClient(endpoint, httpClientBuilder, timeout, keystore, keystorePassword, truststore, truststorePassword);
 		}
 
 	}
 
-	private PhilterClient(String endpoint, OkHttpClient.Builder okHttpClientBuilder, long timeout, int maxIdleConnections, int keepAliveDurationMs,
-		String keystore, String keystorePassword, String truststore, String truststorePassword) throws Exception {
+	private PhilterClient(String endpoint, HttpClient.Builder httpClientBuilder, long timeout, String keystore,
+	                      String keystorePassword, String truststore, String truststorePassword)
+			throws IOException, GeneralSecurityException {
 
-		if(okHttpClientBuilder == null) {
+		this.endpoint = URI.create(endpoint);
+		this.timeout = Duration.ofSeconds(timeout);
 
-			okHttpClientBuilder = new OkHttpClient.Builder()
-					.connectTimeout(timeout, TimeUnit.SECONDS)
-					.writeTimeout(timeout, TimeUnit.SECONDS)
-					.readTimeout(timeout, TimeUnit.SECONDS)
-					.connectionPool(new ConnectionPool(maxIdleConnections, keepAliveDurationMs, TimeUnit.MILLISECONDS));
+		if(httpClientBuilder == null) {
+
+			httpClientBuilder = HttpClient.newBuilder()
+					.connectTimeout(Duration.ofSeconds(timeout))
+					// OkHttp followed redirects by default; NORMAL matches that without following
+					// an HTTPS to HTTP downgrade.
+					.followRedirects(HttpClient.Redirect.NORMAL)
+					// Pinned so the wire behaviour matches the previous OkHttp-based releases.
+					// Callers wanting HTTP/2 can set it via withHttpClientBuilder.
+					.version(HttpClient.Version.HTTP_1_1);
 
 		}
 
-		if(StringUtils.isNotEmpty(keystore)) {
-			configureSSL(okHttpClientBuilder, keystore, keystorePassword, truststore, truststorePassword);
+		if(keystore != null && !keystore.isEmpty()) {
+			httpClientBuilder.sslContext(createSslContext(keystore, keystorePassword, truststore, truststorePassword));
 		}
 
-		final OkHttpClient okHttpClient = okHttpClientBuilder.build();
-
-		final Retrofit.Builder builder = new Retrofit.Builder()
-				.baseUrl(endpoint)
-				.client(okHttpClient)
-				.addConverterFactory(ScalarsConverterFactory.create())
-				.addConverterFactory(GsonConverterFactory.create());
-
-		final Retrofit retrofit = builder.build();
-
-		service = retrofit.create(PhilterService.class);
+		this.httpClient = httpClientBuilder.build();
 
 	}
 
-	private void configureSSL(final OkHttpClient.Builder okHttpClientBuilder, String keystore, String keystorePassword,
-							 String truststore, String truststorePassword) {
+	private static SSLContext createSslContext(String keystore, String keystorePassword, String truststore,
+	                                           String truststorePassword) throws IOException, GeneralSecurityException {
 
-		final SSLFactory sslFactory = SSLFactory.builder()
-				.withIdentityMaterial(Paths.get(keystore), keystorePassword.toCharArray())
-				.withTrustMaterial(Paths.get(truststore), truststorePassword.toCharArray())
-				.build();
+		final char[] keystorePw = keystorePassword.toCharArray();
 
-		okHttpClientBuilder.sslSocketFactory(sslFactory.getSslSocketFactory(), sslFactory.getTrustManager().get());
+		final KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
+		keyManagerFactory.init(loadKeyStore(keystore, keystorePw), keystorePw);
+
+		// When no truststore is given, fall back to the JDK's default trust material.
+		final KeyStore trustStore = (truststore != null && !truststore.isEmpty())
+				? loadKeyStore(truststore, truststorePassword == null ? null : truststorePassword.toCharArray())
+				: null;
+
+		final TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+		trustManagerFactory.init(trustStore);
+
+		final SSLContext sslContext = SSLContext.getInstance("TLS");
+		sslContext.init(keyManagerFactory.getKeyManagers(), trustManagerFactory.getTrustManagers(), null);
+
+		return sslContext;
 
 	}
+
+	/**
+	 * Loads a keystore or truststore from disk using the JVM's default keystore type. The JDK's
+	 * keystore compatibility mode means both PKCS12 and JKS files are read.
+	 * @param path The path to the keystore file.
+	 * @param password The keystore password.
+	 * @return The loaded {@link KeyStore}.
+	 */
+	private static KeyStore loadKeyStore(final String path, final char[] password) throws IOException, GeneralSecurityException {
+
+		final KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
+
+		try (final InputStream inputStream = Files.newInputStream(Paths.get(path))) {
+			keyStore.load(inputStream, password);
+		}
+
+		return keyStore;
+
+	}
+
+	// Request plumbing.
+
+	/**
+	 * Builds an absolute request URI. Query parameters are given as name/value pairs and a pair
+	 * whose value is {@code null} is omitted from the query string.
+	 */
+	private URI uri(final String path, final String... queryParameters) {
+
+		final StringBuilder builder = new StringBuilder(path);
+		char separator = '?';
+
+		for(int i = 0; i < queryParameters.length; i += 2) {
+
+			final String value = queryParameters[i + 1];
+
+			if(value == null) {
+				continue;
+			}
+
+			builder.append(separator).append(encode(queryParameters[i])).append('=').append(encode(value));
+			separator = '&';
+
+		}
+
+		return endpoint.resolve(builder.toString());
+
+	}
+
+	/**
+	 * Percent-encodes a single path segment or query component. {@link URLEncoder} emits {@code +}
+	 * for a space, which is only correct for form bodies, so it is rewritten to {@code %20}.
+	 */
+	private static String encode(final String value) {
+		return URLEncoder.encode(value, StandardCharsets.UTF_8).replace("+", "%20");
+	}
+
+	/**
+	 * Determines whether a response carries a 2xx status code.
+	 */
+	private static boolean isSuccessful(final HttpResponse<?> response) {
+		return response.statusCode() >= 200 && response.statusCode() < 300;
+	}
+
+	/**
+	 * Maps an HTTP status code onto the corresponding client exception.
+	 */
+	private static RuntimeException toException(final int code) {
+
+		if(code == 401) {
+			return new UnauthorizedException(UNAUTHORIZED);
+		} else if(code == 503) {
+			return new ServiceUnavailableException(SERVICE_UNAVAILABLE);
+		} else {
+			return new ClientException("Unknown error: HTTP " + code);
+		}
+
+	}
+
+	private HttpRequest.Builder request(final URI uri) {
+		return HttpRequest.newBuilder(uri).timeout(timeout);
+	}
+
+	private <T> HttpResponse<T> send(final HttpRequest request, final HttpResponse.BodyHandler<T> bodyHandler) throws IOException {
+
+		try {
+
+			return httpClient.send(request, bodyHandler);
+
+		} catch (final InterruptedException ex) {
+
+			Thread.currentThread().interrupt();
+			throw new IOException("The request was interrupted.", ex);
+
+		}
+
+	}
+
+	/**
+	 * Sends a request whose response body is not used, failing on a non-2xx status.
+	 */
+	private void sendExpectingNoContent(final HttpRequest request) throws IOException {
+
+		final HttpResponse<Void> response = send(request, HttpResponse.BodyHandlers.discarding());
+
+		if(!isSuccessful(response)) {
+			throw toException(response.statusCode());
+		}
+
+	}
+
+	/**
+	 * Sends a request and returns the response body as a string, failing on a non-2xx status.
+	 */
+	private String sendExpectingString(final HttpRequest request) throws IOException {
+
+		final HttpResponse<String> response = send(request, HttpResponse.BodyHandlers.ofString());
+
+		if(isSuccessful(response)) {
+			return response.body();
+		}
+
+		throw toException(response.statusCode());
+
+	}
+
+	// Filtering.
 
 	/**
 	 * Send text to Philter to be filtered.
@@ -153,30 +341,22 @@ public class PhilterClient extends AbstractClient {
 	 */
 	public FilterResponse filter(String context, String documentId, String policyName, String text) throws IOException {
 
-		final Response<String> response = service.filter(context, documentId, policyName, text).execute();
+		final HttpRequest request = request(uri("/api/filter", "c", context, "d", documentId, "p", policyName))
+				.header("Accept", "text/plain")
+				.header("Content-Type", "text/plain")
+				.POST(HttpRequest.BodyPublishers.ofString(text, StandardCharsets.UTF_8))
+				.build();
 
-		if(response.isSuccessful()) {
+		final HttpResponse<String> response = send(request, HttpResponse.BodyHandlers.ofString());
 
-			documentId = response.headers().get("x-document-id");
+		if(isSuccessful(response)) {
+
+			documentId = response.headers().firstValue(DOCUMENT_ID_HEADER).orElse(null);
 			return new FilterResponse(response.body(), context, documentId);
 
-		} else {
-
-			if(response.code() == 401) {
-
-				throw new UnauthorizedException(UNAUTHORIZED);
-
-			} else if(response.code() == 503) {
-
-				throw new ServiceUnavailableException(SERVICE_UNAVAILABLE);
-
-			} else {
-
-				throw new ClientException("Unknown error: HTTP " + response.code());
-
-			}
-
 		}
+
+		throw toException(response.statusCode());
 
 	}
 
@@ -186,38 +366,29 @@ public class PhilterClient extends AbstractClient {
 	 * @param documentId The document ID. Leave empty for Philter to assign a document ID to the request.
 	 * @param policyName The name of the policy to apply to the text.
 	 * @param file The PDF file to be filtered.
-	 * @return The filtered text.
+	 * @return The filtered document as a ZIP archive.
 	 * @throws IOException Thrown if the request can not be completed.
 	 */
 	public BinaryFilterResponse filter(String context, String documentId, String policyName, File file) throws IOException {
 
-		final byte[] params = FileUtils.readFileToByteArray(file);
-		final RequestBody body = RequestBody.create(MediaType.parse("application/pdf"), params);
+		final byte[] content = Files.readAllBytes(file.toPath());
 
-		final Response<ResponseBody> response = service.filter(context, documentId, policyName, body).execute();
+		final HttpRequest request = request(uri("/api/filter", "c", context, "d", documentId, "p", policyName))
+				.header("Accept", "application/zip")
+				.header("Content-Type", "application/pdf")
+				.POST(HttpRequest.BodyPublishers.ofByteArray(content))
+				.build();
 
-		if(response.isSuccessful()) {
+		final HttpResponse<byte[]> response = send(request, HttpResponse.BodyHandlers.ofByteArray());
 
-			documentId = response.headers().get("x-document-id");
-			return new BinaryFilterResponse(context, documentId, response.body().bytes());
+		if(isSuccessful(response)) {
 
-		} else {
-
-			if(response.code() == 401) {
-
-				throw new UnauthorizedException(UNAUTHORIZED);
-
-			} else if(response.code() == 503) {
-
-				throw new ServiceUnavailableException(SERVICE_UNAVAILABLE);
-
-			} else {
-
-				throw new ClientException("Unknown error: HTTP " + response.code());
-
-			}
+			documentId = response.headers().firstValue(DOCUMENT_ID_HEADER).orElse(null);
+			return new BinaryFilterResponse(context, documentId, response.body());
 
 		}
+
+		throw toException(response.statusCode());
 
 	}
 
@@ -232,31 +403,17 @@ public class PhilterClient extends AbstractClient {
 	 */
 	public ExplainResponse explain(String context, String documentId, String policyName, String text) throws IOException {
 
-		final Response<ExplainResponse> response = service.explain(context, documentId, policyName, text).execute();
+		final HttpRequest request = request(uri("/api/explain", "c", context, "d", documentId, "p", policyName))
+				.header("Accept", "application/json")
+				.header("Content-Type", "text/plain")
+				.POST(HttpRequest.BodyPublishers.ofString(text, StandardCharsets.UTF_8))
+				.build();
 
-		if(response.isSuccessful()) {
-
-			return response.body();
-
-		} else {
-
-			if(response.code() == 401) {
-
-				throw new UnauthorizedException(UNAUTHORIZED);
-
-			} else if(response.code() == 503) {
-
-				throw new ServiceUnavailableException(SERVICE_UNAVAILABLE);
-
-			} else {
-
-				throw new ClientException("Unknown error: HTTP " + response.code());
-
-			}
-
-		}
+		return gson.fromJson(sendExpectingString(request), ExplainResponse.class);
 
 	}
+
+	// Status.
 
 	/**
 	 * Gets the status of Philter.
@@ -265,27 +422,25 @@ public class PhilterClient extends AbstractClient {
 	 */
 	public String status() throws IOException {
 
-		final Response<String> response = service.status().execute();
+		final HttpRequest request = request(uri("/api/status")).GET().build();
 
-		if(response.isSuccessful()) {
+		final HttpResponse<String> response = send(request, HttpResponse.BodyHandlers.ofString());
 
+		if(isSuccessful(response)) {
 			return response.body();
-
-		} else {
-
-			if(response.code() == 503) {
-
-				throw new ServiceUnavailableException(SERVICE_UNAVAILABLE);
-
-			} else {
-
-				throw new ClientException("Unknown error: HTTP " + response.code());
-
-			}
-
 		}
 
+		// Note: unlike every other operation here, a 401 is reported as a ClientException rather
+		// than an UnauthorizedException. Preserved from the pre-rewrite behaviour.
+		if(response.statusCode() == 503) {
+			throw new ServiceUnavailableException(SERVICE_UNAVAILABLE);
+		}
+
+		throw new ClientException("Unknown error: HTTP " + response.statusCode());
+
 	}
+
+	// Policies.
 
 	/**
 	 * Gets a list of policy names.
@@ -294,29 +449,9 @@ public class PhilterClient extends AbstractClient {
 	 */
 	public List<String> getPolicies() throws IOException {
 
-		final Response<List<String>> response = service.Policy().execute();
+		final HttpRequest request = request(uri("/api/policies")).header("Accept", "application/json").GET().build();
 
-		if(response.isSuccessful()) {
-
-			return response.body();
-
-		} else {
-
-			if(response.code() == 401) {
-
-				throw new UnauthorizedException(UNAUTHORIZED);
-
-			} else if(response.code() == 503) {
-
-				throw new ServiceUnavailableException(SERVICE_UNAVAILABLE);
-
-			} else {
-
-				throw new ClientException("Unknown error: HTTP " + response.code());
-
-			}
-
-		}
+		return gson.fromJson(sendExpectingString(request), new TypeToken<List<String>>() {}.getType());
 
 	}
 
@@ -328,29 +463,12 @@ public class PhilterClient extends AbstractClient {
 	 */
 	public String Policy(String policyName) throws IOException {
 
-		final Response<String> response = service.Policy(policyName).execute();
+		final HttpRequest request = request(uri("/api/policies/" + encode(policyName)))
+				.header("Accept", "text/plain")
+				.GET()
+				.build();
 
-		if(response.isSuccessful()) {
-
-			return response.body();
-
-		} else {
-
-			if(response.code() == 401) {
-
-				throw new UnauthorizedException(UNAUTHORIZED);
-
-			} else if(response.code() == 503) {
-
-				throw new ServiceUnavailableException(SERVICE_UNAVAILABLE);
-
-			} else {
-
-				throw new ClientException("Unknown error: HTTP " + response.code());
-
-			}
-
-		}
+		return sendExpectingString(request);
 
 	}
 
@@ -361,25 +479,12 @@ public class PhilterClient extends AbstractClient {
 	 */
 	public void savePolicy(String json) throws IOException {
 
-		final Response<Void> response = service.savePolicy(json).execute();
+		final HttpRequest request = request(uri("/api/policies"))
+				.header("Content-Type", "application/json")
+				.POST(HttpRequest.BodyPublishers.ofString(json, StandardCharsets.UTF_8))
+				.build();
 
-		if(!response.isSuccessful()) {
-
-			if(response.code() == 401) {
-
-				throw new UnauthorizedException(UNAUTHORIZED);
-
-			} else if(response.code() == 503) {
-
-				throw new ServiceUnavailableException(SERVICE_UNAVAILABLE);
-
-			} else {
-
-				throw new ClientException("Unknown error: HTTP " + response.code());
-
-			}
-
-		}
+		sendExpectingNoContent(request);
 
 	}
 
@@ -389,28 +494,10 @@ public class PhilterClient extends AbstractClient {
 	 * @throws IOException Thrown if the call not be executed.
 	 */
 	public void deletePolicy(String policyName) throws IOException {
-
-		final Response<Void> response = service.deletePolicy(policyName).execute();
-
-		if(!response.isSuccessful()) {
-
-			if(response.code() == 401) {
-
-				throw new UnauthorizedException(UNAUTHORIZED);
-
-			} else if(response.code() == 503) {
-
-				throw new ServiceUnavailableException(SERVICE_UNAVAILABLE);
-
-			} else {
-
-				throw new ClientException("Unknown error: HTTP " + response.code());
-
-			}
-
-		}
-
+		sendExpectingNoContent(request(uri("/api/policies/" + encode(policyName))).DELETE().build());
 	}
+
+	// Alerts.
 
 	/**
 	 * Get alerts.
@@ -419,29 +506,9 @@ public class PhilterClient extends AbstractClient {
 	 */
 	public List<Alert> getAlerts() throws IOException {
 
-		final Response<List<Alert>> response = service.getAlerts().execute();
+		final HttpRequest request = request(uri("/api/alerts")).GET().build();
 
-		if(response.isSuccessful()) {
-
-			return response.body();
-
-		} else {
-
-			if(response.code() == 401) {
-
-				throw new UnauthorizedException(UNAUTHORIZED);
-
-			} else if(response.code() == 503) {
-
-				throw new ServiceUnavailableException(SERVICE_UNAVAILABLE);
-
-			} else {
-
-				throw new ClientException("Unknown error: HTTP " + response.code());
-
-			}
-
-		}
+		return gson.fromJson(sendExpectingString(request), new TypeToken<List<Alert>>() {}.getType());
 
 	}
 
@@ -451,27 +518,7 @@ public class PhilterClient extends AbstractClient {
 	 * @throws IOException Thrown if the call not be executed.
 	 */
 	public void deleteAlert(String alertId) throws IOException {
-
-		final Response<Void> response = service.deleteAlert(alertId).execute();
-
-		if(!response.isSuccessful()) {
-
-			if(response.code() == 401) {
-
-				throw new UnauthorizedException(UNAUTHORIZED);
-
-			} else if(response.code() == 503) {
-
-				throw new ServiceUnavailableException(SERVICE_UNAVAILABLE);
-
-			} else {
-
-				throw new ClientException("Unknown error: HTTP " + response.code());
-
-			}
-
-		}
-
+		sendExpectingNoContent(request(uri("/api/alerts/" + encode(alertId))).DELETE().build());
 	}
 
 }

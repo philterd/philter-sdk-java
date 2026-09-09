@@ -4,6 +4,10 @@ The **Philter SDK for Java** is an API client for [Philter](https://www.philterd
 
 Refer to the [Philter API](https://docs.philterd.ai/philter/latest/api-1-readme.html) documentation for details on the methods available.
 
+## Requirements
+
+Java 11 or later. The client uses the JDK's built-in HTTP client and has a single runtime dependency, Gson.
+
 ## Snapshots and Releases
 
 Snapshots and releases are available in our [Maven repositories](https://artifacts.philterd.ai/) so add the following to your Maven configuration:
@@ -43,6 +47,16 @@ ExplainResponse explainResponse = client.explain(text);
 
 ## Release History
 
+* 1.6.0:
+  * Replaced Retrofit and OkHttp with the JDK's `java.net.http.HttpClient`. The only remaining runtime dependency is Gson.
+  * **Breaking:** requires Java 11 or later.
+  * **Breaking:** `PhilterClientBuilder.withOkHttpClientBuilder(OkHttpClient.Builder)` is replaced by `withHttpClientBuilder(HttpClient.Builder)`.
+  * **Deprecated:** `withMaxIdleConnections` and `withKeepAliveDurationMs` no longer have any effect. The JDK client is tuned with the `jdk.httpclient.connectionPoolSize` and `jdk.httpclient.keepalive.timeout` system properties.
+  * Replaced the `sslcontext-kickstart`/`ayza`, `commons-lang3` and `commons-io` dependencies with the equivalent JDK APIs.
+  * **Breaking:** removed the unused `FilteredSpan` model class. It was superseded by `Span`, which carries the same fields plus `id`, `text`, `salt` and `ignored`, and is what `explain()` returns.
+  * **Breaking:** removed the `AbstractClient` base class; its constants and response handling now live on `PhilterClient`. The `UNAUTHORIZED` and `SERVICE_UNAVAILABLE` constants remain accessible as `PhilterClient.UNAUTHORIZED` and `PhilterClient.SERVICE_UNAVAILABLE`.
+  * `withEndpoint` now accepts an endpoint with or without a trailing slash.
+  * Fixed a `NullPointerException` when `withSslConfiguration` was given a keystore but no truststore; the JDK's default trust material is now used.
 * 1.4.0:
   * Modified /api/status response.
   * Renamed profiles to policies.

@@ -1,12 +1,12 @@
 /*******************************************************************************
- * Copyright 2023 Philterd, LLC
- *
+ * Copyright 2026 Philterd, LLC
+ * <p>
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License.  You may obtain a copy
  * of the License at
- *
+ * <p>
  *   http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
  * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
@@ -18,8 +18,8 @@ package ai.philterd.philter.model;
 import com.google.gson.Gson;
 import com.google.gson.annotations.Expose;
 import com.google.gson.annotations.SerializedName;
-import org.apache.commons.lang3.builder.EqualsBuilder;
-import org.apache.commons.lang3.builder.HashCodeBuilder;
+
+import java.util.Objects;
 
 /**
  * The response from Philter resulting from an explain request.
@@ -42,17 +42,35 @@ public class ExplainResponse {
     @SerializedName("explanation")
     private Explanation explanation;
 
+    @Override
     public int hashCode() {
-        return (new HashCodeBuilder(17, 37)).append(this.filteredText).append(this.context).append(this.documentId).toHashCode();
+        return Objects.hash(filteredText, context, documentId);
     }
 
+    @Override
     public String toString() {
         Gson gson = new Gson();
         return gson.toJson(this);
     }
 
+    @Override
     public boolean equals(Object o) {
-        return EqualsBuilder.reflectionEquals(this, o, new String[0]);
+
+        if(this == o) {
+            return true;
+        }
+
+        if(o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        final ExplainResponse other = (ExplainResponse) o;
+
+        return Objects.equals(filteredText, other.filteredText)
+                && Objects.equals(context, other.context)
+                && Objects.equals(documentId, other.documentId)
+                && Objects.equals(explanation, other.explanation);
+
     }
 
     public String getFilteredText() {
