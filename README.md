@@ -56,6 +56,9 @@ ExplainResponse explainResponse = client.explain(text);
   * **Breaking:** removed the unused `FilteredSpan` model class. It was superseded by `Span`, which carries the same fields plus `id`, `text`, `salt` and `ignored`, and is what `explain()` returns.
   * **Breaking:** removed the `AbstractClient` base class; its constants and response handling now live on `PhilterClient`. The `UNAUTHORIZED` and `SERVICE_UNAVAILABLE` constants remain accessible as `PhilterClient.UNAUTHORIZED` and `PhilterClient.SERVICE_UNAVAILABLE`.
   * `withEndpoint` now accepts an endpoint with or without a trailing slash.
+  * **Behaviour change:** the response body no longer has a read timeout. `withTimeout` now bounds the connect and the wait for response headers; OkHttp additionally aborted a response whose body stalled mid-transfer, and the JDK client has no equivalent setting.
+  * **Behaviour change:** an HTTPS endpoint that redirects to HTTP is no longer followed.
+  * Requests are pinned to HTTP/1.1. Pass a client configured for HTTP/2 to `withHttpClientBuilder` to opt in.
   * Fixed a `NullPointerException` when `withSslConfiguration` was given a keystore but no truststore; the JDK's default trust material is now used.
 * 1.4.0:
   * Modified /api/status response.
@@ -83,5 +86,5 @@ ExplainResponse explainResponse = client.explain(text);
 
 This project is licensed under the Apache License, version 2.0.
 
-Copyright 2024 Philterd, LLC.
+Copyright 2026 Philterd, LLC.
 Philter is a registered trademark of Philterd, LLC.

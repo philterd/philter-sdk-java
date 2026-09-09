@@ -342,6 +342,38 @@ public class PhilterClientMockTest {
 
     }
 
+    // Proxy support.
+
+    @Test
+    public void honoursSystemProxyProperties() throws Exception {
+
+        respond(200, "Healthy");
+
+        // Point the proxy at the test server and aim the client at a host that does not resolve,
+        // so the call can only succeed if the proxy was actually consulted. OkHttp did this by
+        // default; the JDK client only does it when a ProxySelector is set explicitly.
+        System.setProperty("http.proxyHost", "localhost");
+        System.setProperty("http.proxyPort", Integer.toString(server.getAddress().getPort()));
+
+        try {
+
+            final PhilterClient proxied = new PhilterClient.PhilterClientBuilder()
+                    .withEndpoint("http://philter.example.invalid:8080")
+                    .withTimeout(5)
+                    .build();
+
+            Assert.assertEquals("Healthy", proxied.status());
+            Assert.assertEquals("/api/status", path);
+
+        } finally {
+
+            System.clearProperty("http.proxyHost");
+            System.clearProperty("http.proxyPort");
+
+        }
+
+    }
+
     // Error mapping.
 
     @Test(expected = UnauthorizedException.class)

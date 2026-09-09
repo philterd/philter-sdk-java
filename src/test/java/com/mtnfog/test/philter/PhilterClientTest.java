@@ -36,6 +36,7 @@ import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.util.List;
+import java.util.Objects;
 
 @Ignore
 public class PhilterClientTest {
@@ -72,7 +73,7 @@ public class PhilterClientTest {
 
         final List<String> policyNames = client.getPolicies();
 
-        Assert.assertTrue(policyNames != null);
+        Assert.assertNotNull(policyNames);
         Assert.assertFalse(policyNames.isEmpty());
 
         for(final String name : policyNames) {
@@ -103,7 +104,7 @@ public class PhilterClientTest {
 
         final List<String> policyNames = client.getPolicies();
 
-        Assert.assertTrue(policyNames != null);
+        Assert.assertNotNull(policyNames);
         Assert.assertFalse(policyNames.isEmpty());
 
         for(final String name : policyNames) {
@@ -123,8 +124,8 @@ public class PhilterClientTest {
 
         final String filterProfile = client.Policy("default");
 
-        Assert.assertTrue(filterProfile != null);
-        Assert.assertTrue(filterProfile.length() > 0);
+        Assert.assertNotNull(filterProfile);
+        Assert.assertFalse(filterProfile.isEmpty());
 
         LOGGER.info("Policy:\n{}", filterProfile);
 
@@ -139,7 +140,7 @@ public class PhilterClientTest {
                         "/tmp/keystore-server.jks", "changeit")
                 .build();
 
-        final byte[] bytes = Files.readAllBytes(Paths.get(this.getClass().getResource("/default2.json").toURI()));
+        final byte[] bytes = Files.readAllBytes(Paths.get(Objects.requireNonNull(this.getClass().getResource("/default2.json")).toURI()));
         final String json = new String(bytes, Charset.defaultCharset());
 
         client.savePolicy(json);

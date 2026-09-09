@@ -31,6 +31,7 @@ import javax.net.ssl.TrustManagerFactory;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.ProxySelector;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.net.http.HttpClient;
@@ -170,6 +171,14 @@ public class PhilterClient {
 					// Pinned so the wire behaviour matches the previous OkHttp-based releases.
 					// Callers wanting HTTP/2 can set it via withHttpClientBuilder.
 					.version(HttpClient.Version.HTTP_1_1);
+
+			// Unlike OkHttp, the JDK client ignores the http.proxyHost/https.proxyHost system
+			// properties unless a selector is set explicitly.
+			final ProxySelector proxySelector = ProxySelector.getDefault();
+
+			if(proxySelector != null) {
+				httpClientBuilder.proxy(proxySelector);
+			}
 
 		}
 
