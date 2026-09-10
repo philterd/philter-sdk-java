@@ -11,15 +11,9 @@
     <url>https://github.com/philterd/philter-sdk-java</url>
     <distributionManagement>
         <snapshotRepository>
-            <id>philterd-repository-snapshots</id>
-            <name>Philterd Snapshots Repository</name>
-            <url>https://artifacts.philterd.ai/snapshots</url>
+            <id>central</id>
+            <url>https://central.sonatype.com/repository/maven-snapshots/</url>
         </snapshotRepository>
-        <repository>
-            <id>philterd-repository-releases</id>
-            <name>Philterd Repository</name>
-            <url>https://artifacts.philterd.ai/releases</url>
-        </repository>
     </distributionManagement>
     <scm>
         <connection>scm:git:https://github.com/philterd/philter-sdk-java.git</connection>
@@ -44,12 +38,36 @@
         </developer>
     </developers>
     <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <gson.version>2.13.1</gson.version>
         <junit.version>4.13.2</junit.version>
         <log4j.version>2.26.1</log4j.version>
     </properties>
     <build>
         <plugins>
+            <plugin>
+                <groupId>org.sonatype.central</groupId>
+                <artifactId>central-publishing-maven-plugin</artifactId>
+                <version>0.9.0</version>
+                <extensions>true</extensions>
+                <configuration>
+                    <publishingServerId>central</publishingServerId>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-source-plugin</artifactId>
+                <version>3.4.0</version>
+                <executions>
+                    <execution>
+                        <id>attach-sources</id>
+                        <goals>
+                            <goal>jar-no-fork</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
@@ -74,6 +92,11 @@
                         <goals>
                             <goal>jar</goal>
                         </goals>
+                        <configuration>
+                            <additionalOptions>
+                                <additionalOption>-Xdoclint:none</additionalOption>
+                            </additionalOptions>
+                        </configuration>
                     </execution>
                 </executions>
             </plugin>

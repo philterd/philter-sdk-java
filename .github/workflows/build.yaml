@@ -5,15 +5,46 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: write      
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Set up JDK 17
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           java-version: 17
-          distribution: adopt
+          distribution: temurin
           architecture: x64
           cache: maven
       - name: Build
         run: mvn --batch-mode --update-snapshots test
+
+  publish-snapshot:
+    # Publish a -SNAPSHOT to the Maven Central snapshot repository on every push
+    # to main, but only after the build job passes. Never runs on pull requests
+    # (which keeps the credentials away from fork builds).
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: publish-snapshot-${{ github.ref }}
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          java-version: 17
+          distribution: temurin
+          cache: maven
+          server-id: central
+          server-username: MAVEN_CENTRAL_USERNAME
+          server-password: MAVEN_CENTRAL_PASSWORD
+      - name: Resolve the project version
+        id: version
+        run: echo "version=$(mvn -q help:evaluate -Dexpression=project.version -DforceStdout)" >> "$GITHUB_OUTPUT"
+      - name: Publish snapshot to Maven Central
+        # Only publish when the resolved version is a snapshot; a release version
+        # must never be pushed into the snapshot channel. Skip cleanly otherwise.
+        if: endsWith(steps.version.outputs.version, '-SNAPSHOT')
+        run: mvn --batch-mode --no-transfer-progress -DskipTests deploy
+        env:
+          MAVEN_CENTRAL_USERNAME: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+          MAVEN_CENTRAL_PASSWORD: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}

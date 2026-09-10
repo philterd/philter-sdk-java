@@ -10,23 +10,14 @@ Java 11 or later. The client uses the JDK's built-in HTTP client and has a singl
 
 ## Snapshots and Releases
 
-Snapshots and releases are available in our [Maven repositories](https://artifacts.philterd.ai/) so add the following to your Maven configuration:
+Snapshots and releases as of version 1.6.0 are published to Maven Central.
 
-```
-<repository>
-    <id>philterd-repository-releases</id>
-    <url>https://artifacts.philterd.ai/releases</url>
-    <snapshots>
-        <enabled>false</enabled>
-    </snapshots>
-</repository>
-<repository>
-    <id>philterd-repository-snapshots</id>
-    <url>https://artifacts.philterd.ai/snapshots</url>
-    <snapshots>
-        <enabled>true</enabled>
-    </snapshots>
-</repository>
+```xml
+<dependency>
+  <groupId>ai.philterd</groupId>
+  <artifactId>philter-sdk-java</artifactId>
+  <version>1.6.0</version>
+</dependency>
 ```
 
 ## Example Usage
