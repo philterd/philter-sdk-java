@@ -8,6 +8,16 @@ engine [Phileas](https://github.com/philterd/phileas).
 Refer to the [Philter API specification](https://github.com/philterd/philter/blob/main/docs/docs/api_and_sdks/openapi.json)
 for details on the available endpoints.
 
+## Compatibility
+
+As of version 2.0.0, this client targets the **Philter 4.0.0** API. Earlier versions of the client are not
+compatible with Philter 4.0.0 and later.
+
+| philter-sdk-java | Philter API |
+|------------------|-------------|
+| 2.0.0 and later  | 4.0.0       |
+| 1.x              | 1.x – 3.x   |
+
 ## Installation
 
 Releases are available from [Maven Central](https://central.sonatype.com/artifact/ai.philterd/philter-sdk-java). Add the
@@ -45,16 +55,6 @@ To track the latest development build, depend on the current `-SNAPSHOT` version
 ```
 
 Snapshots are development builds: they are mutable and are periodically pruned, so pin a release version for anything you need to reproduce.
-
-## Compatibility
-
-As of version 2.0.0, this client targets the **Philter 4.0.0** API. Earlier versions of the client are not
-compatible with Philter 4.0.0 and later.
-
-| philter-sdk-java | Philter API |
-|------------------|-------------|
-| 2.0.0 and later  | 4.0.0       |
-| 1.x              | 1.x – 3.x   |
 
 ## Example Usage
 
