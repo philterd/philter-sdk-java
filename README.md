@@ -13,10 +13,12 @@ for details on the available endpoints.
 As of version 2.0.0, this client targets the **Philter 4.0.0** API. Earlier versions of the client are not
 compatible with Philter 4.0.0 and later.
 
-| philter-sdk-java | Philter API |
-|------------------|-------------|
-| 2.0.0 and later  | 4.0.0       |
-| 1.x              | 1.x – 3.x   |
+| philter-sdk-java | Philter API | Branch |
+|------------------|-------------|--------|
+| 2.0.0 and later  | 4.x         | `main` |
+| 1.x              | 1.x – 3.x   | `1.x`  |
+
+Development for Philter 4.x happens on the `main` branch. The `1.x` branch supports Philter 3 and earlier.
 
 ## Installation
 
