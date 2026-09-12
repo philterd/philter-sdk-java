@@ -11,29 +11,33 @@ PhilterClient client = new PhilterClient.PhilterClientBuilder()
         .build();
 ```
 
-A `PhilterClient` is thread-safe and reusable, so create one and share it for the lifetime of your application. Connection settings can be tuned on the builder:
+A `PhilterClient` is thread-safe and reusable, so create one and share it for the lifetime of your application. The timeout can be set on the builder:
 
 ```java
 PhilterClient client = new PhilterClient.PhilterClientBuilder()
         .withEndpoint("https://localhost:8080")
         .withApiKey("your-api-key")
-        .withTimeout(60)                 // connect/read/write timeout, seconds
-        .withMaxIdleConnections(20)
-        .withKeepAliveDurationMs(30000)
+        .withTimeout(60)                 // connect and per-request timeout, seconds
         .build();
 ```
 
-For full control over the HTTP stack (proxies, custom TLS, logging interceptors, and so on) supply your own OkHttp builder. When you do, the timeout and pool settings above are not applied, so configure them on your builder:
+Requests are made with the JDK's `java.net.http.HttpClient`, so the SDK adds no third-party HTTP dependency to your application.
+
+For full control over the HTTP stack (proxies, custom TLS, a custom executor, and so on) supply your own `HttpClient.Builder`. The connect timeout is then yours to configure; the per-request timeout and the `Authorization` header are still applied:
 
 ```java
-import okhttp3.OkHttpClient;
+import java.net.http.HttpClient;
+import java.time.Duration;
 
-OkHttpClient.Builder http = new OkHttpClient.Builder();
-// ...configure timeouts, interceptors, TLS, etc...
+HttpClient.Builder http = HttpClient.newBuilder()
+        .connectTimeout(Duration.ofSeconds(60));
+// ...configure TLS, proxy, executor, etc...
 
 PhilterClient client = new PhilterClient.PhilterClientBuilder()
         .withEndpoint("https://localhost:8080")
         .withApiKey("your-api-key")
-        .withOkHttpClientBuilder(http)
+        .withHttpClientBuilder(http)
         .build();
 ```
+
+Connection pooling is tuned with the JDK's own system properties (`jdk.httpclient.connectionPoolSize`, `jdk.httpclient.keepalive.timeout`) rather than on the builder. `withMaxIdleConnections(...)` and `withKeepAliveDurationMs(...)` remain on the builder for source compatibility but have no effect.

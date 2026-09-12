@@ -8,6 +8,14 @@ Every operation declares a checked `IOException`, thrown when the request cannot
 | 503         | `ServiceUnavailableException` |
 | any other non-2xx | `ClientException` |
 
+Philter explains a rejected request in the response body, and the `ClientException` message carries it (truncated at 512 characters) after the status code, so a 400 or a 403 says what was actually wrong:
+
+```
+Unknown error: HTTP 400: {"message":"'strategy' must be CRYPTO_REPLACE or FPE_ENCRYPT_REPLACE."}
+```
+
+`UnauthorizedException` and `ServiceUnavailableException` carry fixed messages, since a 401 and a 503 say all there is to say.
+
 ```java
 import ai.philterd.philter.model.FilterResponse;
 import ai.philterd.philter.model.exceptions.ServiceUnavailableException;

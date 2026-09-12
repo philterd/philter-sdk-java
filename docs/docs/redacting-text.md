@@ -16,4 +16,12 @@ String documentId = response.getDocumentId();  // assigned by Philter
 String context = response.getContext();         // echoes "my-context"
 ```
 
+Pass a filename with the four-argument overload to record the source of the text against the document:
+
+```java
+FilterResponse response = client.filter("my-context", "default", "notes.txt", text);
+```
+
+`explain(context, policyName, filename, text)` takes a filename the same way.
+
 The replacement text (redaction tokens, masking characters, encrypted values, and so on) is entirely determined by the policy you name. See [Policies](policies.md).

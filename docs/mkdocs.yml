@@ -21,6 +21,10 @@ nav:
   - Contexts: contexts.md
   - Re-identification: re-identification.md
   - Custom Lists: custom-lists.md
+  - Always/Never Redact Lists: redact-lists.md
+  - Legal Holds: legal-holds.md
+  - Redaction Ledger: ledger.md
+  - Owners and Pagination: owners-and-pagination.md
   - Server Health: health.md
   - Error Handling: error-handling.md
   - End-to-End Example: end-to-end-example.md

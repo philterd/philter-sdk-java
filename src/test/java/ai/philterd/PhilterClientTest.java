@@ -22,8 +22,6 @@ import ai.philterd.philter.model.FilterResponse;
 import ai.philterd.philter.model.GenericResponse;
 import ai.philterd.philter.model.GetListsResponse;
 import ai.philterd.philter.model.StatusResponse;
-import okhttp3.ConnectionPool;
-import okhttp3.OkHttpClient;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.Assert;
@@ -35,10 +33,10 @@ import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
 import java.io.File;
+import java.net.http.HttpClient;
 import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Live integration tests that run against a real Philter 4.0.0 instance.
@@ -61,6 +59,15 @@ public class PhilterClientTest {
     private static final String API_KEY = System.getenv("PHILTER_API_KEY");
     private static final boolean INSECURE = Boolean.parseBoolean(getEnv("PHILTER_INSECURE", "false"));
 
+    static {
+        if (INSECURE) {
+            // The JDK HTTP client has no hostname verifier hook. This system property is the
+            // supported way to accept a certificate whose name does not match the host, and it
+            // must be set before the client is first created.
+            System.setProperty("jdk.internal.httpclient.disableHostnameVerification", "true");
+        }
+    }
+
     private static final String SENSITIVE_TEXT = "His SSN is 123-45-6789.";
     private static final String SSN = "123-45-6789";
 
@@ -81,7 +88,7 @@ public class PhilterClientTest {
         }
 
         if (INSECURE) {
-            builder.withOkHttpClientBuilder(getUnsafeOkHttpClientBuilder());
+            builder.withHttpClientBuilder(getUnsafeHttpClientBuilder());
         }
 
         return builder.build();
@@ -98,10 +105,9 @@ public class PhilterClientTest {
     }
 
     @Test
-    public void status() throws Exception {
-        final StatusResponse status = client().status();
-        Assert.assertNotNull(status);
-        Assert.assertNotNull(status.getStatus());
+    public void signingKey() throws Exception {
+        // The signing key endpoint is unauthenticated, like health.
+        Assert.assertNotNull(client().getSigningKey());
     }
 
     // Filtering and explanation.
@@ -223,7 +229,7 @@ public class PhilterClientTest {
     }
 
     // Trusts all certificates; used to test against Philter running with a self-signed certificate.
-    private OkHttpClient.Builder getUnsafeOkHttpClientBuilder() throws NoSuchAlgorithmException, KeyManagementException {
+    private HttpClient.Builder getUnsafeHttpClientBuilder() throws NoSuchAlgorithmException, KeyManagementException {
 
         final TrustManager[] trustAllCerts = new TrustManager[] { new X509TrustManager() {
 
@@ -242,18 +248,12 @@ public class PhilterClientTest {
 
         } };
 
-        final SSLContext sslContext = SSLContext.getInstance("SSL");
+        final SSLContext sslContext = SSLContext.getInstance("TLS");
         sslContext.init(null, trustAllCerts, new java.security.SecureRandom());
 
-        OkHttpClient.Builder builder = new OkHttpClient.Builder();
-        builder.sslSocketFactory(sslContext.getSocketFactory(), (X509TrustManager) trustAllCerts[0]);
-        builder.connectTimeout(PhilterClient.DEFAULT_TIMEOUT_SEC, TimeUnit.SECONDS);
-        builder.writeTimeout(PhilterClient.DEFAULT_TIMEOUT_SEC, TimeUnit.SECONDS);
-        builder.readTimeout(PhilterClient.DEFAULT_TIMEOUT_SEC, TimeUnit.SECONDS);
-        builder.connectionPool(new ConnectionPool(PhilterClient.DEFAULT_MAX_IDLE_CONNECTIONS, PhilterClient.DEFAULT_KEEP_ALIVE_DURATION_MS, TimeUnit.MILLISECONDS));
-        builder.hostnameVerifier((hostname, session) -> true);
-
-        return builder;
+        return HttpClient.newBuilder()
+                .sslContext(sslContext)
+                .connectTimeout(java.time.Duration.ofSeconds(PhilterClient.DEFAULT_TIMEOUT_SEC));
 
     }
 

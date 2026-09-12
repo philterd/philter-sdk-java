@@ -5,7 +5,7 @@ A policy defines which entity types are detected and how each is redacted. Manag
 ```java
 import java.util.List;
 
-// List the available policy names.
+// The first page of policy names. See Owners and Pagination for the rest.
 List<String> policies = client.getPolicies();
 
 // Retrieve a policy's JSON.
@@ -37,3 +37,11 @@ String diff = client.getPolicyDiff("my-policy", 1, 2);            // diff betwee
 PolicyRollbackResponse rollback = client.rollbackPolicy("my-policy", 1);
 System.out.println("rolled back to revision " + rollback.getRevision());
 ```
+
+`compilePolicy(policyJson)` asks Philter to compile a policy without saving it, which is a way to check a policy body before you store it:
+
+```java
+String compiled = client.compilePolicy(policyJson);
+```
+
+An invalid policy is rejected with an HTTP 400, raised as a `ClientException`.

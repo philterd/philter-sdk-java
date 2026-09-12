@@ -45,16 +45,23 @@ Snapshots are development builds: they are mutable and are periodically pruned, 
 
 As of version 2.0.0, this client targets the **Philter 4.0.0** API. Earlier versions of the client are not compatible with Philter 4.0.0 and later.
 
-| philter-sdk-java | Philter API |
-|------------------|-------------|
-| 2.0.0 and later  | 4.0.0       |
-| 1.x              | 1.x to 3.x  |
+| philter-sdk-java | Philter API | Branch |
+|------------------|-------------|--------|
+| 2.0.0 and later  | 4.x         | `main` |
+| 1.x              | 1.x to 3.x  | `1.x`  |
+
+Development for Philter 4.x happens on the `main` branch. The `1.x` branch supports Philter 3 and earlier.
+
+The client requires Java 11 or later. Requests are made with the JDK's `java.net.http.HttpClient`, so the SDK adds no third-party HTTP dependency to your application.
 
 ## Usage
 
 With an available running instance of Philter, to filter text:
 
 ```java
+import ai.philterd.philter.PhilterClient;
+import ai.philterd.philter.model.FilterResponse;
+
 PhilterClient client = new PhilterClient.PhilterClientBuilder()
         .withEndpoint("https://127.0.0.1:8080")
         .withApiKey("your-api-key")
@@ -66,12 +73,14 @@ FilterResponse filterResponse = client.filter("context", "default", text);
 To filter text with explanation:
 
 ```java
+import ai.philterd.philter.model.ExplainResponse;
+
 ExplainResponse explainResponse = client.explain("context", "default", text);
 ```
 
 Philter 4.0.0 expects an `Authorization` header on nearly every endpoint. Provide its value with `withApiKey(...)`; the value is sent verbatim, so include any scheme prefix (for example `"Bearer "`) if your deployment requires it. The `health()` endpoint does not require authentication.
 
-In addition to filtering, the client covers the full Philter 4.0.0 API: policies (including versions, diffs, and rollbacks), contexts, documents, legal holds, the redaction ledger, custom lists, redact lists, and re-identification.
+In addition to filtering, the client covers the full Philter 4.0.0 API: policies (including versions, diffs, and rollbacks), contexts, documents, legal holds, the redaction ledger, custom lists, redact lists, and re-identification. Every endpoint in the [API specification](https://github.com/philterd/philter/blob/main/docs/docs/api_and_sdks/openapi.json) has a corresponding method, and every optional query parameter can be supplied.
 
 ## License
 

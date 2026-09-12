@@ -2,4 +2,6 @@
 
 - **Policy**: A named set of rules that tells Philter which entity types to find (names, SSNs, email addresses, dates, and so on) and what *filter strategy* to apply to each (redact, replace, mask, encrypt, hash, and others). Every filter request names the policy to apply; Philter ships a policy named `default`. Policies are authored as JSON; this client treats the policy body as an opaque JSON string.
 - **Context**: An arbitrary label used to group requests (for example, by tenant or job). It is passed on each filter request and is echoed back on the response.
-- **Document ID**: Philter assigns an identifier to each filtered document and returns it in the `x-document-id` response header; the client exposes it on the response object.
+- **Document ID**: Philter assigns an identifier to each filtered document and returns it in the `X-Document-Id` response header; the client exposes it on the response object.
+- **Consistent pseudonymization**: Replacing a value with a stand-in, and using the same stand-in for that value everywhere. Philter records the mapping as entries on the context, so the property holds across documents and requests that share a context. This is what preserves **referential integrity**: relationships and joins in the redacted output still line up, because one source value has exactly one replacement.
+- **Re-identification**: The `CRYPTO_REPLACE` and `FPE_ENCRYPT_REPLACE` strategies are reversible, value by value, through `reidentify(...)`. Redaction, masking, and hashing are not. See [Re-identification](re-identification.md).

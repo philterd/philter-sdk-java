@@ -20,6 +20,9 @@ compatible with Philter 4.0.0 and later.
 
 Development for Philter 4.x happens on the `main` branch. The `1.x` branch supports Philter 3 and earlier.
 
+The client requires Java 11 or later. Requests are made with the JDK's `java.net.http.HttpClient`, so the SDK adds
+no third-party HTTP dependency to your application.
+
 ## Installation
 
 Releases are available from [Maven Central](https://central.sonatype.com/artifact/ai.philterd/philter-sdk-java). Add the
