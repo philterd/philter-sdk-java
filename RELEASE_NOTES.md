@@ -13,6 +13,13 @@ from it.
 
 * Added `getSigningKey(String keyId)` for `GET /api/signing-key/{keyId}`, which returns a retained public
   signing key by ID.
+* Added `createUser(...)` for `POST /api/users` and `createApiKey(...)` for
+  `POST /api/users/{username}/api-keys`, with the `CreateUserRequest`, `CreatedUserResponse`,
+  `CreateApiKeyRequest`, and `CreatedApiKeyResponse` models. These provision a deployment without the
+  dashboard. Philter exposes them only where `PROVISIONING_API_ENABLED=true` is set in its environment;
+  elsewhere both calls get an HTTP 404. They also require the calling key to belong to an administrator and
+  to hold `users:write` or `api-keys:write` respectively. A created key's value is returned only in the
+  response, so capture it there: Philter stores only its hash.
 * Added `deleteLedgerEntry(String documentId)` for `DELETE /api/ledger/{documentId}`.
 * Added `purgeLedger(int olderThanDays)` for `DELETE /api/ledger`, which prunes completed chains older than
   the given number of days. Philter restricts both ledger deletions to administrators on deployments that

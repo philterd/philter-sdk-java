@@ -17,11 +17,14 @@ package ai.philterd;
 
 import ai.philterd.philter.PhilterClient;
 import ai.philterd.philter.model.BinaryFilterResponse;
+import ai.philterd.philter.model.CreatedApiKeyResponse;
+import ai.philterd.philter.model.CreatedUserResponse;
 import ai.philterd.philter.model.ExplainResponse;
 import ai.philterd.philter.model.FilterResponse;
 import ai.philterd.philter.model.GenericResponse;
 import ai.philterd.philter.model.GetListsResponse;
 import ai.philterd.philter.model.StatusResponse;
+import ai.philterd.philter.model.exceptions.ClientException;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.Assert;
@@ -49,6 +52,9 @@ import java.util.List;
  *   <li>{@code PHILTER_API_KEY} (optional) - value sent in the Authorization header</li>
  *   <li>{@code PHILTER_INSECURE} (optional) - {@code true} to trust self-signed certificates</li>
  *   <li>{@code PHILTER_PDF_FILE} (optional) - path to a PDF used by the PDF filtering test</li>
+ *   <li>{@code PHILTER_PROVISIONING} (optional) - {@code true} when the instance runs with
+ *       {@code PROVISIONING_API_ENABLED=true} and {@code PHILTER_API_KEY} is an administrator's key, to run
+ *       the provisioning tests. They create a user, which nothing in the API removes, so they are opt-in.</li>
  * </ul>
  */
 public class PhilterClientTest {
@@ -58,6 +64,7 @@ public class PhilterClientTest {
     private static final String ENDPOINT = System.getenv("PHILTER_ENDPOINT");
     private static final String API_KEY = System.getenv("PHILTER_API_KEY");
     private static final boolean INSECURE = Boolean.parseBoolean(getEnv("PHILTER_INSECURE", "false"));
+    private static final boolean PROVISIONING = Boolean.parseBoolean(getEnv("PHILTER_PROVISIONING", "false"));
 
     static {
         if (INSECURE) {
@@ -221,6 +228,45 @@ public class PhilterClientTest {
         } finally {
             client.deleteList(name);
         }
+    }
+
+    // Provisioning.
+
+    @Test
+    public void provisionUserAndApiKey() throws Exception {
+
+        Assume.assumeTrue("Set PHILTER_PROVISIONING=true against an instance with PROVISIONING_API_ENABLED=true.",
+                PROVISIONING);
+
+        final PhilterClient client = client();
+        final String username = "sdk-it-user-" + System.currentTimeMillis();
+
+        final CreatedUserResponse user = client.createUser(username, username + "@example.com",
+                "sdk-it-password-that-is-long-enough");
+
+        Assert.assertEquals(username, user.getUsername());
+        Assert.assertEquals("Provisioning only ever creates a non-administrator.", "user", user.getRole());
+
+        final CreatedApiKeyResponse key = client.createApiKey(username, List.of("redact"));
+
+        Assert.assertEquals(username, key.getUsername());
+        Assert.assertNotNull("The key value is returned only here.", key.getApiKey());
+        Assert.assertFalse(key.getApiKey().isBlank());
+        Assert.assertEquals(List.of("redact"), key.getScopes());
+
+        LOGGER.info("Provisioned user {} with a {} key.", username, key.getScopes());
+
+        // The minted key works, and carries only the scope it was given. Philter expects the Bearer
+        // scheme, and the client sends the Authorization value verbatim, so the prefix goes on here.
+        final PhilterClient scoped = new PhilterClient.PhilterClientBuilder()
+                .withEndpoint(ENDPOINT)
+                .withApiKey("Bearer " + key.getApiKey())
+                .withHttpClientBuilder(INSECURE ? getUnsafeHttpClientBuilder() : HttpClient.newBuilder())
+                .build();
+
+        // The new user comes with a "default" policy and context, so the key can redact straight away.
+        Assert.assertNotNull(scoped.filter("default", "default", SENSITIVE_TEXT).getFilteredText());
+        Assert.assertThrows("A redact-only key cannot read policies.", ClientException.class, scoped::getPolicies);
     }
 
     private static String getEnv(final String name, final String defaultValue) {

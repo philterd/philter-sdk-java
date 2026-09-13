@@ -17,6 +17,10 @@ package ai.philterd.philter;
 
 import ai.philterd.philter.model.AsyncFilterResponse;
 import ai.philterd.philter.model.BinaryFilterResponse;
+import ai.philterd.philter.model.CreateApiKeyRequest;
+import ai.philterd.philter.model.CreateUserRequest;
+import ai.philterd.philter.model.CreatedApiKeyResponse;
+import ai.philterd.philter.model.CreatedUserResponse;
 import ai.philterd.philter.model.ExplainResponse;
 import ai.philterd.philter.model.FilterResponse;
 import ai.philterd.philter.model.GenericResponse;
@@ -1677,6 +1681,95 @@ public class PhilterClient {
 				.build();
 
 		return sendExpectingJson(request, GenericResponse.class);
+
+	}
+
+
+	// Provisioning.
+
+	/**
+	 * Creates a non-administrator user.
+	 *
+	 * <p>Philter's provisioning endpoints exist only where the deployment sets
+	 * {@code PROVISIONING_API_ENABLED=true}; where it does not, this call fails with an HTTP 404. The
+	 * calling key must hold the {@code users:write} scope and belong to an administrator. The role is
+	 * not a parameter: this endpoint cannot create an administrator.</p>
+	 *
+	 * @param username The username. Required.
+	 * @param email The email address. May be {@code null}.
+	 * @param password The password. Required, and at least 16 characters.
+	 * @return The created {@link CreatedUserResponse}.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public CreatedUserResponse createUser(String username, String email, String password) throws IOException {
+
+		final CreateUserRequest request = new CreateUserRequest();
+		request.setUsername(username);
+		request.setEmail(email);
+		request.setPassword(password);
+
+		return createUser(request);
+
+	}
+
+	/**
+	 * Creates a non-administrator user.
+	 * @param request The {@link CreateUserRequest}.
+	 * @return The created {@link CreatedUserResponse}.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public CreatedUserResponse createUser(CreateUserRequest request) throws IOException {
+
+		final HttpRequest httpRequest = json(uri("/api/users"))
+				.header("Content-Type", APPLICATION_JSON)
+				.POST(text(gson.toJson(request)))
+				.build();
+
+		return sendExpectingJson(httpRequest, CreatedUserResponse.class);
+
+	}
+
+	/**
+	 * Creates an API key for a user.
+	 *
+	 * <p>Philter's provisioning endpoints exist only where the deployment sets
+	 * {@code PROVISIONING_API_ENABLED=true}; where it does not, this call fails with an HTTP 404. The
+	 * calling key must hold the {@code api-keys:write} scope and belong to an administrator, and the
+	 * requested scopes must be a subset of those the calling key holds.</p>
+	 *
+	 * <p>The key's value is returned only here. Philter stores only its hash, so a value not captured
+	 * from the response cannot be recovered.</p>
+	 *
+	 * @param username The user the key will belong to.
+	 * @param scopes The scopes to grant the key, for example {@code redact} or {@code policies:read}.
+	 *               At least one is required.
+	 * @return The created {@link CreatedApiKeyResponse}, carrying the key's value.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public CreatedApiKeyResponse createApiKey(String username, List<String> scopes) throws IOException {
+
+		final CreateApiKeyRequest request = new CreateApiKeyRequest();
+		request.setScopes(scopes);
+
+		return createApiKey(username, request);
+
+	}
+
+	/**
+	 * Creates an API key for a user.
+	 * @param username The user the key will belong to.
+	 * @param request The {@link CreateApiKeyRequest}.
+	 * @return The created {@link CreatedApiKeyResponse}, carrying the key's value.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public CreatedApiKeyResponse createApiKey(String username, CreateApiKeyRequest request) throws IOException {
+
+		final HttpRequest httpRequest = json(uri("/api/users/" + encode(username) + "/api-keys"))
+				.header("Content-Type", APPLICATION_JSON)
+				.POST(text(gson.toJson(request)))
+				.build();
+
+		return sendExpectingJson(httpRequest, CreatedApiKeyResponse.class);
 
 	}
 

@@ -17,6 +17,10 @@ package ai.philterd;
 
 import ai.philterd.philter.PhilterClient;
 import ai.philterd.philter.model.BinaryFilterResponse;
+import ai.philterd.philter.model.CreateApiKeyRequest;
+import ai.philterd.philter.model.CreateUserRequest;
+import ai.philterd.philter.model.CreatedApiKeyResponse;
+import ai.philterd.philter.model.CreatedUserResponse;
 import ai.philterd.philter.model.ExplainResponse;
 import ai.philterd.philter.model.FilterResponse;
 import ai.philterd.philter.model.GenericResponse;
@@ -69,6 +73,7 @@ public class PhilterClientMockTest {
     /** The request the server last received. */
     private volatile String method;
     private volatile String path;
+    private volatile String rawPath;
     private volatile String rawQuery;
     private volatile Map<String, String> queryParameters = new HashMap<>();
     private volatile Map<String, String> requestHeaders = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
@@ -97,6 +102,7 @@ public class PhilterClientMockTest {
 
             method = exchange.getRequestMethod();
             path = exchange.getRequestURI().getPath();
+            rawPath = exchange.getRequestURI().getRawPath();
             rawQuery = exchange.getRequestURI().getRawQuery();
             queryParameters = parseQuery(exchange.getRequestURI().getRawQuery());
             requestHeaders = copyHeaders(exchange.getRequestHeaders());
@@ -534,6 +540,117 @@ public class PhilterClientMockTest {
         Assert.assertEquals("/api/lists/my-list", path);
         Assert.assertEquals("a description", queryParameter("description"));
         Assert.assertEquals("[\"alpha\",\"beta\"]", requestBodyAsString());
+    }
+
+    // Provisioning.
+
+    @Test
+    public void createUser() throws Exception {
+
+        respond(201, "{\"username\":\"ci\",\"role\":\"user\"}");
+
+        final CreatedUserResponse response = client().createUser("ci", "ci@example.com", "a-sixteen-char-password");
+
+        Assert.assertEquals("ci", response.getUsername());
+        Assert.assertEquals("user", response.getRole());
+
+        Assert.assertEquals("POST", method);
+        Assert.assertEquals("/api/users", path);
+        Assert.assertEquals("application/json", header("Content-Type"));
+        Assert.assertEquals("application/json", header("Accept"));
+
+        final String body = requestBodyAsString();
+        Assert.assertTrue(body, body.contains("\"username\":\"ci\""));
+        Assert.assertTrue(body, body.contains("\"email\":\"ci@example.com\""));
+        Assert.assertTrue(body, body.contains("\"password\":\"a-sixteen-char-password\""));
+    }
+
+    @Test
+    public void createUserWithRequest() throws Exception {
+
+        respond(201, "{\"username\":\"ci\",\"role\":\"user\"}");
+
+        final CreateUserRequest request = new CreateUserRequest();
+        request.setUsername("ci");
+        request.setPassword("a-sixteen-char-password");
+
+        Assert.assertEquals("ci", client().createUser(request).getUsername());
+
+        Assert.assertEquals("POST", method);
+        Assert.assertEquals("/api/users", path);
+        // An omitted email is left out of the body rather than sent as null.
+        Assert.assertFalse(requestBodyAsString(), requestBodyAsString().contains("email"));
+    }
+
+    @Test
+    public void createUserConflict() {
+
+        respond(409, "{\"message\":\"That username is taken.\"}");
+
+        final ClientException ex = Assert.assertThrows(ClientException.class,
+                () -> client().createUser("ci", null, "a-sixteen-char-password"));
+
+        Assert.assertTrue(ex.getMessage(), ex.getMessage().contains("409"));
+        Assert.assertTrue(ex.getMessage(), ex.getMessage().contains("That username is taken."));
+    }
+
+    @Test
+    public void createUserWhenProvisioningIsDisabled() {
+
+        // With PROVISIONING_API_ENABLED unset the endpoint is not there, and answers 404 with no body.
+        respond(404, "");
+
+        final ClientException ex = Assert.assertThrows(ClientException.class,
+                () -> client().createUser("ci", null, "a-sixteen-char-password"));
+
+        Assert.assertTrue(ex.getMessage(), ex.getMessage().contains("404"));
+    }
+
+    @Test
+    public void createApiKey() throws Exception {
+
+        respond(201, "{\"username\":\"ci\",\"apiKey\":\"pk-secret\",\"scopes\":[\"redact\",\"policies:read\"]}");
+
+        final CreatedApiKeyResponse response =
+                client().createApiKey("ci", List.of("redact", "policies:read"));
+
+        Assert.assertEquals("ci", response.getUsername());
+        Assert.assertEquals("pk-secret", response.getApiKey());
+        Assert.assertEquals(List.of("redact", "policies:read"), response.getScopes());
+
+        Assert.assertEquals("POST", method);
+        Assert.assertEquals("/api/users/ci/api-keys", path);
+        Assert.assertEquals("application/json", header("Content-Type"));
+        Assert.assertEquals("{\"scopes\":[\"redact\",\"policies:read\"]}", requestBodyAsString());
+    }
+
+    @Test
+    public void createApiKeyWithRequest() throws Exception {
+
+        respond(201, "{\"username\":\"a b\",\"apiKey\":\"pk-secret\",\"scopes\":[\"redact\"]}");
+
+        final CreateApiKeyRequest request = new CreateApiKeyRequest();
+        request.setScopes(List.of("redact"));
+
+        Assert.assertEquals("pk-secret", client().createApiKey("a b", request).getApiKey());
+
+        // The username is a path segment, so a space in it goes on the wire percent-encoded, and
+        // as %20 rather than the + that URLEncoder would produce for a form body.
+        Assert.assertEquals("/api/users/a%20b/api-keys", rawPath);
+        Assert.assertEquals("/api/users/a b/api-keys", path);
+        Assert.assertEquals("POST", method);
+    }
+
+    @Test
+    public void createApiKeyWithScopeNotHeld() {
+
+        respond(403, "{\"message\":\"The calling API key does not hold: ledger:export.\"}");
+
+        final ClientException ex = Assert.assertThrows(ClientException.class,
+                () -> client().createApiKey("ci", List.of("ledger:export")));
+
+        Assert.assertTrue(ex.getMessage(), ex.getMessage().contains("403"));
+        Assert.assertTrue(ex.getMessage(), ex.getMessage().contains("does not hold: ledger:export."));
     }
 
     // Wire contract: every remaining endpoint is invoked once and its method, path, and

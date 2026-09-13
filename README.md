@@ -88,7 +88,8 @@ Philter 4.0.0 expects an `Authorization` header on nearly every endpoint. Provid
 deployment requires it. The `health()` endpoint does not require authentication.
 
 In addition to filtering, the client covers the full Philter 4.0.0 API: policies (including versions, diffs, and
-rollbacks), contexts, documents, legal holds, the redaction ledger, custom lists, redact lists, and re-identification.
+rollbacks), contexts, documents, legal holds, the redaction ledger, custom lists, redact lists, re-identification, and
+provisioning users and API keys.
 
 ## Testing
 
