@@ -16,6 +16,7 @@
 package ai.philterd;
 
 import ai.philterd.philter.PhilterClient;
+import ai.philterd.philter.model.AuditLogExport;
 import ai.philterd.philter.model.BinaryFilterResponse;
 import ai.philterd.philter.model.CreateApiKeyRequest;
 import ai.philterd.philter.model.CreateUserRequest;
@@ -49,6 +50,8 @@ import java.net.http.HttpClient;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -86,6 +89,7 @@ public class PhilterClientMockTest {
     private volatile String documentIdHeaderName = "x-document-id";
     private volatile String locationHeader;
     private volatile String contentTypeHeader;
+    private final Map<String, String> responseHeaders = new HashMap<>();
 
     /** Held closed by a test that wants the server to stall; opened in teardown. */
     private final CountDownLatch released = new CountDownLatch(1);
@@ -129,6 +133,8 @@ public class PhilterClientMockTest {
             if (locationHeader != null) {
                 exchange.getResponseHeaders().add("Location", locationHeader);
             }
+
+            responseHeaders.forEach(exchange.getResponseHeaders()::add);
 
             // A response with no body must be sent with a length of -1.
             if (responseBody.length == 0) {
@@ -769,6 +775,95 @@ public class PhilterClientMockTest {
 
         Assert.assertEquals("GET", method);
         Assert.assertEquals("/api/contexts/c1", path);
+    }
+
+    // Audit log export.
+
+    /** The column row Philter writes at the top of every export page. */
+    private static final String CSV_HEADER =
+            "timestamp,event,request_id,api_key_id,associated_object,client_ip_address,details\n";
+
+    @Test
+    public void exportAuditLogSendsTheRangeAndReportsTruncation() throws Exception {
+
+        responseHeaders.put("X-Philter-Export-Rows", "2");
+        responseHeaders.put("X-Philter-Export-Truncated", "true");
+        responseHeaders.put("X-Philter-Export-Next-Offset", "52");
+        responseHeaders.put("X-Philter-Export-Time-Zone", "America/New_York");
+        respond(200, CSV_HEADER
+                + "2026-10-05T12:00:00Z,policy_saved,r2,,p1,,\n"
+                + "2026-10-05T11:00:00Z,policy_saved,r1,,p1,,\n");
+
+        final AuditLogExport export = client().exportAuditLog(LocalDate.of(2026, 10, 1), LocalDate.of(2026, 10, 5),
+                ZoneId.of("America/New_York"), 50, 2);
+
+        Assert.assertEquals("GET", method);
+        Assert.assertEquals("/api/audit/export", path);
+        Assert.assertEquals("2026-10-01", queryParameter("from"));
+        Assert.assertEquals("2026-10-05", queryParameter("to"));
+        Assert.assertEquals("America/New_York", queryParameter("zone"));
+        Assert.assertEquals("50", queryParameter("offset"));
+        Assert.assertEquals("2", queryParameter("limit"));
+
+        Assert.assertTrue(export.getCsv().startsWith(CSV_HEADER));
+        Assert.assertEquals(2, export.getRows());
+        Assert.assertTrue(export.isTruncated());
+        Assert.assertEquals(Integer.valueOf(52), export.getNextOffset());
+        Assert.assertEquals("America/New_York", export.getTimeZone());
+    }
+
+    @Test
+    public void exportAuditLogOmitsUnsetParametersAndReportsACompleteExport() throws Exception {
+
+        responseHeaders.put("X-Philter-Export-Rows", "0");
+        responseHeaders.put("X-Philter-Export-Truncated", "false");
+        responseHeaders.put("X-Philter-Export-Time-Zone", "UTC");
+        respond(200, CSV_HEADER);
+
+        final AuditLogExport export = client().exportAuditLog(LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 30));
+
+        Assert.assertEquals("2026-09-01", queryParameter("from"));
+        Assert.assertEquals("2026-09-30", queryParameter("to"));
+        Assert.assertFalse(queryParameters.containsKey("zone"));
+        Assert.assertFalse(queryParameters.containsKey("offset"));
+        Assert.assertFalse(queryParameters.containsKey("limit"));
+
+        Assert.assertEquals(0, export.getRows());
+        Assert.assertFalse(export.isTruncated());
+        Assert.assertNull(export.getNextOffset());
+        Assert.assertEquals("UTC", export.getTimeZone());
+    }
+
+    @Test
+    public void exportAuditLogSurfacesPhilterReasonForABadRange() throws Exception {
+
+        respond(400, "The date range cannot exceed 30 days.");
+
+        try {
+            client().exportAuditLog(LocalDate.of(2026, 1, 1), LocalDate.of(2026, 3, 1));
+            Assert.fail("Expected a ClientException.");
+        } catch (final ClientException ex) {
+            Assert.assertTrue(ex.getMessage(), ex.getMessage().contains("HTTP 400"));
+            Assert.assertTrue(ex.getMessage(), ex.getMessage().contains("The date range cannot exceed 30 days."));
+        }
+    }
+
+    @Test(expected = ClientException.class)
+    public void exportAuditLogRefusesAResponseWithoutTruncationHeaders() throws Exception {
+
+        respond(200, CSV_HEADER);
+
+        client().exportAuditLog(LocalDate.of(2026, 10, 1), LocalDate.of(2026, 10, 5));
+    }
+
+    @Test(expected = ClientException.class)
+    public void exportAuditLogRefusesAMalformedRowCount() throws Exception {
+
+        responseHeaders.put("X-Philter-Export-Rows", "many");
+        responseHeaders.put("X-Philter-Export-Truncated", "false");
+        respond(200, CSV_HEADER);
+
+        client().exportAuditLog(LocalDate.of(2026, 10, 1), LocalDate.of(2026, 10, 5));
     }
 
     // Optional parameters: every overload that accepts `owner` must put it on the wire, and every

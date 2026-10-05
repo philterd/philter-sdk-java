@@ -29,4 +29,4 @@ Seven calls are paged, taking `offset` and `limit` alongside `owner`: `getPolici
 List<String> policies = client.getPolicies(null, 100, 50);
 ```
 
-Pass `null` for either value to use the server's default. The other collection calls, `getLists` and `getRedactLists`, are not paged and take only an `owner`.
+Pass `null` for either value to use the server's default. `exportAuditLog` is also paged with `offset` and `limit`, but with its own defaults and a truncation flag; see [Audit Log](audit-log.md). The other collection calls, `getLists` and `getRedactLists`, are not paged and take only an `owner`.

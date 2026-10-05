@@ -16,6 +16,7 @@
 package ai.philterd.philter;
 
 import ai.philterd.philter.model.AsyncFilterResponse;
+import ai.philterd.philter.model.AuditLogExport;
 import ai.philterd.philter.model.BinaryFilterResponse;
 import ai.philterd.philter.model.CreateApiKeyRequest;
 import ai.philterd.philter.model.CreateUserRequest;
@@ -49,6 +50,8 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.time.Duration;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
 
 /**
@@ -94,6 +97,11 @@ public class PhilterClient {
 	public static final int DEFAULT_KEEP_ALIVE_DURATION_MS = 30 * 1000;
 
 	private static final String DOCUMENT_ID_HEADER = "x-document-id";
+
+	private static final String EXPORT_ROWS_HEADER = "X-Philter-Export-Rows";
+	private static final String EXPORT_TRUNCATED_HEADER = "X-Philter-Export-Truncated";
+	private static final String EXPORT_NEXT_OFFSET_HEADER = "X-Philter-Export-Next-Offset";
+	private static final String EXPORT_TIME_ZONE_HEADER = "X-Philter-Export-Time-Zone";
 
 	private static final String APPLICATION_JSON = "application/json";
 	private static final String TEXT_PLAIN = "text/plain";
@@ -1686,6 +1694,86 @@ public class PhilterClient {
 
 	}
 
+	// Audit log.
+
+	/**
+	 * Exports the first page of the audit log as CSV for a range of whole days, reading the dates in
+	 * the Philter server's time zone. See
+	 * {@link #exportAuditLog(LocalDate, LocalDate, ZoneId, Integer, Integer)}.
+	 * @param from The first day, included in full.
+	 * @param to The last day, included in full. At most 30 days after {@code from}.
+	 * @return The page of the export.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public AuditLogExport exportAuditLog(LocalDate from, LocalDate to) throws IOException {
+		return exportAuditLog(from, to, null, null, null);
+	}
+
+	/**
+	 * Exports a page of the audit log as CSV for a range of whole days, most recent first.
+	 *
+	 * <p>The calling key must hold the {@code audit:read} scope and belong to an administrator. The
+	 * export is itself recorded in the audit log.</p>
+	 *
+	 * <p>{@code from} and {@code to} are both inclusive and are read in {@code zone}, or in the Philter
+	 * server's time zone when {@code zone} is {@code null}. {@link AuditLogExport#getTimeZone()} reports
+	 * the zone used. Timestamps in the CSV are UTC whatever the zone.</p>
+	 *
+	 * <p>A page holds at most {@code limit} events. When {@link AuditLogExport#isTruncated()} is
+	 * {@code true}, more events remain: request the next page with {@code offset} set to
+	 * {@link AuditLogExport#getNextOffset()}. A range that includes the current day can repeat events
+	 * across pages.</p>
+	 *
+	 * <p>Philter rejects a missing date, a reversed range, a {@code to} more than 30 days after
+	 * {@code from}, an unknown zone, or a negative offset with an HTTP 400, thrown as a
+	 * {@link ClientException} carrying Philter's reason. A caller who is not an administrator
+	 * gets an HTTP 403, also as a {@link ClientException}.</p>
+	 *
+	 * @param from The first day, included in full.
+	 * @param to The last day, included in full. At most 30 days after {@code from}.
+	 * @param zone The time zone the days are read in. May be {@code null} for the server's time zone.
+	 * @param offset The number of events to skip. May be {@code null} for {@code 0}.
+	 * @param limit The most events to return, up to 1000. Philter treats a larger value as 1000, and zero
+	 * or less as its default of 100. May be {@code null} for the default.
+	 * @return The page of the export.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public AuditLogExport exportAuditLog(LocalDate from, LocalDate to, ZoneId zone, Integer offset, Integer limit)
+			throws IOException {
+
+		final HttpRequest request = request(uri("/api/audit/export", "from", from, "to", to,
+				"zone", zone == null ? null : zone.getId(), "offset", offset, "limit", limit))
+				.GET()
+				.build();
+
+		final HttpResponse<byte[]> response = send(request, HttpResponse.BodyHandlers.ofByteArray());
+
+		if(!isSuccessful(response)) {
+			throw toException(response.statusCode(), new String(response.body(), StandardCharsets.UTF_8));
+		}
+
+		// Without these headers a truncated page is indistinguishable from a complete one, so refuse it.
+		final String rows = response.headers().firstValue(EXPORT_ROWS_HEADER).orElse(null);
+		final String truncated = response.headers().firstValue(EXPORT_TRUNCATED_HEADER).orElse(null);
+		if(rows == null || truncated == null) {
+			throw new ClientException("The audit log export response is missing the "
+					+ EXPORT_ROWS_HEADER + " or " + EXPORT_TRUNCATED_HEADER + " header.");
+		}
+
+		try {
+
+			final Integer nextOffset = response.headers().firstValue(EXPORT_NEXT_OFFSET_HEADER)
+					.map(Integer::valueOf).orElse(null);
+
+			return new AuditLogExport(response.body(), Integer.parseInt(rows), Boolean.parseBoolean(truncated),
+					nextOffset, response.headers().firstValue(EXPORT_TIME_ZONE_HEADER).orElse(null));
+
+		} catch (final NumberFormatException ex) {
+			throw new ClientException("The audit log export response has a malformed "
+					+ EXPORT_ROWS_HEADER + " or " + EXPORT_NEXT_OFFSET_HEADER + " header.");
+		}
+
+	}
 
 	// Provisioning.
 

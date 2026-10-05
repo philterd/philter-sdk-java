@@ -27,6 +27,11 @@ from it.
 * Documented the fields `getContext` returns. Philter's `GET /api/contexts/{name}` now includes entry counts
   per filter type (`filterTypes`) and entries with no filter type (`untyped`) alongside `size`, and the
   client passes them through unchanged.
+* Added `exportAuditLog(...)` for `GET /api/audit/export`, which exports the audit log as CSV for a range of
+  whole days, with optional `zone`, `offset`, and `limit`. It returns an `AuditLogExport` holding the CSV and
+  the row count, whether the page was truncated, the offset of the next page, and the time zone the dates were
+  read in. A response without the row-count or truncation header is rejected rather than treated as complete.
+  Requires an administrator and the `audit:read` scope.
 * **Removed `status()`.** Philter 4.0.0 standardized on `/api/health` and removed `/api/status`, so the call
   could only ever return an HTTP 404. Use `health()`, which returns the same `StatusResponse`.
 

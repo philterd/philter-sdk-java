@@ -24,6 +24,7 @@ nav:
   - Always/Never Redact Lists: redact-lists.md
   - Legal Holds: legal-holds.md
   - Redaction Ledger: ledger.md
+  - Audit Log: audit-log.md
   - Owners and Pagination: owners-and-pagination.md
   - Provisioning: provisioning.md
   - Server Health: health.md
