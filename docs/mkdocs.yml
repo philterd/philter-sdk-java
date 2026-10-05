@@ -17,6 +17,7 @@ nav:
   - Redacting Text: redacting-text.md
   - Inspecting Redactions (Explain): explain.md
   - Redacting PDF Documents: pdf.md
+  - Webhook: webhook.md
   - Policies: policies.md
   - Contexts: contexts.md
   - Re-identification: re-identification.md

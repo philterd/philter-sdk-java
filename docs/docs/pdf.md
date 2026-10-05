@@ -39,4 +39,6 @@ byte[] zip = client.getDocument(documentId);            // once the status is CO
 
 The status is `PENDING`, `PROCESSING`, `COMPLETE`, or `FAILED`. Downloading a document whose redaction failed returns an HTTP 410, which the client raises as a `ClientException`; the `error` field of the status response says why.
 
+To be notified when a redaction finishes instead of polling, set a [webhook](webhook.md).
+
 Use `getDocuments()` to list the stored documents and `deleteDocument(documentId)` to remove one.

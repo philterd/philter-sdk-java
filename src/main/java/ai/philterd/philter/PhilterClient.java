@@ -35,8 +35,10 @@ import ai.philterd.philter.model.PolicyRollbackResponse;
 import ai.philterd.philter.model.PolicyVersionSummary;
 import ai.philterd.philter.model.ReidentifyRequest;
 import ai.philterd.philter.model.SetUserRoleRequest;
+import ai.philterd.philter.model.SetWebhookRequest;
 import ai.philterd.philter.model.StatusResponse;
 import ai.philterd.philter.model.User;
+import ai.philterd.philter.model.Webhook;
 import ai.philterd.philter.model.exceptions.ClientException;
 import ai.philterd.philter.model.exceptions.ServiceUnavailableException;
 import ai.philterd.philter.model.exceptions.UnauthorizedException;
@@ -518,6 +520,8 @@ public class PhilterClient {
 	 * Submits a PDF document to Philter to be filtered asynchronously. Philter accepts the document and
 	 * returns immediately; poll {@link #getDocumentStatus(String)} with the returned document ID and
 	 * retrieve the result with {@link #getDocument(String)}.
+	 * If the user has a webhook, Philter also notifies it when the redaction completes or fails; see
+	 * {@link #setWebhook(String, String)}.
 	 * @param context The context. Contexts can be used to group text based on some arbitrary property.
 	 * @param policyName The name of the policy to apply to the document.
 	 * @param filename The name of the file being filtered. May be {@code null}.
@@ -534,6 +538,8 @@ public class PhilterClient {
 	 * rather than as a ZIP archive. Philter accepts the document and returns immediately; poll
 	 * {@link #getDocumentStatus(String)} with the returned document ID and retrieve the result with
 	 * {@link #getDocument(String)}.
+	 * If the user has a webhook, Philter also notifies it when the redaction completes or fails; see
+	 * {@link #setWebhook(String, String)}.
 	 * @param context The context. Contexts can be used to group text based on some arbitrary property.
 	 * @param policyName The name of the policy to apply to the document.
 	 * @param filename The name of the file being filtered. May be {@code null}.
@@ -2141,6 +2147,103 @@ public class PhilterClient {
 
 		return sendExpectingJson(request, User.class);
 
+	}
+
+	// Webhook.
+
+	/**
+	 * Gets the caller's webhook. See {@link #getWebhook(String)}.
+	 * @return The webhook URL and whether a secret is set.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public Webhook getWebhook() throws IOException {
+		return getWebhook(null);
+	}
+
+	/**
+	 * Gets a user's webhook: its URL and whether a secret is set. The secret is never returned.
+	 *
+	 * <p>Requires the {@code webhooks:read} scope. Does not require an administrator, except to read
+	 * another user's webhook with {@code owner}.</p>
+	 *
+	 * @param owner The user whose webhook this is. May be {@code null} for the caller's own. Another
+	 * user's requires an administrator and {@code ADMIN_CROSS_USER_ACCESS_ENABLED=true} on the Philter
+	 * deployment; otherwise, or for an owner that does not exist, Philter answers HTTP 404, thrown as a
+	 * {@link ClientException}.
+	 * @return The webhook. With none set, {@link Webhook#getUrl()} is {@code null} and
+	 * {@link Webhook#isSecretSet()} is {@code false}.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public Webhook getWebhook(String owner) throws IOException {
+		return sendExpectingJson(json(uri("/api/webhook", "owner", owner)).GET().build(), Webhook.class);
+	}
+
+	/**
+	 * Sets the caller's webhook. See {@link #setWebhook(String, String, String)}.
+	 * @param url The URL Philter will POST results to.
+	 * @param secret The shared secret Philter signs each delivery with. At least 16 characters.
+	 * @return The webhook URL and whether a secret is set.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public Webhook setWebhook(String url, String secret) throws IOException {
+		return setWebhook(url, secret, null);
+	}
+
+	/**
+	 * Sets a user's webhook, replacing any URL and secret already set. Philter POSTs the result of each
+	 * asynchronous redaction to the URL, signed with the secret.
+	 *
+	 * <p>Requires the {@code webhooks:write} scope. Does not require an administrator, except to set
+	 * another user's webhook with {@code owner}.</p>
+	 *
+	 * <p>Philter rejects a missing URL or secret, a URL that is not {@code http} or {@code https},
+	 * a host the administrator's webhook destination allowlist does not permit (with no allowlist,
+	 * a private or loopback address), and a secret shorter than 16 characters. Each is an HTTP 400,
+	 * thrown as a {@link ClientException} carrying Philter's reason. Nothing is saved.</p>
+	 *
+	 * @param url The URL Philter will POST results to.
+	 * @param secret The shared secret Philter signs each delivery with. At least 16 characters.
+	 * @param owner The user whose webhook this is. May be {@code null} for the caller's own. Another
+	 * user's requires an administrator and {@code ADMIN_CROSS_USER_ACCESS_ENABLED=true} on the Philter
+	 * deployment; otherwise, or for an owner that does not exist, Philter answers HTTP 404, thrown as a
+	 * {@link ClientException}.
+	 * @return The webhook URL and whether a secret is set.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public Webhook setWebhook(String url, String secret, String owner) throws IOException {
+
+		final HttpRequest request = json(uri("/api/webhook", "owner", owner))
+				.header("Content-Type", APPLICATION_JSON)
+				.PUT(text(gson.toJson(new SetWebhookRequest(url, secret))))
+				.build();
+
+		return sendExpectingJson(request, Webhook.class);
+
+	}
+
+	/**
+	 * Removes the caller's webhook. See {@link #removeWebhook(String)}.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public void removeWebhook() throws IOException {
+		removeWebhook(null);
+	}
+
+	/**
+	 * Removes a user's webhook URL and secret, so asynchronous results are no longer delivered.
+	 * Succeeds when no webhook is set.
+	 *
+	 * <p>Requires the {@code webhooks:write} scope. Does not require an administrator, except to
+	 * remove another user's webhook with {@code owner}.</p>
+	 *
+	 * @param owner The user whose webhook this is. May be {@code null} for the caller's own. Another
+	 * user's requires an administrator and {@code ADMIN_CROSS_USER_ACCESS_ENABLED=true} on the Philter
+	 * deployment; otherwise, or for an owner that does not exist, Philter answers HTTP 404, thrown as a
+	 * {@link ClientException}.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public void removeWebhook(String owner) throws IOException {
+		sendExpectingNoContent(request(uri("/api/webhook", "owner", owner)).DELETE().build());
 	}
 
 	// API keys.

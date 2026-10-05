@@ -19,6 +19,11 @@ from it.
   authenticate with API keys, so `createUser(username, email)` and `createUser(username, email, role)` take
   none; the role is `user` (the default) or `admin`. Every call requires an administrator except
   `getCurrentUser`, plus `users:read` or `users:write`.
+* Added `getWebhook`, `setWebhook(url, secret)`, and `removeWebhook` for `GET`, `PUT`, and `DELETE` on
+  `/api/webhook`, each with an `owner` overload, and the `Webhook` and `SetWebhookRequest` models. A webhook
+  is where Philter notifies the user when an asynchronous redaction completes or fails. Reading it returns
+  the URL and whether a secret is set, never the secret. They require `webhooks:read` or `webhooks:write`,
+  and an administrator only for another user's webhook.
 * Added `createApiKey(...)` for `POST /api/users/{username}/api-keys`, with the `CreateApiKeyRequest` and
   `CreatedApiKeyResponse` models. It requires an administrator and `api-keys:write`. A created key's value is
   returned only in the response, so capture it there: Philter stores only its hash.

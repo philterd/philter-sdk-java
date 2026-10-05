@@ -36,6 +36,7 @@ import ai.philterd.philter.model.PolicyVersionSummary;
 import ai.philterd.philter.model.ReidentifyRequest;
 import ai.philterd.philter.model.StatusResponse;
 import ai.philterd.philter.model.User;
+import ai.philterd.philter.model.Webhook;
 import ai.philterd.philter.model.exceptions.ClientException;
 import ai.philterd.philter.model.exceptions.ServiceUnavailableException;
 import ai.philterd.philter.model.exceptions.UnauthorizedException;
@@ -1042,6 +1043,12 @@ public class PhilterClientMockTest {
 
         // Re-identification.
         verifyOwner("/api/reidentify", "{}", () -> c.reidentify(OWNER, new ReidentifyRequest()));
+
+        // Webhook.
+        verifyOwner("/api/webhook", "{}", () -> c.getWebhook(OWNER));
+        verifyOwner("/api/webhook", "{}", () -> c.setWebhook("https://hooks.example.com/philter",
+                "a-shared-secret-of-at-least-16-characters", OWNER));
+        verifyOwner("/api/webhook", "", () -> c.removeWebhook(OWNER));
     }
 
     @Test
@@ -1077,6 +1084,95 @@ public class PhilterClientMockTest {
         Assert.assertEquals("offset on " + path, "25", queryParameter("offset"));
         Assert.assertEquals("limit on " + path, "50", queryParameter("limit"));
 
+    }
+
+    // Webhook.
+
+    @Test
+    public void getWebhookMapsTheUrlAndSecretFlag() throws Exception {
+
+        respond(200, "{\"url\":\"https://hooks.example.com/philter\",\"secretSet\":true}");
+
+        final Webhook webhook = client().getWebhook();
+
+        Assert.assertEquals("GET", method);
+        Assert.assertEquals("/api/webhook", path);
+        Assert.assertTrue(queryParameters.isEmpty());
+        Assert.assertEquals("application/json", header("Accept"));
+        Assert.assertEquals("https://hooks.example.com/philter", webhook.getUrl());
+        Assert.assertTrue(webhook.isSecretSet());
+    }
+
+    @Test
+    public void getWebhookWhenNoneIsSet() throws Exception {
+
+        respond(200, "{\"url\":null,\"secretSet\":false}");
+
+        final Webhook webhook = client().getWebhook(OWNER);
+
+        Assert.assertEquals("/api/webhook", path);
+        Assert.assertEquals(OWNER, queryParameter("owner"));
+        Assert.assertNull(webhook.getUrl());
+        Assert.assertFalse(webhook.isSecretSet());
+    }
+
+    @Test
+    public void setWebhookSendsTheUrlAndSecret() throws Exception {
+
+        respond(200, "{\"url\":\"https://hooks.example.com/philter\",\"secretSet\":true}");
+
+        final Webhook webhook = client().setWebhook("https://hooks.example.com/philter",
+                "a-shared-secret-of-at-least-16-characters");
+
+        Assert.assertEquals("PUT", method);
+        Assert.assertEquals("/api/webhook", path);
+        Assert.assertTrue(queryParameters.isEmpty());
+        Assert.assertEquals("application/json", header("Content-Type"));
+        Assert.assertEquals("{\"url\":\"https://hooks.example.com/philter\","
+                + "\"secret\":\"a-shared-secret-of-at-least-16-characters\"}", requestBodyAsString());
+
+        Assert.assertEquals("https://hooks.example.com/philter", webhook.getUrl());
+        Assert.assertTrue(webhook.isSecretSet());
+    }
+
+    @Test
+    public void setWebhookForAnOwner() throws Exception {
+
+        respond(200, "{\"url\":\"https://hooks.example.com/philter\",\"secretSet\":true}");
+
+        client().setWebhook("https://hooks.example.com/philter", "a-shared-secret-of-at-least-16-characters", OWNER);
+
+        Assert.assertEquals("PUT", method);
+        Assert.assertEquals(OWNER, queryParameter("owner"));
+    }
+
+    @Test
+    public void setWebhookSurfacesPhilterReason() {
+
+        respond(400, "Secret must be at least 16 characters.");
+
+        final ClientException ex = Assert.assertThrows(ClientException.class,
+                () -> client().setWebhook("https://hooks.example.com/philter", "too-short"));
+
+        Assert.assertTrue(ex.getMessage(), ex.getMessage().contains("HTTP 400"));
+        Assert.assertTrue(ex.getMessage(), ex.getMessage().contains("Secret must be at least 16 characters."));
+    }
+
+    @Test
+    public void removeWebhook() throws Exception {
+
+        respond(204, "");
+
+        client().removeWebhook();
+
+        Assert.assertEquals("DELETE", method);
+        Assert.assertEquals("/api/webhook", path);
+        Assert.assertTrue(queryParameters.isEmpty());
+
+        client().removeWebhook(OWNER);
+
+        Assert.assertEquals("DELETE", method);
+        Assert.assertEquals(OWNER, queryParameter("owner"));
     }
 
     // Listings across all users.
