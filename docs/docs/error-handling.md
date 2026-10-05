@@ -42,7 +42,7 @@ try {
 
 ## Acting on the status
 
-`ClientException` exposes the HTTP status with `getStatusCode()` and the `message` field of Philter's JSON error body with `getErrorMessage()`. Branch on the status, not on the exception message, whose wording is for logs and may change. `getErrorMessage()` is read from the whole body, so it is complete even when the exception message was truncated, and it is `null` when the body was not JSON or had no `message`.
+`ClientException` exposes the HTTP status with `getStatusCode()` and the `message` field of Philter's JSON error body with `getErrorMessage()`. Branch on the status, not on the exception message, whose wording is for logs and may change. `getErrorMessage()` is read from the whole body, so it is complete even when the exception message was truncated, and it is `null` when the body was not JSON or had no `message`. Philter returns its errors as JSON with a `message`, so in practice it is `null` for a response with no body, such as the `404` from `getUser`, `revokeApiKey`, or `getPolicy` when what it names does not exist; for a `403` from `exportAuditLog` for a caller who is not an administrator, which is plain text; and for a response that did not come from Philter, such as a proxy's error page. Fall back to the status in those cases.
 
 ```java
 try {
