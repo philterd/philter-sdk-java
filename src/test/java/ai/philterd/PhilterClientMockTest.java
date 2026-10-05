@@ -2452,6 +2452,93 @@ public class PhilterClientMockTest {
 
     // Error handling.
 
+    // ClientException status and error message.
+
+    @Test
+    public void clientExceptionCarriesTheStatusAndErrorMessage() {
+
+        final int[] statuses = {400, 403, 404, 409};
+
+        for (final int status : statuses) {
+
+            final String body = "{\"message\":\"Refused with " + status + ".\"}";
+            respond(status, body);
+
+            final ClientException ex = Assert.assertThrows(ClientException.class, () -> client().getPolicy("p1"));
+
+            Assert.assertEquals(status, ex.getStatusCode());
+            Assert.assertEquals("Refused with " + status + ".", ex.getErrorMessage());
+            // The message is unchanged, so anything that logs it sees the same text.
+            Assert.assertEquals("Unknown error: HTTP " + status + ": " + body, ex.getMessage());
+        }
+    }
+
+    @Test
+    public void clientExceptionWithoutAJsonBodyHasTheStatusAndNoErrorMessage() {
+
+        final int[] statuses = {400, 403, 404, 409};
+
+        for (final int status : statuses) {
+
+            respond(status, "");
+            final ClientException empty = Assert.assertThrows(ClientException.class, () -> client().getPolicy("p1"));
+            Assert.assertEquals(status, empty.getStatusCode());
+            Assert.assertNull(empty.getErrorMessage());
+            Assert.assertEquals("Unknown error: HTTP " + status, empty.getMessage());
+
+            respond(status, "Bad request: the policy name is missing.");
+            final ClientException text = Assert.assertThrows(ClientException.class, () -> client().getPolicy("p1"));
+            Assert.assertEquals(status, text.getStatusCode());
+            Assert.assertNull("a plain-text body has no message field", text.getErrorMessage());
+            Assert.assertEquals("Unknown error: HTTP " + status + ": Bad request: the policy name is missing.", text.getMessage());
+        }
+    }
+
+    @Test
+    public void theErrorMessageIsReadFromTheWholeBodyNotTheTruncatedMessage() {
+
+        final String longMessage = "x".repeat(600);
+        respond(400, "{\"message\":\"" + longMessage + "\"}");
+
+        final ClientException ex = Assert.assertThrows(ClientException.class, () -> client().getPolicy("p1"));
+
+        Assert.assertTrue("the exception message is still truncated", ex.getMessage().endsWith("..."));
+        Assert.assertEquals(longMessage, ex.getErrorMessage());
+    }
+
+    @Test
+    public void signInThrottledExceptionsCarryStatus429() {
+
+        responseHeaders.put("Retry-After", "60");
+        respond(429, "{\"message\":\"Too many sign-in requests. Try again later.\",\"reason\":\"rate_limited\"}");
+
+        final SignInRateLimitedException limited = Assert.assertThrows(SignInRateLimitedException.class,
+                () -> client().signIn("jordan", "the-users-password"));
+        Assert.assertEquals(429, limited.getStatusCode());
+        Assert.assertEquals("Too many sign-in requests. Try again later.", limited.getErrorMessage());
+        Assert.assertEquals("Too many sign-in requests. Try again later.", limited.getMessage());
+
+        responseHeaders.put("Retry-After", "900");
+        respond(429, "{\"message\":\"Too many failed sign-ins for this username. Try again later.\",\"reason\":\"locked\"}");
+
+        final SignInLockedException locked = Assert.assertThrows(SignInLockedException.class,
+                () -> client().signIn("jordan", "the-users-password"));
+        Assert.assertEquals(429, locked.getStatusCode());
+    }
+
+    @Test
+    public void aClientExceptionNotCausedByAnHttpStatusHasStatusZero() {
+
+        // A 200 that lacks the headers the export needs is refused by the client, not by Philter.
+        respond(200, "timestamp,event\n");
+
+        final ClientException ex = Assert.assertThrows(ClientException.class,
+                () -> client().exportAuditLog(LocalDate.of(2026, 10, 1), LocalDate.of(2026, 10, 5)));
+
+        Assert.assertEquals(0, ex.getStatusCode());
+        Assert.assertNull(ex.getErrorMessage());
+    }
+
     @Test(expected = UnauthorizedException.class)
     public void unauthorized() throws Exception {
         respond(401, "");

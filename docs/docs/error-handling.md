@@ -39,3 +39,31 @@ try {
     // The request could not be completed.
 }
 ```
+
+## Acting on the status
+
+`ClientException` exposes the HTTP status with `getStatusCode()` and the `message` field of Philter's JSON error body with `getErrorMessage()`. Branch on the status, not on the exception message, whose wording is for logs and may change. `getErrorMessage()` is read from the whole body, so it is complete even when the exception message was truncated, and it is `null` when the body was not JSON or had no `message`.
+
+```java
+try {
+    client.changePassword(currentPassword, newPassword);
+} catch (ClientException e) {
+    switch (e.getStatusCode()) {
+        case 400:
+            // The new password was rejected; show the person why.
+            System.out.println(e.getErrorMessage());
+            break;
+        case 403:
+            // The current password is not correct, or the key lacks users:write.
+            break;
+        case 409:
+            // The user has no password yet; an administrator sets the first one.
+            break;
+        default:
+            throw e;
+    }
+}
+```
+
+`getStatusCode()` is `0` when the exception was not caused by a non-successful status, such as a response the client could not use. `SignInLockedException` and `SignInRateLimitedException` report `429`.
+

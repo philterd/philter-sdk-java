@@ -337,7 +337,7 @@ public class PhilterClient {
 		} else if(code == 503) {
 			return new ServiceUnavailableException(SERVICE_UNAVAILABLE);
 		} else {
-			return new ClientException(describe(code, body));
+			return new ClientException(describe(code, body), code, messageOf(body));
 		}
 
 	}
