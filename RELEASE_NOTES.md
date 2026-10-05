@@ -28,7 +28,9 @@ are relative to 1.5.0.
 ### Philter 4.0.0 API coverage
 
 The client implements every operation in Philter's OpenAPI specification, and every optional query parameter
-can be supplied. Methods that gained parameters keep their signatures and gained overloads.
+can be supplied except `sign` on `filter` and `explain`: the client does not yet request signed responses or
+return the `X-Philter-Signature` header. Methods that gained parameters keep their signatures and gained
+overloads.
 
 * **Filtering:** `filterToPdf` returns a redacted PDF; `filterAsync` and `filterToPdfAsync` submit a PDF for
   asynchronous redaction and return its document ID for `getDocumentStatus` and `getDocument`. `filter` and
