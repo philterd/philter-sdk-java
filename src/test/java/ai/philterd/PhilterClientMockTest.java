@@ -413,12 +413,12 @@ public class PhilterClientMockTest {
     public void health() throws Exception {
 
         respond(200, "{\"applicationVersion\":\"4.0.0\",\"gitCommit\":\"abc123\"," +
-                "\"redactionPolicySchemaVersion\":\"1\",\"status\":\"healthy\"}");
+                "\"redactionPolicySchemaVersion\":\"1\",\"status\":\"UP\"}");
 
         final StatusResponse status = client().health();
 
         Assert.assertEquals("4.0.0", status.getApplicationVersion());
-        Assert.assertEquals("healthy", status.getStatus());
+        Assert.assertEquals("UP", status.getStatus());
 
         Assert.assertEquals("/api/health", path);
     }
