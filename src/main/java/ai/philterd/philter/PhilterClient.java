@@ -128,6 +128,8 @@ public class PhilterClient {
 
 	private static final String DOCUMENT_ID_HEADER = "x-document-id";
 
+	private static final String SIGNATURE_HEADER = "X-Philter-Signature";
+
 	private static final String EXPORT_ROWS_HEADER = "X-Philter-Export-Rows";
 	private static final String EXPORT_TRUNCATED_HEADER = "X-Philter-Export-Truncated";
 	private static final String EXPORT_NEXT_OFFSET_HEADER = "X-Philter-Export-Next-Offset";
@@ -537,9 +539,30 @@ public class PhilterClient {
 	 * @throws IOException Thrown if the request can not be completed.
 	 */
 	public FilterResponse filter(String context, String policyName, String filename, String text) throws IOException {
+		return filter(context, policyName, filename, text, false);
+	}
+
+	/**
+	 * Send text to Philter to be filtered, optionally asking for a signed response.
+	 * @param context The context. Contexts can be used to group text based on some arbitrary property.
+	 * @param policyName The name of the policy to apply to the text.
+	 * @param filename The name of the file the text came from, recorded against the document. May be {@code null}.
+	 * @param text The text to be filtered.
+	 * @param sign {@code true} to ask Philter to sign the response, adding an ES256 JWT in the
+	 * {@code X-Philter-Signature} header. A deployment with output signing enabled signs every response
+	 * whatever this says; {@code false} cannot turn that off. Read the signature from
+	 * {@code getSignature()} and verify it with the public key from {@link #getSigningKey(String)}, using
+	 * the JWT's {@code kid}. The client does not verify signatures itself.
+	 * @return The filtered text, and the signature when the response is signed.
+	 * @throws IOException Thrown if the request can not be completed.
+	 */
+	public FilterResponse filter(String context, String policyName, String filename, String text, boolean sign)
+			throws IOException {
 
 		// Philter's text endpoint is always synchronous, so the filtered text comes back in the response body.
-		final HttpRequest request = request(uri("/api/filter", "c", context, "p", policyName, "filename", filename))
+		// sign is sent only when true: false asks for nothing, so leaving it out keeps the request unchanged.
+		final HttpRequest request = request(uri("/api/filter", "c", context, "p", policyName, "filename", filename,
+				"sign", sign ? Boolean.TRUE : null))
 				.header("Accept", TEXT_PLAIN)
 				.header("Content-Type", TEXT_PLAIN)
 				.POST(text(text))
@@ -550,7 +573,8 @@ public class PhilterClient {
 		if(isSuccessful(response)) {
 
 			final String documentId = response.headers().firstValue(DOCUMENT_ID_HEADER).orElse(null);
-			return new FilterResponse(response.body(), context, documentId);
+			final String signature = response.headers().firstValue(SIGNATURE_HEADER).orElse(null);
+			return new FilterResponse(response.body(), context, documentId, signature);
 
 		}
 
@@ -685,14 +709,49 @@ public class PhilterClient {
 	 * @throws IOException Thrown if the request can not be completed.
 	 */
 	public ExplainResponse explain(String context, String policyName, String filename, String text) throws IOException {
+		return explain(context, policyName, filename, text, false);
+	}
 
-		final HttpRequest request = request(uri("/api/explain", "c", context, "p", policyName, "filename", filename))
+	/**
+	 * Send text to Philter to be filtered and explained, optionally asking for a signed response.
+	 * @param context The context. Contexts can be used to group text based on some arbitrary property.
+	 * @param policyName The name of the policy to apply to the text.
+	 * @param filename The name of the file the text came from, recorded against the document. May be {@code null}.
+	 * @param text The text to be filtered.
+	 * @param sign {@code true} to ask Philter to sign the response, adding an ES256 JWT in the
+	 * {@code X-Philter-Signature} header. A deployment with output signing enabled signs every response
+	 * whatever this says; {@code false} cannot turn that off. Read the signature from
+	 * {@code getSignature()} and verify it with the public key from {@link #getSigningKey(String)}, using
+	 * the JWT's {@code kid}. The client does not verify signatures itself. A signature's {@code bodyHash} covers
+	 * the response body exactly as sent, available from {@link ExplainResponse#getResponseBody()}.
+	 * @return The explanation, and the signature when the response is signed.
+	 * @throws IOException Thrown if the request can not be completed.
+	 */
+	public ExplainResponse explain(String context, String policyName, String filename, String text, boolean sign)
+			throws IOException {
+
+		final HttpRequest request = request(uri("/api/explain", "c", context, "p", policyName, "filename", filename,
+				"sign", sign ? Boolean.TRUE : null))
 				.header("Accept", APPLICATION_JSON)
 				.header("Content-Type", TEXT_PLAIN)
 				.POST(text(text))
 				.build();
 
-		return sendExpectingJson(request, ExplainResponse.class);
+		final HttpResponse<String> response = send(request, HttpResponse.BodyHandlers.ofString());
+
+		if(!isSuccessful(response)) {
+			throw toException(response.statusCode(), response.body());
+		}
+
+		final ExplainResponse explainResponse = gson.fromJson(response.body(), ExplainResponse.class);
+
+		// An empty body parses to null, which is returned as before rather than dereferenced.
+		if(explainResponse != null) {
+			explainResponse.setResponseBody(response.body());
+			explainResponse.setSignature(response.headers().firstValue(SIGNATURE_HEADER).orElse(null));
+		}
+
+		return explainResponse;
 
 	}
 

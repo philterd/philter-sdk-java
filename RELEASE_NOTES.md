@@ -28,13 +28,12 @@ are relative to 1.5.0.
 ### Philter 4.0.0 API coverage
 
 The client implements every operation in Philter's OpenAPI specification, and every optional query parameter
-can be supplied except `sign` on `filter` and `explain`: the client does not yet request signed responses or
-return the `X-Philter-Signature` header. Methods that gained parameters keep their signatures and gained
-overloads.
+can be supplied. Methods that gained parameters keep their signatures and gained overloads.
 
 * **Filtering:** `filterToPdf` returns a redacted PDF; `filterAsync` and `filterToPdfAsync` submit a PDF for
   asynchronous redaction and return its document ID for `getDocumentStatus` and `getDocument`. `filter` and
-  `explain` take an optional filename.
+  `explain` take an optional filename, and can ask for a signed response: `FilterResponse` and
+  `ExplainResponse` return the `X-Philter-Signature` JWT, and `ExplainResponse` keeps the body it covers.
 * **Policies:** versions, diffs, rollback, and PhiSQL compilation; descriptions and notes (`getPolicyDetails`,
   `setPolicyDetails`, and a `savePolicy` overload); managed policies (`getManagedPolicies`); and `copyPolicy`.
 * **Contexts, documents, legal holds, the redaction ledger, custom lists, redact lists, and

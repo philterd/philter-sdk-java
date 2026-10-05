@@ -412,6 +412,200 @@ public class PhilterClientMockTest {
         Assert.assertEquals("secret-key", header("Authorization"));
     }
 
+    // Signed responses.
+
+    /** A compact JWT shaped like Philter's, whose bodyHash is the SHA-256 of the body's UTF-8 bytes. */
+    private static String signatureFor(final String body) throws Exception {
+        final byte[] digest = java.security.MessageDigest.getInstance("SHA-256").digest(body.getBytes(StandardCharsets.UTF_8));
+        final StringBuilder hex = new StringBuilder();
+        for (final byte b : digest) {
+            hex.append(String.format("%02x", b));
+        }
+        final java.util.Base64.Encoder encoder = java.util.Base64.getUrlEncoder().withoutPadding();
+        return encoder.encodeToString("{\"alg\":\"ES256\",\"typ\":\"JWT\",\"kid\":\"0123456789abcdef\"}".getBytes(StandardCharsets.UTF_8))
+                + "." + encoder.encodeToString(("{\"bodyHash\":\"" + hex + "\",\"policyName\":\"default\"}").getBytes(StandardCharsets.UTF_8))
+                + ".c2lnbmF0dXJl";
+    }
+
+    /** The bodyHash claim of a compact JWT. */
+    private static String bodyHashOf(final String jwt) {
+        final String payload = new String(java.util.Base64.getUrlDecoder().decode(jwt.split("\\.")[1]), StandardCharsets.UTF_8);
+        return payload.replaceAll(".*\"bodyHash\":\"([0-9a-f]+)\".*", "$1");
+    }
+
+    private static String sha256Hex(final String text) throws Exception {
+        final byte[] digest = java.security.MessageDigest.getInstance("SHA-256").digest(text.getBytes(StandardCharsets.UTF_8));
+        final StringBuilder hex = new StringBuilder();
+        for (final byte b : digest) {
+            hex.append(String.format("%02x", b));
+        }
+        return hex.toString();
+    }
+
+    /** The verification documented in redacting-text.md, step for step. */
+    private static boolean[] verifyAsDocumented(final PhilterClient client, final String signature, final String body)
+            throws Exception {
+
+        final String[] parts = signature.split("\\.");
+        final java.util.Base64.Decoder base64url = java.util.Base64.getUrlDecoder();
+
+        final com.google.gson.JsonObject header = com.google.gson.JsonParser.parseString(
+                new String(base64url.decode(parts[0]), StandardCharsets.UTF_8)).getAsJsonObject();
+        final String pem = com.google.gson.JsonParser.parseString(client.getSigningKey(header.get("kid").getAsString()))
+                .getAsJsonObject().get("pem").getAsString()
+                .replace("-----BEGIN PUBLIC KEY-----", "").replace("-----END PUBLIC KEY-----", "").replaceAll("\\s", "");
+        final java.security.PublicKey publicKey = java.security.KeyFactory.getInstance("EC")
+                .generatePublic(new java.security.spec.X509EncodedKeySpec(java.util.Base64.getDecoder().decode(pem)));
+
+        final java.security.Signature verifier = java.security.Signature.getInstance("SHA256withECDSAinP1363Format");
+        verifier.initVerify(publicKey);
+        verifier.update((parts[0] + "." + parts[1]).getBytes(StandardCharsets.UTF_8));
+        final boolean signatureValid = verifier.verify(base64url.decode(parts[2]));
+
+        final com.google.gson.JsonObject payload = com.google.gson.JsonParser.parseString(
+                new String(base64url.decode(parts[1]), StandardCharsets.UTF_8)).getAsJsonObject();
+        final boolean bodyMatches = sha256Hex(body).equals(payload.get("bodyHash").getAsString());
+
+        return new boolean[]{signatureValid, bodyMatches};
+    }
+
+    @Test
+    public void theDocumentedVerificationAcceptsARealSignatureAndRejectsTampering() throws Exception {
+
+        // Sign as Philter's SigningService does: ES256 over header.payload, P1363 signature encoding.
+        final java.security.KeyPairGenerator generator = java.security.KeyPairGenerator.getInstance("EC");
+        generator.initialize(new java.security.spec.ECGenParameterSpec("secp256r1"));
+        final java.security.KeyPair keyPair = generator.generateKeyPair();
+
+        final String body = "Zoë Ångström 测试, SSN {{{REDACTED-ssn}}}.";
+        final java.util.Base64.Encoder encoder = java.util.Base64.getUrlEncoder().withoutPadding();
+        final String signingInput = encoder.encodeToString("{\"alg\":\"ES256\",\"typ\":\"JWT\",\"kid\":\"k-1\"}".getBytes(StandardCharsets.UTF_8))
+                + "." + encoder.encodeToString(("{\"bodyHash\":\"" + sha256Hex(body) + "\",\"policyName\":\"default\","
+                + "\"policyVersion\":1,\"documentId\":\"doc-1\",\"iat\":1759665600}").getBytes(StandardCharsets.UTF_8));
+        final java.security.Signature signer = java.security.Signature.getInstance("SHA256withECDSAinP1363Format");
+        signer.initSign(keyPair.getPrivate());
+        signer.update(signingInput.getBytes(StandardCharsets.UTF_8));
+        final String jwt = signingInput + "." + encoder.encodeToString(signer.sign());
+
+        // Philter serves the PEM in JSON with its newlines escaped.
+        final String pem = "-----BEGIN PUBLIC KEY-----\n"
+                + java.util.Base64.getMimeEncoder(64, "\n".getBytes(StandardCharsets.UTF_8)).encodeToString(keyPair.getPublic().getEncoded())
+                + "\n-----END PUBLIC KEY-----";
+        final String keyJson = "{\"keyId\":\"k-1\",\"pem\":\"" + pem.replace("\n", "\\n") + "\",\"active\":true}";
+
+        final PhilterClient c = client();
+
+        responseHeaders.put("X-Philter-Signature", jwt);
+        respond(200, body);
+        final FilterResponse response = c.filter("ctx", "default", null, "Zoë Ångström 测试, SSN 123-45-6789.", true);
+        responseHeaders.clear();
+
+        respond(200, keyJson);
+        final boolean[] genuine = verifyAsDocumented(c, response.getSignature(), response.getFilteredText());
+        Assert.assertEquals("/api/signing-key/k-1", path);
+        Assert.assertTrue("the signature verifies", genuine[0]);
+        Assert.assertTrue("the body matches its hash", genuine[1]);
+
+        respond(200, keyJson);
+        final boolean[] tampered = verifyAsDocumented(c, response.getSignature(), response.getFilteredText() + " ");
+        Assert.assertTrue(tampered[0]);
+        Assert.assertFalse("a changed body no longer matches", tampered[1]);
+
+        final java.security.KeyPair other = generator.generateKeyPair();
+        respond(200, "{\"keyId\":\"k-1\",\"pem\":\"-----BEGIN PUBLIC KEY-----\\n"
+                + java.util.Base64.getEncoder().encodeToString(other.getPublic().getEncoded())
+                + "\\n-----END PUBLIC KEY-----\",\"active\":true}");
+        Assert.assertFalse("another key does not verify it", verifyAsDocumented(c, response.getSignature(), response.getFilteredText())[0]);
+    }
+
+    @Test
+    public void filterSendsNoSignByDefaultAndAnUnsignedResponseHasNoSignature() throws Exception {
+
+        respond(200, "My SSN is {{{REDACTED-ssn}}}.");
+
+        final FilterResponse response = client().filter("ctx", "default", null, "My SSN is 123-45-6789.");
+
+        Assert.assertFalse(queryParameters.containsKey("sign"));
+        Assert.assertNull(response.getSignature());
+    }
+
+    @Test
+    public void filterAsksForASignatureAndReturnsIt() throws Exception {
+
+        final String body = "Zoë Ångström 测试, SSN {{{REDACTED-ssn}}}.";
+        final String jwt = signatureFor(body);
+        responseHeaders.put("X-Philter-Signature", jwt);
+        contentTypeHeader = "text/plain;charset=UTF-8";
+        respond(200, body);
+
+        final FilterResponse response = client().filter("ctx", "default", "notes.txt", "Zoë Ångström 测试, SSN 123-45-6789.", true);
+
+        Assert.assertEquals("POST", method);
+        Assert.assertEquals("/api/filter", path);
+        Assert.assertEquals("true", queryParameter("sign"));
+        Assert.assertEquals("notes.txt", queryParameter("filename"));
+
+        Assert.assertEquals(jwt, response.getSignature());
+        // The signature covers the body exactly as returned, so a verifier can recompute it.
+        Assert.assertEquals(bodyHashOf(jwt), sha256Hex(response.getFilteredText()));
+    }
+
+    @Test
+    public void aSignatureFromTheAdminSettingIsReturnedWithoutAsking() throws Exception {
+
+        final String body = "My SSN is {{{REDACTED-ssn}}}.";
+        responseHeaders.put("X-Philter-Signature", signatureFor(body));
+        respond(200, body);
+
+        final FilterResponse response = client().filter("ctx", "default", "My SSN is 123-45-6789.");
+
+        Assert.assertFalse(queryParameters.containsKey("sign"));
+        Assert.assertNotNull(response.getSignature());
+    }
+
+    @Test
+    public void explainAsksForASignatureAndKeepsTheExactBody() throws Exception {
+
+        // Whitespace and key order a re-serialization would not reproduce.
+        final String body = "{\"filteredText\":\"Zoë {{{REDACTED-ssn}}}\",  \"explanation\":{\"appliedSpans\":[],\"ignoredSpans\":[]},"
+                + "\"policyName\":\"default\"}";
+        final String jwt = signatureFor(body);
+        responseHeaders.put("X-Philter-Signature", jwt);
+        respond(200, body);
+
+        final ExplainResponse response = client().explain("ctx", "default", null, "Zoë 123-45-6789", true);
+
+        Assert.assertEquals("POST", method);
+        Assert.assertEquals("/api/explain", path);
+        Assert.assertEquals("true", queryParameter("sign"));
+
+        Assert.assertEquals("Zoë {{{REDACTED-ssn}}}", response.getFilteredText());
+        Assert.assertEquals(jwt, response.getSignature());
+        Assert.assertEquals(body, response.getResponseBody());
+        Assert.assertEquals(bodyHashOf(jwt), sha256Hex(response.getResponseBody()));
+    }
+
+    @Test
+    public void explainWithAnEmptyBodyReturnsNullAsBefore() throws Exception {
+
+        respond(200, "");
+
+        Assert.assertNull(client().explain("ctx", "default", "123-45-6789"));
+    }
+
+    @Test
+    public void explainSendsNoSignByDefault() throws Exception {
+
+        final String body = "{\"filteredText\":\"{{{REDACTED-ssn}}}\",\"explanation\":{\"appliedSpans\":[],\"ignoredSpans\":[]}}";
+        respond(200, body);
+
+        final ExplainResponse response = client().explain("ctx", "default", "123-45-6789");
+
+        Assert.assertFalse(queryParameters.containsKey("sign"));
+        Assert.assertNull(response.getSignature());
+        Assert.assertEquals(body, response.getResponseBody());
+    }
+
     // Status.
 
     @Test

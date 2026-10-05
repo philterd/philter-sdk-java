@@ -25,3 +25,6 @@ for (Span span : response.getExplanation().getAppliedSpans()) {
 response.getExplanation().getIgnoredSpans().forEach(s ->
         System.out.println("Ignored: " + s.getText()));
 ```
+
+Pass `true` as the last argument of `explain(context, policyName, filename, text, sign)` to ask for a signed response. `getSignature()` returns the signature, and `getResponseBody()` the JSON exactly as Philter sent it, which is what the signature covers. See [Signed responses](redacting-text.md#signed-responses).
+

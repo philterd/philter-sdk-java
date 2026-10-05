@@ -42,6 +42,10 @@ public class ExplainResponse {
     @SerializedName("explanation")
     private Explanation explanation;
 
+    // Not part of the JSON body: set by the client from the response, so transient.
+    private transient String signature;
+    private transient String responseBody;
+
     public int hashCode() {
         return (new HashCodeBuilder(17, 37)).append(this.filteredText).append(this.context).append(this.documentId).toHashCode();
     }
@@ -85,6 +89,31 @@ public class ExplainResponse {
 
     public void setExplanation(Explanation explanation) {
         this.explanation = explanation;
+    }
+
+    /**
+     * The compact ES256 JWT from the {@code X-Philter-Signature} header, or {@code null} if the response
+     * is unsigned. Its {@code bodyHash} claim is the SHA-256 of {@link #getResponseBody()} encoded as
+     * UTF-8. The client does not verify it.
+     */
+    public String getSignature() {
+        return signature;
+    }
+
+    public void setSignature(String signature) {
+        this.signature = signature;
+    }
+
+    /**
+     * The response body exactly as Philter sent it, the JSON this response was read from. A signature's
+     * {@code bodyHash} is computed over it, so verify against this rather than re-serializing.
+     */
+    public String getResponseBody() {
+        return responseBody;
+    }
+
+    public void setResponseBody(String responseBody) {
+        this.responseBody = responseBody;
     }
 
 }

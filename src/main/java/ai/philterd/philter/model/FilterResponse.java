@@ -38,6 +38,10 @@ public class FilterResponse {
     @SerializedName("documentId")
     private String documentId;
 
+    @Expose
+    @SerializedName("signature")
+    private String signature;
+
     /**
      * Creates a new filter response.
      * @param filteredText The filtered text.
@@ -45,9 +49,21 @@ public class FilterResponse {
      * @param documentId The document ID.
      */
     public FilterResponse(String filteredText, String context, String documentId) {
+        this(filteredText, context, documentId, null);
+    }
+
+    /**
+     * Creates a new filter response.
+     * @param filteredText The filtered text.
+     * @param context The context.
+     * @param documentId The document ID.
+     * @param signature The {@code X-Philter-Signature} JWT, or {@code null} if the response is unsigned.
+     */
+    public FilterResponse(String filteredText, String context, String documentId, String signature) {
         this.filteredText = filteredText;
         this.context = context;
         this.documentId = documentId;
+        this.signature = signature;
     }
 
     public int hashCode() {
@@ -89,6 +105,19 @@ public class FilterResponse {
 
     public void setDocumentId(String documentId) {
         this.documentId = documentId;
+    }
+
+    /**
+     * The compact ES256 JWT from the {@code X-Philter-Signature} header, or {@code null} if the response
+     * is unsigned. Its {@code bodyHash} claim is the SHA-256 of {@link #getFilteredText()} encoded as
+     * UTF-8, which is the exact response body. The client does not verify it.
+     */
+    public String getSignature() {
+        return signature;
+    }
+
+    public void setSignature(String signature) {
+        this.signature = signature;
     }
 
 }
