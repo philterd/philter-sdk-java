@@ -32,9 +32,11 @@ import ai.philterd.philter.model.LegalHoldRequest;
 import ai.philterd.philter.model.LegalHoldResponse;
 import ai.philterd.philter.model.OwnedLegalHoldResponse;
 import ai.philterd.philter.model.OwnedName;
+import ai.philterd.philter.model.PolicyDetails;
 import ai.philterd.philter.model.PolicyRollbackResponse;
 import ai.philterd.philter.model.PolicyVersionSummary;
 import ai.philterd.philter.model.ReidentifyRequest;
+import ai.philterd.philter.model.SetPolicyDetailsRequest;
 import ai.philterd.philter.model.SetUserRoleRequest;
 import ai.philterd.philter.model.SetWebhookRequest;
 import ai.philterd.philter.model.StatusResponse;
@@ -743,7 +745,41 @@ public class PhilterClient {
 	}
 
 	/**
-	 * Gets the content of a policy.
+	 * Gets the first page of the built-in managed policy names. Requires the {@code policies:read}
+	 * scope. See {@link #getManagedPolicies(Integer, Integer)}.
+	 * @return The managed policy names.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public List<String> getManagedPolicies() throws IOException {
+		return getManagedPolicies(null, null);
+	}
+
+	/**
+	 * Gets a page of the built-in managed policy names. Each begins with {@code managed_}. Read one with
+	 * {@link #getPolicy(String)} or {@link #getPolicyDetails(String)}, and create a policy of your own
+	 * from one with {@link #copyPolicy(String, String)}. Managed policies cannot be changed.
+	 *
+	 * <p>Requires the {@code policies:read} scope. Does not require an administrator.</p>
+	 *
+	 * @param offset The number of names to skip. May be {@code null} for {@code 0}.
+	 * @param limit The most names to return, up to 100. May be {@code null} for Philter's default of 25.
+	 * @return The managed policy names.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public List<String> getManagedPolicies(Integer offset, Integer limit) throws IOException {
+
+		final HttpRequest request = json(uri("/api/policies", "managed", true, "offset", offset, "limit", limit))
+				.GET()
+				.build();
+
+		return sendExpectingJson(request, STRING_LIST);
+
+	}
+
+	/**
+	 * Gets the content of a policy. A name beginning with {@code managed_} gets that managed policy.
+	 * The policy's description and notes are not part of its content; get them with
+	 * {@link #getPolicyDetails(String)}.
 	 * @param policyName The name of the policy to get.
 	 * @return The content of the policy as JSON.
 	 * @throws IOException Thrown if the call can not be executed.
@@ -764,7 +800,7 @@ public class PhilterClient {
 	}
 
 	/**
-	 * Saves (or overwrites) the policy.
+	 * Saves (or overwrites) the policy. An existing policy keeps its description and notes.
 	 * @param name The name of the policy.
 	 * @param json The body of the policy.
 	 * @throws IOException Thrown if the call can not be executed.
@@ -774,20 +810,191 @@ public class PhilterClient {
 	}
 
 	/**
-	 * Saves (or overwrites) the policy.
+	 * Saves (or overwrites) the policy. An existing policy keeps its description and notes.
 	 * @param name The name of the policy.
 	 * @param json The body of the policy.
 	 * @param owner The owner of the policy. May be {@code null}.
 	 * @throws IOException Thrown if the call can not be executed.
 	 */
 	public void savePolicy(String name, String json, String owner) throws IOException {
+		savePolicy(name, json, null, null, owner);
+	}
 
-		final HttpRequest request = request(uri("/api/policies", "name", name, "owner", owner))
+	/**
+	 * Saves (or overwrites) the policy with a description and notes. Requires the {@code policies:write}
+	 * scope. See {@link #savePolicy(String, String, String, String, String)}.
+	 * @param name The name of the policy.
+	 * @param json The body of the policy.
+	 * @param description The description, up to 200 characters. May be {@code null} to keep an
+	 * existing policy's description.
+	 * @param notes The notes, up to 1000 characters. May be {@code null} to keep an existing policy's
+	 * notes.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public void savePolicy(String name, String json, String description, String notes) throws IOException {
+		savePolicy(name, json, description, notes, null);
+	}
+
+	/**
+	 * Saves (or overwrites) the policy with a description and notes. The description and notes are not
+	 * part of the policy's content, so they do not change its revision.
+	 *
+	 * <p>Requires the {@code policies:write} scope. Does not require an administrator, except to save
+	 * another user's policy with {@code owner}.</p>
+	 *
+	 * <p>Philter rejects a missing or invalid name, an invalid policy, a description over 200
+	 * characters, and notes over 1000 characters with an HTTP 400, and a name beginning with
+	 * {@code managed_} with an HTTP 400 or 409. Each is thrown as a {@link ClientException}.</p>
+	 *
+	 * @param name The name of the policy.
+	 * @param json The body of the policy.
+	 * @param description The description, up to 200 characters. May be {@code null} to keep an
+	 * existing policy's description.
+	 * @param notes The notes, up to 1000 characters. May be {@code null} to keep an existing policy's
+	 * notes.
+	 * @param owner The owner of the policy. May be {@code null} for the caller's own. Another user's
+	 * requires an administrator and {@code ADMIN_CROSS_USER_ACCESS_ENABLED=true} on the Philter
+	 * deployment; otherwise, or for an owner that does not exist, Philter answers HTTP 404, thrown as a
+	 * {@link ClientException}.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public void savePolicy(String name, String json, String description, String notes, String owner)
+			throws IOException {
+
+		final HttpRequest request = request(uri("/api/policies", "name", name, "owner", owner,
+				"description", description, "notes", notes))
 				.header("Content-Type", APPLICATION_JSON)
 				.POST(text(json))
 				.build();
 
 		sendExpectingNoContent(request);
+
+	}
+
+	/**
+	 * Gets a policy's details. Requires the {@code policies:read} scope. See
+	 * {@link #getPolicyDetails(String, String)}.
+	 * @param policyName The name of the policy.
+	 * @return The policy's details.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public PolicyDetails getPolicyDetails(String policyName) throws IOException {
+		return getPolicyDetails(policyName, null);
+	}
+
+	/**
+	 * Gets a policy's details: its description, notes, revision, whether it is managed, and when it was
+	 * created and last updated. Works for managed policies.
+	 *
+	 * <p>Requires the {@code policies:read} scope. Does not require an administrator, except to read
+	 * another user's policy with {@code owner}.</p>
+	 *
+	 * <p>A policy that does not exist is an HTTP 404, thrown as a {@link ClientException}.</p>
+	 *
+	 * @param policyName The name of the policy.
+	 * @param owner The owner of the policy. May be {@code null} for the caller's own. Another user's
+	 * requires an administrator and {@code ADMIN_CROSS_USER_ACCESS_ENABLED=true} on the Philter
+	 * deployment; otherwise, or for an owner that does not exist, Philter answers HTTP 404, thrown as a
+	 * {@link ClientException}.
+	 * @return The policy's details.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public PolicyDetails getPolicyDetails(String policyName, String owner) throws IOException {
+		return sendExpectingJson(json(uri("/api/policies/" + encode(policyName) + "/details", "owner", owner))
+				.GET().build(), PolicyDetails.class);
+	}
+
+	/**
+	 * Sets a policy's description and notes. Requires the {@code policies:write} scope. See
+	 * {@link #setPolicyDetails(String, String, String, String)}.
+	 * @param policyName The name of the policy.
+	 * @param description The description, up to 200 characters. {@code null} leaves it as it is, and
+	 * an empty string clears it.
+	 * @param notes The notes, up to 1000 characters. {@code null} leaves them as they are, and an empty
+	 * string clears them.
+	 * @return The policy's details after the change.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public PolicyDetails setPolicyDetails(String policyName, String description, String notes) throws IOException {
+		return setPolicyDetails(policyName, description, notes, null);
+	}
+
+	/**
+	 * Sets a policy's description and notes. They are not part of the policy's content, so this does
+	 * not change its revision.
+	 *
+	 * <p>Requires the {@code policies:write} scope. Does not require an administrator, except to change
+	 * another user's policy with {@code owner}.</p>
+	 *
+	 * <p>A description over 200 characters or notes over 1000 are an HTTP 400, a policy that does not
+	 * exist an HTTP 404, and a managed policy an HTTP 409. Each is thrown as a
+	 * {@link ClientException}.</p>
+	 *
+	 * @param policyName The name of the policy.
+	 * @param description The description, up to 200 characters. {@code null} leaves it as it is, and
+	 * an empty string clears it.
+	 * @param notes The notes, up to 1000 characters. {@code null} leaves them as they are, and an empty
+	 * string clears them.
+	 * @param owner The owner of the policy. May be {@code null} for the caller's own. Another user's
+	 * requires an administrator and {@code ADMIN_CROSS_USER_ACCESS_ENABLED=true} on the Philter
+	 * deployment; otherwise, or for an owner that does not exist, Philter answers HTTP 404, thrown as a
+	 * {@link ClientException}.
+	 * @return The policy's details after the change.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public PolicyDetails setPolicyDetails(String policyName, String description, String notes, String owner)
+			throws IOException {
+
+		final HttpRequest request = json(uri("/api/policies/" + encode(policyName) + "/details", "owner", owner))
+				.header("Content-Type", APPLICATION_JSON)
+				.PUT(text(gson.toJson(new SetPolicyDetailsRequest(description, notes))))
+				.build();
+
+		return sendExpectingJson(request, PolicyDetails.class);
+
+	}
+
+	/**
+	 * Creates a policy by copying another. Requires the {@code policies:write} scope. See
+	 * {@link #copyPolicy(String, String, String)}.
+	 * @param policyName The name of the policy to copy, or of a managed policy.
+	 * @param name The name of the new policy.
+	 * @return The new policy's details.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public PolicyDetails copyPolicy(String policyName, String name) throws IOException {
+		return copyPolicy(policyName, name, null);
+	}
+
+	/**
+	 * Creates a policy by copying one of the caller's policies or, for a name beginning with
+	 * {@code managed_}, a managed policy. The copy has the source's content and description, is active
+	 * at once, and starts its own version history. A copy of a managed policy has the note
+	 * {@code Created from managed policy <name>}; a copy of the caller's own policy keeps its notes.
+	 *
+	 * <p>Requires the {@code policies:write} scope. Does not require an administrator, except to copy
+	 * within another user's account with {@code owner}.</p>
+	 *
+	 * <p>A missing or invalid new name is an HTTP 400, a source that does not exist an HTTP 404, and a
+	 * new name already in use an HTTP 409. Each is thrown as a {@link ClientException}.</p>
+	 *
+	 * @param policyName The name of the policy to copy, or of a managed policy.
+	 * @param name The name of the new policy.
+	 * @param owner The owner of the policy. May be {@code null} for the caller's own. Another user's
+	 * requires an administrator and {@code ADMIN_CROSS_USER_ACCESS_ENABLED=true} on the Philter
+	 * deployment; otherwise, or for an owner that does not exist, Philter answers HTTP 404, thrown as a
+	 * {@link ClientException}.
+	 * @return The new policy's details.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public PolicyDetails copyPolicy(String policyName, String name, String owner) throws IOException {
+
+		final HttpRequest request = json(uri("/api/policies/" + encode(policyName) + "/copy",
+				"name", name, "owner", owner))
+				.POST(HttpRequest.BodyPublishers.noBody())
+				.build();
+
+		return sendExpectingJson(request, PolicyDetails.class);
 
 	}
 

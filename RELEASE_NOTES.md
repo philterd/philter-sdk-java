@@ -24,6 +24,13 @@ from it.
   is where Philter notifies the user when an asynchronous redaction completes or fails. Reading it returns
   the URL and whether a secret is set, never the secret. They require `webhooks:read` or `webhooks:write`,
   and an administrator only for another user's webhook.
+* Added policy descriptions and notes, managed policies, and copies. `savePolicy(name, json, description,
+  notes)` saves a description and notes with the policy, and the existing `savePolicy` overloads leave them
+  unchanged. `getPolicyDetails` and `setPolicyDetails` read and change them, with the `PolicyDetails` and
+  `SetPolicyDetailsRequest` models; `getPolicy` still returns only the policy JSON. `getManagedPolicies`
+  lists the built-in managed policies, which `getPolicy` reads by name, and `copyPolicy` creates a policy
+  from a managed policy or duplicates one of the caller's own. Each has an `owner` overload except
+  `getManagedPolicies`.
 * Added `getAdminSettings()` and `updateAdminSettings(UpdateAdminSettingsRequest)` for `GET` and `PATCH` on
   `/api/settings`, with the `AdminSettings` and `UpdateAdminSettingsRequest` models: differential-privacy
   counts, output signing, the webhook destination allowlist, and Phield publishing. The Phield API key is

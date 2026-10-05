@@ -32,6 +32,7 @@ import ai.philterd.philter.model.LegalHoldRequest;
 import ai.philterd.philter.model.LegalHoldResponse;
 import ai.philterd.philter.model.OwnedLegalHoldResponse;
 import ai.philterd.philter.model.OwnedName;
+import ai.philterd.philter.model.PolicyDetails;
 import ai.philterd.philter.model.PolicyRollbackResponse;
 import ai.philterd.philter.model.PolicyVersionSummary;
 import ai.philterd.philter.model.ReidentifyRequest;
@@ -442,6 +443,126 @@ public class PhilterClientMockTest {
         Assert.assertEquals("/api/policies", path);
         Assert.assertEquals("default", queryParameter("name"));
         Assert.assertEquals("{\"name\":\"default\"}", requestBodyAsString());
+        // Left out, so an existing policy keeps its description and notes.
+        Assert.assertFalse(queryParameters.containsKey("description"));
+        Assert.assertFalse(queryParameters.containsKey("notes"));
+    }
+
+    @Test
+    public void savePolicyWithDescriptionAndNotes() throws Exception {
+
+        respond(201, "");
+
+        client().savePolicy("court", "{\"identifiers\":{}}", "Federal court filings", "Line one\nline two");
+
+        Assert.assertEquals("POST", method);
+        Assert.assertEquals("/api/policies", path);
+        Assert.assertEquals("court", queryParameter("name"));
+        Assert.assertEquals("Federal court filings", queryParameter("description"));
+        Assert.assertEquals("Line one\nline two", queryParameter("notes"));
+        Assert.assertFalse(queryParameters.containsKey("owner"));
+        Assert.assertEquals("application/json", header("Content-Type"));
+        Assert.assertEquals("{\"identifiers\":{}}", requestBodyAsString());
+
+        client().savePolicy("court", "{\"identifiers\":{}}", null, "Only the notes", OWNER);
+
+        Assert.assertFalse(queryParameters.containsKey("description"));
+        Assert.assertEquals("Only the notes", queryParameter("notes"));
+        Assert.assertEquals(OWNER, queryParameter("owner"));
+    }
+
+    @Test
+    public void getManagedPolicies() throws Exception {
+
+        respond(200, "[\"managed_common_pii\",\"managed_hipaa\"]");
+
+        Assert.assertEquals(List.of("managed_common_pii", "managed_hipaa"), client().getManagedPolicies(25, 50));
+
+        Assert.assertEquals("GET", method);
+        Assert.assertEquals("/api/policies", path);
+        Assert.assertEquals("true", queryParameter("managed"));
+        Assert.assertEquals("25", queryParameter("offset"));
+        Assert.assertEquals("50", queryParameter("limit"));
+        Assert.assertFalse(queryParameters.containsKey("owner"));
+
+        respond(200, "[]");
+        client().getManagedPolicies();
+        Assert.assertEquals(Map.of("managed", "true"), queryParameters);
+    }
+
+    @Test
+    public void getPolicyDetailsMapsEveryField() throws Exception {
+
+        respond(200, "{\"name\":\"court\",\"description\":\"Federal court filings\",\"notes\":\"Reviewed with the clerk.\","
+                + "\"revision\":3,\"managed\":false,\"created\":\"2026-10-01T14:03:11.000Z\","
+                + "\"lastUpdated\":\"2026-10-05T09:12:40.000Z\"}");
+
+        final PolicyDetails details = client().getPolicyDetails("court");
+
+        Assert.assertEquals("GET", method);
+        Assert.assertEquals("/api/policies/court/details", path);
+        Assert.assertTrue(queryParameters.isEmpty());
+
+        Assert.assertEquals("court", details.getName());
+        Assert.assertEquals("Federal court filings", details.getDescription());
+        Assert.assertEquals("Reviewed with the clerk.", details.getNotes());
+        Assert.assertEquals(3, details.getRevision());
+        Assert.assertFalse(details.isManaged());
+        Assert.assertEquals("2026-10-01T14:03:11.000Z", details.getCreated());
+        Assert.assertEquals("2026-10-05T09:12:40.000Z", details.getLastUpdated());
+    }
+
+    @Test
+    public void setPolicyDetailsSendsOnlyTheGivenFields() throws Exception {
+
+        respond(200, "{\"name\":\"court\",\"description\":\"Federal court filings\",\"notes\":\"Reviewed with the clerk.\","
+                + "\"revision\":3,\"managed\":false,\"created\":\"2026-10-01T14:03:11.000Z\","
+                + "\"lastUpdated\":\"2026-10-05T09:12:40.000Z\"}");
+
+        final PolicyDetails details = client().setPolicyDetails("court", "Federal court filings", "");
+
+        Assert.assertEquals("PUT", method);
+        Assert.assertEquals("/api/policies/court/details", path);
+        Assert.assertEquals("application/json", header("Content-Type"));
+        // An empty string clears the notes, so it is sent.
+        Assert.assertEquals("{\"description\":\"Federal court filings\",\"notes\":\"\"}", requestBodyAsString());
+        Assert.assertEquals("court", details.getName());
+
+        client().setPolicyDetails("court", null, "Reviewed.", OWNER);
+
+        // A null field is left out, so Philter leaves it as it is.
+        Assert.assertEquals("{\"notes\":\"Reviewed.\"}", requestBodyAsString());
+        Assert.assertEquals(OWNER, queryParameter("owner"));
+    }
+
+    @Test
+    public void copyPolicyFromAManagedPolicy() throws Exception {
+
+        respond(201, "{\"name\":\"my-pii\",\"description\":\"Common PII\","
+                + "\"notes\":\"Created from managed policy managed_common_pii\",\"revision\":1,\"managed\":false}");
+
+        final PolicyDetails copy = client().copyPolicy("managed_common_pii", "my-pii");
+
+        Assert.assertEquals("POST", method);
+        Assert.assertEquals("/api/policies/managed_common_pii/copy", path);
+        Assert.assertEquals(Map.of("name", "my-pii"), queryParameters);
+        Assert.assertEquals(0, requestBody.length);
+
+        Assert.assertEquals("my-pii", copy.getName());
+        Assert.assertFalse(copy.isManaged());
+        Assert.assertEquals("Created from managed policy managed_common_pii", copy.getNotes());
+    }
+
+    @Test
+    public void setPolicyDetailsOnAManagedPolicyIsAClientException() {
+
+        respond(409, "{\"message\":\"Managed policies cannot be changed.\"}");
+
+        final ClientException ex = Assert.assertThrows(ClientException.class,
+                () -> client().setPolicyDetails("managed_common_pii", null, "n"));
+
+        Assert.assertTrue(ex.getMessage(), ex.getMessage().contains("409"));
+        Assert.assertTrue(ex.getMessage(), ex.getMessage().contains("Managed policies cannot be changed."));
     }
 
     @Test
@@ -1000,6 +1121,10 @@ public class PhilterClientMockTest {
         // Policies.
         verifyOwner("/api/policies/p1", "{}", () -> c.getPolicy("p1", OWNER));
         verifyOwner("/api/policies", "", () -> c.savePolicy("p1", "{}", OWNER));
+        verifyOwner("/api/policies", "", () -> c.savePolicy("p1", "{}", "d", "n", OWNER));
+        verifyOwner("/api/policies/p1/details", "{}", () -> c.getPolicyDetails("p1", OWNER));
+        verifyOwner("/api/policies/p1/details", "{}", () -> c.setPolicyDetails("p1", "d", "n", OWNER));
+        verifyOwner("/api/policies/p1/copy", "{}", () -> c.copyPolicy("p1", "p2", OWNER));
         verifyOwner("/api/policies/p1", "", () -> c.deletePolicy("p1", OWNER));
         verifyOwner("/api/policies/p1/versions/2", "{}", () -> c.getPolicyVersion("p1", 2, OWNER));
         verifyOwner("/api/policies/p1/diff", "{}", () -> c.getPolicyDiff("p1", 1, 2, OWNER));
