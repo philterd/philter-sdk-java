@@ -28,6 +28,8 @@ import ai.philterd.philter.model.GenericResponse;
 import ai.philterd.philter.model.GetListsResponse;
 import ai.philterd.philter.model.LegalHoldRequest;
 import ai.philterd.philter.model.LegalHoldResponse;
+import ai.philterd.philter.model.OwnedLegalHoldResponse;
+import ai.philterd.philter.model.OwnedName;
 import ai.philterd.philter.model.PolicyRollbackResponse;
 import ai.philterd.philter.model.PolicyVersionSummary;
 import ai.philterd.philter.model.ReidentifyRequest;
@@ -109,6 +111,8 @@ public class PhilterClient {
 	private static final Type STRING_LIST = new TypeToken<List<String>>() {}.getType();
 	private static final Type POLICY_VERSION_LIST = new TypeToken<List<PolicyVersionSummary>>() {}.getType();
 	private static final Type LEGAL_HOLD_LIST = new TypeToken<List<LegalHoldResponse>>() {}.getType();
+	private static final Type OWNED_LEGAL_HOLD_LIST = new TypeToken<List<OwnedLegalHoldResponse>>() {}.getType();
+	private static final Type OWNED_NAME_LIST = new TypeToken<List<OwnedName>>() {}.getType();
 
 	private final HttpClient httpClient;
 	private final URI endpoint;
@@ -694,6 +698,40 @@ public class PhilterClient {
 	}
 
 	/**
+	 * Gets the first page of every user's policies, each naming its owner. See
+	 * {@link #getPoliciesAcrossUsers(Integer, Integer)}.
+	 * @return Each policy's name and owner.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public List<OwnedName> getPoliciesAcrossUsers() throws IOException {
+		return getPoliciesAcrossUsers(null, null);
+	}
+
+	/**
+	 * Gets a page of every user's policies, each naming its owner.
+	 *
+	 * <p>Requires an administrator API key and {@code ADMIN_CROSS_USER_ACCESS_ENABLED=true} on the
+	 * Philter deployment (disabled by default). Otherwise Philter answers HTTP 404 in either case,
+	 * thrown as a {@link ClientException}. Each call is recorded in Philter's audit log.</p>
+	 *
+	 * <p>Managed policies are not included.</p>
+	 *
+	 * @param offset The number of items to skip. May be {@code null} for {@code 0}.
+	 * @param limit The most items to return, up to 100. May be {@code null} for Philter's default of 25.
+	 * @return Each policy's name and owner.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public List<OwnedName> getPoliciesAcrossUsers(Integer offset, Integer limit) throws IOException {
+
+		final HttpRequest request = json(uri("/api/policies", "all_users", true, "offset", offset, "limit", limit))
+				.GET()
+				.build();
+
+		return sendExpectingJson(request, OWNED_NAME_LIST);
+
+	}
+
+	/**
 	 * Gets the content of a policy.
 	 * @param policyName The name of the policy to get.
 	 * @return The content of the policy as JSON.
@@ -911,6 +949,35 @@ public class PhilterClient {
 
 		return sendExpectingString(request);
 
+	}
+
+	/**
+	 * Gets the first page of every user's contexts, each naming its owner. See
+	 * {@link #getContextsAcrossUsers(Integer, Integer)}.
+	 * @return The contexts as JSON: a {@code contexts} array of objects, each with the context's {@code name}
+	 * and its {@code owner}.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public String getContextsAcrossUsers() throws IOException {
+		return getContextsAcrossUsers(null, null);
+	}
+
+	/**
+	 * Gets a page of every user's contexts, each naming its owner.
+	 *
+	 * <p>Requires an administrator API key and {@code ADMIN_CROSS_USER_ACCESS_ENABLED=true} on the
+	 * Philter deployment (disabled by default). Otherwise Philter answers HTTP 404 in either case,
+	 * thrown as a {@link ClientException}. Each call is recorded in Philter's audit log.</p>
+	 *
+	 * @param offset The number of items to skip. May be {@code null} for {@code 0}.
+	 * @param limit The most items to return, up to 100. May be {@code null} for Philter's default of 25.
+	 * @return The contexts as JSON: a {@code contexts} array of objects, each with the context's {@code name}
+	 * and its {@code owner}.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public String getContextsAcrossUsers(Integer offset, Integer limit) throws IOException {
+		return sendExpectingString(request(uri("/api/contexts", "all_users", true, "offset", offset, "limit", limit))
+				.GET().build());
 	}
 
 	/**
@@ -1286,6 +1353,38 @@ public class PhilterClient {
 	}
 
 	/**
+	 * Gets the first page of every user's active legal holds, each naming its owner. See
+	 * {@link #getHoldsAcrossUsers(Integer, Integer)}.
+	 * @return The holds, most recently set first, each with its owner.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public List<OwnedLegalHoldResponse> getHoldsAcrossUsers() throws IOException {
+		return getHoldsAcrossUsers(null, null);
+	}
+
+	/**
+	 * Gets a page of every user's active legal holds, each naming its owner.
+	 *
+	 * <p>Requires an administrator API key and {@code ADMIN_CROSS_USER_ACCESS_ENABLED=true} on the
+	 * Philter deployment (disabled by default). Otherwise Philter answers HTTP 404 in either case,
+	 * thrown as a {@link ClientException}. Each call is recorded in Philter's audit log.</p>
+	 *
+	 * @param offset The number of items to skip. May be {@code null} for {@code 0}.
+	 * @param limit The most items to return, up to 100. May be {@code null} for Philter's default of 25.
+	 * @return The holds, most recently set first, each with its owner.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public List<OwnedLegalHoldResponse> getHoldsAcrossUsers(Integer offset, Integer limit) throws IOException {
+
+		final HttpRequest request = json(uri("/api/holds", "all_users", true, "offset", offset, "limit", limit))
+				.GET()
+				.build();
+
+		return sendExpectingJson(request, OWNED_LEGAL_HOLD_LIST);
+
+	}
+
+	/**
 	 * Creates a legal hold.
 	 * @param request The {@link LegalHoldRequest}.
 	 * @return The created {@link LegalHoldResponse}.
@@ -1387,6 +1486,37 @@ public class PhilterClient {
 
 		return sendExpectingString(request);
 
+	}
+
+	/**
+	 * Gets the first page of every user's redaction-ledger chains, each naming its owner. See
+	 * {@link #getLedgerAcrossUsers(Integer, Integer)}.
+	 * @return The chains as JSON: a {@code chains} array of chain heads, most recent first, each with an
+	 * {@code owner} field, and a {@code total} counting every user's chains.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public String getLedgerAcrossUsers() throws IOException {
+		return getLedgerAcrossUsers(null, null);
+	}
+
+	/**
+	 * Gets a page of every user's redaction-ledger chains, each naming its owner.
+	 *
+	 * <p>Requires an administrator API key and {@code ADMIN_CROSS_USER_ACCESS_ENABLED=true} on the
+	 * Philter deployment (disabled by default). Otherwise Philter answers HTTP 404 in either case,
+	 * thrown as a {@link ClientException}. Each call is recorded in Philter's audit log.</p>
+	 *
+	 * <p>Unlike {@link #getLedger(String)}, this cannot filter by query: Philter rejects the combination.</p>
+	 *
+	 * @param offset The number of items to skip. May be {@code null} for {@code 0}.
+	 * @param limit The most items to return, up to 100. May be {@code null} for Philter's default of 25.
+	 * @return The chains as JSON: a {@code chains} array of chain heads, most recent first, each with an
+	 * {@code owner} field, and a {@code total} counting every user's chains.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public String getLedgerAcrossUsers(Integer offset, Integer limit) throws IOException {
+		return sendExpectingString(request(uri("/api/ledger", "all_users", true, "offset", offset, "limit", limit))
+				.GET().build());
 	}
 
 	/**
@@ -1539,6 +1669,35 @@ public class PhilterClient {
 	 */
 	public String getLists(String owner) throws IOException {
 		return sendExpectingString(request(uri("/api/lists", "owner", owner)).GET().build());
+	}
+
+	/**
+	 * Gets the first page of every user's custom lists, each naming its owner. See
+	 * {@link #getListsAcrossUsers(Integer, Integer)}.
+	 * @return The lists as JSON: an array of objects, each with the list's {@code name} and its {@code owner}.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public String getListsAcrossUsers() throws IOException {
+		return getListsAcrossUsers(null, null);
+	}
+
+	/**
+	 * Gets a page of every user's custom lists, each naming its owner.
+	 *
+	 * <p>Requires an administrator API key and {@code ADMIN_CROSS_USER_ACCESS_ENABLED=true} on the
+	 * Philter deployment (disabled by default). Otherwise Philter answers HTTP 404 in either case,
+	 * thrown as a {@link ClientException}. Each call is recorded in Philter's audit log.</p>
+	 *
+	 * <p>Unlike {@link #getLists()}, which returns every one of the caller's lists, this listing is paged.</p>
+	 *
+	 * @param offset The number of items to skip. May be {@code null} for {@code 0}.
+	 * @param limit The most items to return, up to 100. May be {@code null} for Philter's default of 25.
+	 * @return The lists as JSON: an array of objects, each with the list's {@code name} and its {@code owner}.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public String getListsAcrossUsers(Integer offset, Integer limit) throws IOException {
+		return sendExpectingString(request(uri("/api/lists", "all_users", true, "offset", offset, "limit", limit))
+				.GET().build());
 	}
 
 	/**

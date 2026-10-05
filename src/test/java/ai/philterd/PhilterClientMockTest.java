@@ -28,6 +28,8 @@ import ai.philterd.philter.model.GenericResponse;
 import ai.philterd.philter.model.GetListsResponse;
 import ai.philterd.philter.model.LegalHoldRequest;
 import ai.philterd.philter.model.LegalHoldResponse;
+import ai.philterd.philter.model.OwnedLegalHoldResponse;
+import ai.philterd.philter.model.OwnedName;
 import ai.philterd.philter.model.PolicyRollbackResponse;
 import ai.philterd.philter.model.PolicyVersionSummary;
 import ai.philterd.philter.model.ReidentifyRequest;
@@ -959,6 +961,105 @@ public class PhilterClientMockTest {
         Assert.assertEquals("offset on " + path, "25", queryParameter("offset"));
         Assert.assertEquals("limit on " + path, "50", queryParameter("limit"));
 
+    }
+
+    // Listings across all users.
+
+    /** Asserts the last request was an all-users listing of the given path, paged at offset 25, limit 50. */
+    private void assertAllUsersListing(String path) {
+        Assert.assertEquals("GET", method);
+        Assert.assertEquals(path, this.path);
+        Assert.assertEquals("all_users on " + path, "true", queryParameter("all_users"));
+        Assert.assertEquals("offset on " + path, "25", queryParameter("offset"));
+        Assert.assertEquals("limit on " + path, "50", queryParameter("limit"));
+        Assert.assertFalse("owner on " + path, queryParameters.containsKey("owner"));
+    }
+
+    @Test
+    public void getPoliciesAcrossUsersMapsNameAndOwner() throws Exception {
+
+        respond(200, "[{\"name\":\"default\",\"owner\":\"alice@example.com\"},"
+                + "{\"name\":\"default\",\"owner\":\"bob@example.com\"}]");
+
+        final List<OwnedName> policies = client().getPoliciesAcrossUsers(25, 50);
+
+        assertAllUsersListing("/api/policies");
+        Assert.assertEquals(2, policies.size());
+        Assert.assertEquals("default", policies.get(0).getName());
+        Assert.assertEquals("alice@example.com", policies.get(0).getOwner());
+        Assert.assertEquals("bob@example.com", policies.get(1).getOwner());
+    }
+
+    @Test
+    public void getHoldsAcrossUsersMapsTheHoldAndItsOwner() throws Exception {
+
+        respond(200, "[{\"reference\":\"case-1\",\"scopeType\":\"document\",\"scopeValue\":\"doc-1\","
+                + "\"reason\":\"Litigation\",\"setAt\":\"2026-10-05T12:00:00Z\",\"owner\":\"alice@example.com\"}]");
+
+        final List<OwnedLegalHoldResponse> holds = client().getHoldsAcrossUsers(25, 50);
+
+        assertAllUsersListing("/api/holds");
+        Assert.assertEquals(1, holds.size());
+        Assert.assertEquals("case-1", holds.get(0).getReference());
+        Assert.assertEquals("document", holds.get(0).getScopeType());
+        Assert.assertEquals("doc-1", holds.get(0).getScopeValue());
+        Assert.assertEquals("Litigation", holds.get(0).getReason());
+        Assert.assertEquals("2026-10-05T12:00:00Z", holds.get(0).getSetAt());
+        Assert.assertEquals("alice@example.com", holds.get(0).getOwner());
+    }
+
+    @Test
+    public void rawJsonListingsAcrossUsersPassTheOwnersThrough() throws Exception {
+
+        final PhilterClient c = client();
+
+        final String contexts = "{\"contexts\":[{\"name\":\"tenant-a\",\"owner\":\"alice@example.com\"}]}";
+        respond(200, contexts);
+        Assert.assertEquals(contexts, c.getContextsAcrossUsers(25, 50));
+        assertAllUsersListing("/api/contexts");
+
+        final String lists = "[{\"name\":\"names\",\"owner\":\"bob@example.com\"}]";
+        respond(200, lists);
+        Assert.assertEquals(lists, c.getListsAcrossUsers(25, 50));
+        assertAllUsersListing("/api/lists");
+
+        final String chains = "{\"chains\":[{\"documentId\":\"doc-1\",\"owner\":\"alice@example.com\"}],\"total\":1}";
+        respond(200, chains);
+        Assert.assertEquals(chains, c.getLedgerAcrossUsers(25, 50));
+        assertAllUsersListing("/api/ledger");
+        Assert.assertFalse("q on /api/ledger", queryParameters.containsKey("q"));
+    }
+
+    @Test
+    public void shortFormsAcrossUsersSendOnlyAllUsers() throws Exception {
+
+        final PhilterClient c = client();
+        final Map<String, Action> calls = new java.util.LinkedHashMap<>();
+        calls.put("/api/policies", c::getPoliciesAcrossUsers);
+        calls.put("/api/contexts", c::getContextsAcrossUsers);
+        calls.put("/api/lists", c::getListsAcrossUsers);
+        calls.put("/api/ledger", c::getLedgerAcrossUsers);
+        calls.put("/api/holds", c::getHoldsAcrossUsers);
+
+        for (final Map.Entry<String, Action> call : calls.entrySet()) {
+            respond(200, call.getKey().equals("/api/contexts") || call.getKey().equals("/api/ledger") ? "{}" : "[]");
+            call.getValue().run();
+            Assert.assertEquals(call.getKey(), path);
+            Assert.assertEquals("query on " + call.getKey(), Map.of("all_users", "true"), queryParameters);
+        }
+    }
+
+    @Test
+    public void listingAcrossUsersWithoutCrossUserAccessIsAClientException() throws Exception {
+
+        respond(404, "");
+
+        try {
+            client().getPoliciesAcrossUsers();
+            Assert.fail("Expected a ClientException.");
+        } catch (final ClientException ex) {
+            Assert.assertTrue(ex.getMessage(), ex.getMessage().contains("HTTP 404"));
+        }
     }
 
     // Targeted return-type, parsing, and parameter assertions.

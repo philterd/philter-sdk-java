@@ -32,6 +32,11 @@ from it.
   the row count, whether the page was truncated, the offset of the next page, and the time zone the dates were
   read in. A response without the row-count or truncation header is rejected rather than treated as complete.
   Requires an administrator and the `audit:read` scope.
+* Added administrator listings across all users: `getPoliciesAcrossUsers`, `getContextsAcrossUsers`,
+  `getListsAcrossUsers`, `getLedgerAcrossUsers`, and `getHoldsAcrossUsers`, each with an `(offset, limit)`
+  overload. They send `all_users=true` and name each item's owner. Policies come back as `OwnedName` and holds
+  as `OwnedLegalHoldResponse`, a `LegalHoldResponse` with `getOwner()`; contexts, lists, and ledger chains are
+  raw JSON, as their per-user calls are. Requires an administrator and `ADMIN_CROSS_USER_ACCESS_ENABLED=true`.
 * **Removed `status()`.** Philter 4.0.0 standardized on `/api/health` and removed `/api/status`, so the call
   could only ever return an HTTP 404. Use `health()`, which returns the same `StatusResponse`.
 

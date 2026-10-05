@@ -80,7 +80,7 @@ ExplainResponse explainResponse = client.explain("context", "default", text);
 
 Philter 4.0.0 expects an `Authorization` header on nearly every endpoint. Provide its value with `withApiKey(...)`; the value is sent verbatim, so include any scheme prefix (for example `"Bearer "`) if your deployment requires it. The `health()` endpoint does not require authentication.
 
-In addition to filtering, the client covers the full Philter 4.0.0 API: policies (including versions, diffs, and rollbacks), contexts, documents, legal holds, the redaction ledger, the audit log CSV export, custom lists, redact lists, re-identification, and provisioning users and API keys. Every endpoint in the [API specification](https://github.com/philterd/philter/blob/main/docs/docs/api_and_sdks/openapi.json) has a corresponding method, and every optional query parameter can be supplied.
+In addition to filtering, the client covers the full Philter 4.0.0 API: policies (including versions, diffs, and rollbacks), contexts, documents, legal holds, the redaction ledger, the audit log CSV export, custom lists, redact lists, re-identification, provisioning users and API keys, and administrator listings of policies, contexts, custom lists, ledger chains, and legal holds across all users. Every endpoint in the [API specification](https://github.com/philterd/philter/blob/main/docs/docs/api_and_sdks/openapi.json) has a corresponding method, and every optional query parameter can be supplied.
 
 ## License
 
