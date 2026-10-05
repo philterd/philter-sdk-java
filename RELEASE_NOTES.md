@@ -50,6 +50,10 @@ from it.
 * Documented the fields `getContext` returns. Philter's `GET /api/contexts/{name}` now includes entry counts
   per filter type (`filterTypes`) and entries with no filter type (`untyped`) alongside `size`, and the
   client passes them through unchanged.
+* Added `getAuditLog()` and `getAuditLog(event, from, to, owner, offset, limit)` for `GET /api/audit`, with the
+  `AuditEvent` and `GetAuditLogResponse` models. They read the audit log most recent first, filtered by event
+  type, time (`java.time.Instant`, `from` inclusive and `to` exclusive), and acting user, paged, with the total
+  matching the filters. They require an administrator and `audit:read`.
 * Added `exportAuditLog(...)` for `GET /api/audit/export`, which exports the audit log as CSV for a range of
   whole days, with optional `zone`, `offset`, and `limit`. It returns an `AuditLogExport` holding the CSV and
   the row count, whether the page was truncated, the offset of the next page, and the time zone the dates were

@@ -18,6 +18,7 @@ package ai.philterd;
 import ai.philterd.philter.PhilterClient;
 import ai.philterd.philter.model.AdminSettings;
 import ai.philterd.philter.model.ApiKey;
+import ai.philterd.philter.model.AuditEvent;
 import ai.philterd.philter.model.AuditLogExport;
 import ai.philterd.philter.model.BinaryFilterResponse;
 import ai.philterd.philter.model.CreateApiKeyRequest;
@@ -28,6 +29,7 @@ import ai.philterd.philter.model.ExplainResponse;
 import ai.philterd.philter.model.FilterResponse;
 import ai.philterd.philter.model.GenericResponse;
 import ai.philterd.philter.model.GetApiKeysResponse;
+import ai.philterd.philter.model.GetAuditLogResponse;
 import ai.philterd.philter.model.GetListsResponse;
 import ai.philterd.philter.model.GetUsersResponse;
 import ai.philterd.philter.model.LegalHoldRequest;
@@ -60,6 +62,7 @@ import java.net.http.HttpClient;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.ArrayList;
@@ -1120,6 +1123,67 @@ public class PhilterClientMockTest {
         Assert.assertEquals("/api/contexts/c1", path);
     }
 
+    // Audit log.
+
+    @Test
+    public void getAuditLogSendsEveryFilterAndMapsTheEvents() throws Exception {
+
+        respond(200, "{\"events\":[{\"timestamp\":\"2026-09-12T16:12:06.481+00:00\",\"event\":\"policy_deleted\","
+                + "\"requestId\":\"b0e1f6c2-1d3a-4f88-9a7e-2c5d0a6f1b34\",\"apiKeyId\":\"6aa5792a403075186a843960\","
+                + "\"associatedObject\":\"6aa57a01403075186a843971\",\"clientIpAddress\":\"192.0.2.10\","
+                + "\"details\":\"policy: audit-probe-policy, source: api\"},"
+                + "{\"timestamp\":\"2026-09-12T16:10:00.000+00:00\",\"event\":\"policy_deleted\"}],\"total\":42}");
+
+        final GetAuditLogResponse response = client().getAuditLog("policy_deleted",
+                Instant.parse("2026-09-01T00:00:00Z"), Instant.parse("2026-09-13T00:00:00Z"), OWNER, 25, 50);
+
+        Assert.assertEquals("GET", method);
+        Assert.assertEquals("/api/audit", path);
+        Assert.assertEquals(Map.of("event", "policy_deleted", "from", "2026-09-01T00:00:00Z",
+                "to", "2026-09-13T00:00:00Z", "owner", OWNER, "offset", "25", "limit", "50"), queryParameters);
+        Assert.assertEquals("application/json", header("Accept"));
+
+        Assert.assertEquals(42, response.getTotal());
+        Assert.assertEquals(2, response.getEvents().size());
+
+        final AuditEvent first = response.getEvents().get(0);
+        Assert.assertEquals("2026-09-12T16:12:06.481+00:00", first.getTimestamp());
+        Assert.assertEquals("policy_deleted", first.getEvent());
+        Assert.assertEquals("b0e1f6c2-1d3a-4f88-9a7e-2c5d0a6f1b34", first.getRequestId());
+        Assert.assertEquals("6aa5792a403075186a843960", first.getApiKeyId());
+        Assert.assertEquals("6aa57a01403075186a843971", first.getAssociatedObject());
+        Assert.assertEquals("192.0.2.10", first.getClientIpAddress());
+        Assert.assertEquals("policy: audit-probe-policy, source: api", first.getDetails());
+
+        // Philter leaves out the fields an event did not record.
+        final AuditEvent second = response.getEvents().get(1);
+        Assert.assertNull(second.getRequestId());
+        Assert.assertNull(second.getDetails());
+    }
+
+    @Test
+    public void getAuditLogShortFormSendsNoFilters() throws Exception {
+
+        respond(200, "{\"events\":[],\"total\":0}");
+
+        Assert.assertEquals(0, client().getAuditLog().getTotal());
+
+        Assert.assertEquals("/api/audit", path);
+        Assert.assertTrue(queryParameters.isEmpty());
+    }
+
+    @Test
+    public void getAuditLogSurfacesPhilterReasonForAnUnknownEvent() {
+
+        respond(400, "The event parameter is not an audit event type.");
+
+        final ClientException ex = Assert.assertThrows(ClientException.class,
+                () -> client().getAuditLog("not_an_event", null, null, null, null, null));
+
+        Assert.assertTrue(ex.getMessage(), ex.getMessage().contains("HTTP 400"));
+        Assert.assertTrue(ex.getMessage(), ex.getMessage().contains("not an audit event type"));
+    }
+
     // Audit log export.
 
     /** The column row Philter writes at the top of every export page. */
@@ -1291,6 +1355,7 @@ public class PhilterClientMockTest {
         verifyPaged("/api/documents", "[]", () -> c.getDocuments(OWNER, 25, 50));
         verifyPaged("/api/holds", "[]", () -> c.getHolds(OWNER, 25, 50));
         verifyPaged("/api/ledger", "[]", () -> c.getLedger("term", OWNER, 25, 50));
+        verifyPaged("/api/audit", "{}", () -> c.getAuditLog(null, null, null, OWNER, 25, 50));
     }
 
     private static final String OWNER = "acme";

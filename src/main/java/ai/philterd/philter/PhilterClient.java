@@ -28,6 +28,7 @@ import ai.philterd.philter.model.ExplainResponse;
 import ai.philterd.philter.model.FilterResponse;
 import ai.philterd.philter.model.GenericResponse;
 import ai.philterd.philter.model.GetApiKeysResponse;
+import ai.philterd.philter.model.GetAuditLogResponse;
 import ai.philterd.philter.model.GetListsResponse;
 import ai.philterd.philter.model.GetUsersResponse;
 import ai.philterd.philter.model.LegalHoldRequest;
@@ -64,6 +65,7 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.List;
@@ -2075,6 +2077,57 @@ public class PhilterClient {
 	}
 
 	// Audit log.
+
+	/**
+	 * Gets the first page of the audit log, most recent first, with no filters. Requires the
+	 * {@code audit:read} scope and an administrator. See
+	 * {@link #getAuditLog(String, Instant, Instant, String, Integer, Integer)}.
+	 * @return The page of events and the total.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public GetAuditLogResponse getAuditLog() throws IOException {
+		return getAuditLog(null, null, null, null, null, null);
+	}
+
+	/**
+	 * Gets a page of the audit log, most recent first, filtered by event type, time, and acting user.
+	 * The log covers the whole deployment. Reading it is itself recorded as an
+	 * {@code audit_log_retrieved} event.
+	 *
+	 * <p>Requires the {@code audit:read} scope and an administrator. A key without the scope is refused
+	 * with an HTTP 403 whose message names the scope; a key that has it but does not belong to an
+	 * administrator is refused with an HTTP 403 saying an administrator is required. Both are thrown
+	 * as a {@link ClientException} carrying that message.</p>
+	 *
+	 * <p>An event type Philter does not record, or {@code from} after {@code to}, is an HTTP 400, thrown
+	 * as a {@link ClientException}. An unknown event type is refused rather than returning an empty
+	 * page.</p>
+	 *
+	 * @param event The event type to return, such as {@code policy_deleted}. May be {@code null} for
+	 * every type.
+	 * @param from The earliest time to return, inclusive. May be {@code null}.
+	 * @param to The time to return events before, exclusive. May be {@code null}.
+	 * @param owner The username of the acting user whose events to return. May be {@code null} for
+	 * every user. Another user requires {@code ADMIN_CROSS_USER_ACCESS_ENABLED=true} on the Philter
+	 * deployment; otherwise, or for a username that does not exist, Philter answers HTTP 404, thrown as
+	 * a {@link ClientException}. Some events record the affected entity rather than the acting user, so
+	 * an {@code owner} filter does not return them.
+	 * @param offset The number of events to skip. May be {@code null} for {@code 0}.
+	 * @param limit The most events to return, up to 100. May be {@code null} for Philter's default of 25.
+	 * @return The page of events and the total number matching the filters.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public GetAuditLogResponse getAuditLog(String event, Instant from, Instant to, String owner, Integer offset,
+			Integer limit) throws IOException {
+
+		final HttpRequest request = json(uri("/api/audit", "event", event, "from", from, "to", to,
+				"owner", owner, "offset", offset, "limit", limit))
+				.GET()
+				.build();
+
+		return sendExpectingJson(request, GetAuditLogResponse.class);
+
+	}
 
 	/**
 	 * Exports the first page of the audit log as CSV for a range of whole days, reading the dates in
