@@ -16,6 +16,7 @@
 package ai.philterd.philter;
 
 import ai.philterd.philter.model.AdminSettings;
+import ai.philterd.philter.model.ApiKey;
 import ai.philterd.philter.model.AsyncFilterResponse;
 import ai.philterd.philter.model.AuditLogExport;
 import ai.philterd.philter.model.BinaryFilterResponse;
@@ -26,6 +27,7 @@ import ai.philterd.philter.model.CreatedUserResponse;
 import ai.philterd.philter.model.ExplainResponse;
 import ai.philterd.philter.model.FilterResponse;
 import ai.philterd.philter.model.GenericResponse;
+import ai.philterd.philter.model.GetApiKeysResponse;
 import ai.philterd.philter.model.GetListsResponse;
 import ai.philterd.philter.model.GetUsersResponse;
 import ai.philterd.philter.model.LegalHoldRequest;
@@ -36,6 +38,7 @@ import ai.philterd.philter.model.PolicyDetails;
 import ai.philterd.philter.model.PolicyRollbackResponse;
 import ai.philterd.philter.model.PolicyVersionSummary;
 import ai.philterd.philter.model.ReidentifyRequest;
+import ai.philterd.philter.model.SetApiKeyScopesRequest;
 import ai.philterd.philter.model.SetPolicyDetailsRequest;
 import ai.philterd.philter.model.SetUserRoleRequest;
 import ai.philterd.philter.model.SetWebhookRequest;
@@ -2512,14 +2515,90 @@ public class PhilterClient {
 	// API keys.
 
 	/**
-	 * Creates an API key for a user.
+	 * Gets the first page of the calling key's user's API keys. Requires the {@code api-keys:read}
+	 * scope. See {@link #getApiKeys(String, Integer, Integer)}.
+	 * @return The page of keys and the total.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public GetApiKeysResponse getApiKeys() throws IOException {
+		return getApiKeys(null, null, null);
+	}
+
+	/**
+	 * Gets a page of a user's active API keys, oldest first. Each key has its ID, prefix, scopes,
+	 * creation time, and whether it is the bootstrap key. The key itself is never returned.
 	 *
-	 * <p>The calling key must hold the {@code api-keys:write} scope and belong to an administrator,
-	 * and the requested scopes must be a subset of those the calling key holds.</p>
+	 * <p>Requires the {@code api-keys:read} scope. Listing the calling key's own user's keys does not
+	 * require an administrator; listing another user's with {@code owner} does. A key that has the
+	 * scope but does not belong to an administrator is refused with an HTTP 403 saying an administrator
+	 * is required, thrown as a {@link ClientException}. Unlike the other {@code owner} overloads, this
+	 * does not also require {@code ADMIN_CROSS_USER_ACCESS_ENABLED}.</p>
+	 *
+	 * @param owner The username whose keys to list. May be {@code null} for the calling key's user. A
+	 * username that does not exist is an HTTP 404, thrown as a {@link ClientException}.
+	 * @param offset The number of keys to skip. May be {@code null} for {@code 0}.
+	 * @param limit The most keys to return, up to 100. May be {@code null} for Philter's default of 25.
+	 * @return The page of keys and the total number of the user's active keys.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public GetApiKeysResponse getApiKeys(String owner, Integer offset, Integer limit) throws IOException {
+
+		final String path = owner == null ? "/api/api-keys" : "/api/users/" + encode(owner) + "/api-keys";
+
+		final HttpRequest request = json(uri(path, "offset", offset, "limit", limit))
+				.GET()
+				.build();
+
+		return sendExpectingJson(request, GetApiKeysResponse.class);
+
+	}
+
+	/**
+	 * Creates an API key for the calling key's user. See {@link #createApiKey(CreateApiKeyRequest)}.
+	 * @param scopes The scopes to grant the key, for example {@code redact} or {@code policies:read}.
+	 *               At least one is required.
+	 * @return The created {@link CreatedApiKeyResponse}, carrying the key's value.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public CreatedApiKeyResponse createApiKey(List<String> scopes) throws IOException {
+
+		final CreateApiKeyRequest request = new CreateApiKeyRequest();
+		request.setScopes(scopes);
+
+		return createApiKey(request);
+
+	}
+
+	/**
+	 * Creates an API key for the calling key's user. To rotate a key, create its replacement with this,
+	 * switch the integration to the new key, then revoke the old key with
+	 * {@link #revokeApiKey(String)} using the new one.
+	 *
+	 * <p>Requires the {@code api-keys:write} scope. Does not require an administrator. The requested
+	 * scopes must be a subset of those the calling key holds; asking for one it does not hold is an HTTP
+	 * 403. No scopes, or a name that is not a scope, is an HTTP 400. Both are thrown as a
+	 * {@link ClientException}.</p>
 	 *
 	 * <p>The key's value is returned only here. Philter stores only its hash, so a value not captured
 	 * from the response cannot be recovered.</p>
 	 *
+	 * @param request The {@link CreateApiKeyRequest}.
+	 * @return The created {@link CreatedApiKeyResponse}, carrying the key's value and its ID.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public CreatedApiKeyResponse createApiKey(CreateApiKeyRequest request) throws IOException {
+
+		final HttpRequest httpRequest = json(uri("/api/api-keys"))
+				.header("Content-Type", APPLICATION_JSON)
+				.POST(text(gson.toJson(request)))
+				.build();
+
+		return sendExpectingJson(httpRequest, CreatedApiKeyResponse.class);
+
+	}
+
+	/**
+	 * Creates an API key for another user. See {@link #createApiKey(String, CreateApiKeyRequest)}.
 	 * @param username The user the key will belong to.
 	 * @param scopes The scopes to grant the key, for example {@code redact} or {@code policies:read}.
 	 *               At least one is required.
@@ -2536,10 +2615,19 @@ public class PhilterClient {
 	}
 
 	/**
-	 * Creates an API key for a user.
+	 * Creates an API key for a named user.
+	 *
+	 * <p>Requires the {@code api-keys:write} scope and an administrator. The requested scopes must be a
+	 * subset of those the calling key holds. A user that does not exist or is deactivated is an HTTP
+	 * 404, thrown as a {@link ClientException}. To create a key for the calling key's own user, which
+	 * does not need an administrator, use {@link #createApiKey(CreateApiKeyRequest)}.</p>
+	 *
+	 * <p>The key's value is returned only here. Philter stores only its hash, so a value not captured
+	 * from the response cannot be recovered.</p>
+	 *
 	 * @param username The user the key will belong to.
 	 * @param request The {@link CreateApiKeyRequest}.
-	 * @return The created {@link CreatedApiKeyResponse}, carrying the key's value.
+	 * @return The created {@link CreatedApiKeyResponse}, carrying the key's value and its ID.
 	 * @throws IOException Thrown if the call can not be executed.
 	 */
 	public CreatedApiKeyResponse createApiKey(String username, CreateApiKeyRequest request) throws IOException {
@@ -2551,6 +2639,57 @@ public class PhilterClient {
 
 		return sendExpectingJson(httpRequest, CreatedApiKeyResponse.class);
 
+	}
+
+	/**
+	 * Replaces an API key's scopes. The key's value does not change, so integrations keep working with
+	 * the same credential.
+	 *
+	 * <p>Requires the {@code api-keys:write} scope. A caller can change its own user's keys; an
+	 * administrator can change any user's, by ID, so this has no {@code owner} overload. The new scopes
+	 * must be a subset of those the calling key holds, and the calling key cannot change a key holding a
+	 * scope it does not hold; either is an HTTP 403. No scopes, or a name that is not a scope, is an
+	 * HTTP 400. A key the caller may not manage, including another user's key for a non-administrator,
+	 * is an HTTP 404. Each is thrown as a {@link ClientException}.</p>
+	 *
+	 * <p>Other Philter instances that do not share a cache with the one handling the request can apply
+	 * the old scopes for up to {@code API_KEY_CACHE_TTL_SECONDS} (60 by default).</p>
+	 *
+	 * @param keyId The key's ID, from {@link ApiKey#getId()} or {@link CreatedApiKeyResponse#getId()}.
+	 * @param scopes The scopes, which replace the key's current set. At least one is required.
+	 * @return The key with its new scopes.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public ApiKey setApiKeyScopes(String keyId, List<String> scopes) throws IOException {
+
+		final HttpRequest request = json(uri("/api/api-keys/" + encode(keyId) + "/scopes"))
+				.header("Content-Type", APPLICATION_JSON)
+				.PUT(text(gson.toJson(new SetApiKeyScopesRequest(scopes))))
+				.build();
+
+		return sendExpectingJson(request, ApiKey.class);
+
+	}
+
+	/**
+	 * Revokes an API key. A revoked key cannot be restored.
+	 *
+	 * <p>Requires the {@code api-keys:write} scope. A caller can revoke its own user's keys; an
+	 * administrator can revoke any user's, by ID, so this has no {@code owner} overload. The key making
+	 * the request cannot revoke itself, which is an HTTP 409; revoke it with another key. The calling
+	 * key cannot revoke a key holding a scope it does not hold, which is an HTTP 403. A key the caller
+	 * may not manage, including another user's key for a non-administrator, is an HTTP 404. Each is
+	 * thrown as a {@link ClientException}.</p>
+	 *
+	 * <p>Revoking evicts the key from the cache of the Philter instance that handles the request, and of
+	 * every instance sharing its Valkey or Redis cache. Other nodes in a Philter cluster may accept the
+	 * revoked key for up to {@code API_KEY_CACHE_TTL_SECONDS} (60 by default).</p>
+	 *
+	 * @param keyId The key's ID, from {@link ApiKey#getId()} or {@link CreatedApiKeyResponse#getId()}.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public void revokeApiKey(String keyId) throws IOException {
+		sendExpectingNoContent(request(uri("/api/api-keys/" + encode(keyId))).DELETE().build());
 	}
 
 }

@@ -17,6 +17,7 @@ package ai.philterd;
 
 import ai.philterd.philter.PhilterClient;
 import ai.philterd.philter.model.AdminSettings;
+import ai.philterd.philter.model.ApiKey;
 import ai.philterd.philter.model.AuditLogExport;
 import ai.philterd.philter.model.BinaryFilterResponse;
 import ai.philterd.philter.model.CreateApiKeyRequest;
@@ -26,6 +27,7 @@ import ai.philterd.philter.model.CreatedUserResponse;
 import ai.philterd.philter.model.ExplainResponse;
 import ai.philterd.philter.model.FilterResponse;
 import ai.philterd.philter.model.GenericResponse;
+import ai.philterd.philter.model.GetApiKeysResponse;
 import ai.philterd.philter.model.GetListsResponse;
 import ai.philterd.philter.model.GetUsersResponse;
 import ai.philterd.philter.model.LegalHoldRequest;
@@ -857,11 +859,13 @@ public class PhilterClientMockTest {
     @Test
     public void createApiKey() throws Exception {
 
-        respond(201, "{\"username\":\"ci\",\"apiKey\":\"pk-secret\",\"scopes\":[\"redact\",\"policies:read\"]}");
+        respond(201, "{\"id\":\"6a0f1c2e9b1d4e3f2a1b0c9d\",\"username\":\"ci\",\"apiKey\":\"pk-secret\","
+                + "\"scopes\":[\"redact\",\"policies:read\"]}");
 
         final CreatedApiKeyResponse response =
                 client().createApiKey("ci", List.of("redact", "policies:read"));
 
+        Assert.assertEquals("6a0f1c2e9b1d4e3f2a1b0c9d", response.getId());
         Assert.assertEquals("ci", response.getUsername());
         Assert.assertEquals("pk-secret", response.getApiKey());
         Assert.assertEquals(List.of("redact", "policies:read"), response.getScopes());
@@ -870,6 +874,103 @@ public class PhilterClientMockTest {
         Assert.assertEquals("/api/users/ci/api-keys", path);
         Assert.assertEquals("application/json", header("Content-Type"));
         Assert.assertEquals("{\"scopes\":[\"redact\",\"policies:read\"]}", requestBodyAsString());
+    }
+
+    @Test
+    public void getApiKeysForTheCaller() throws Exception {
+
+        respond(200, "{\"apiKeys\":[{\"id\":\"6a0f1c2e9b1d4e3f2a1b0c9d\",\"prefix\":\"sk_AbCdEfGhI...\",\"scopes\":[\"redact\"],"
+                + "\"created\":\"2026-10-05T14:03:11.000Z\",\"bootstrap\":true}],\"total\":30}");
+
+        final GetApiKeysResponse response = client().getApiKeys(null, 25, 50);
+
+        Assert.assertEquals("GET", method);
+        Assert.assertEquals("/api/api-keys", path);
+        Assert.assertEquals(Map.of("offset", "25", "limit", "50"), queryParameters);
+        Assert.assertEquals("application/json", header("Accept"));
+
+        Assert.assertEquals(30, response.getTotal());
+        Assert.assertEquals(1, response.getApiKeys().size());
+
+        final ApiKey key = response.getApiKeys().get(0);
+        Assert.assertEquals("6a0f1c2e9b1d4e3f2a1b0c9d", key.getId());
+        Assert.assertEquals("sk_AbCdEfGhI...", key.getPrefix());
+        Assert.assertEquals(List.of("redact"), key.getScopes());
+        Assert.assertEquals("2026-10-05T14:03:11.000Z", key.getCreated());
+        Assert.assertTrue(key.isBootstrap());
+    }
+
+    @Test
+    public void getApiKeysForAnOwnerUsesTheUserPath() throws Exception {
+
+        respond(200, "{\"apiKeys\":[],\"total\":0}");
+
+        client().getApiKeys("ci user", 25, 50);
+
+        // Philter names the user in the path, not with an owner parameter.
+        Assert.assertEquals("/api/users/ci%20user/api-keys", rawPath);
+        Assert.assertEquals(Map.of("offset", "25", "limit", "50"), queryParameters);
+
+        respond(200, "{\"apiKeys\":[],\"total\":0}");
+        client().getApiKeys();
+        Assert.assertEquals("/api/api-keys", path);
+        Assert.assertTrue(queryParameters.isEmpty());
+    }
+
+    @Test
+    public void createApiKeyForTheCaller() throws Exception {
+
+        respond(201, "{\"id\":\"6a0f1c2e9b1d4e3f2a1b0c9e\",\"username\":\"ci\",\"apiKey\":\"pk-new\",\"scopes\":[\"redact\"]}");
+
+        final CreatedApiKeyResponse response = client().createApiKey(List.of("redact"));
+
+        Assert.assertEquals("POST", method);
+        Assert.assertEquals("/api/api-keys", path);
+        Assert.assertEquals("application/json", header("Content-Type"));
+        Assert.assertEquals("{\"scopes\":[\"redact\"]}", requestBodyAsString());
+
+        Assert.assertEquals("6a0f1c2e9b1d4e3f2a1b0c9e", response.getId());
+        Assert.assertEquals("pk-new", response.getApiKey());
+    }
+
+    @Test
+    public void setApiKeyScopes() throws Exception {
+
+        respond(200, "{\"id\":\"6a0f1c2e9b1d4e3f2a1b0c9d\",\"prefix\":\"sk_AbCdEfGhI...\","
+                + "\"scopes\":[\"redact\",\"policies:read\"],\"bootstrap\":false}");
+
+        final ApiKey key = client().setApiKeyScopes("6a0f1c2e9b1d4e3f2a1b0c9d", List.of("redact", "policies:read"));
+
+        Assert.assertEquals("PUT", method);
+        Assert.assertEquals("/api/api-keys/6a0f1c2e9b1d4e3f2a1b0c9d/scopes", path);
+        Assert.assertTrue(queryParameters.isEmpty());
+        Assert.assertEquals("application/json", header("Content-Type"));
+        Assert.assertEquals("{\"scopes\":[\"redact\",\"policies:read\"]}", requestBodyAsString());
+        Assert.assertEquals(List.of("redact", "policies:read"), key.getScopes());
+    }
+
+    @Test
+    public void revokeApiKey() throws Exception {
+
+        respond(204, "");
+
+        client().revokeApiKey("6a0f1c2e9b1d4e3f2a1b0c9d");
+
+        Assert.assertEquals("DELETE", method);
+        Assert.assertEquals("/api/api-keys/6a0f1c2e9b1d4e3f2a1b0c9d", path);
+        Assert.assertTrue(queryParameters.isEmpty());
+    }
+
+    @Test
+    public void revokingTheCallingKeyIsAClientException() {
+
+        respond(409, "{\"message\":\"This is the key making the request. Revoke it with another key.\"}");
+
+        final ClientException ex = Assert.assertThrows(ClientException.class,
+                () -> client().revokeApiKey("6a0f1c2e9b1d4e3f2a1b0c9d"));
+
+        Assert.assertTrue(ex.getMessage(), ex.getMessage().contains("409"));
+        Assert.assertTrue(ex.getMessage(), ex.getMessage().contains("Revoke it with another key."));
     }
 
     @Test

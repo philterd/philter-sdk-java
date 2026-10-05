@@ -21,54 +21,22 @@ import com.google.gson.annotations.SerializedName;
 import java.util.List;
 
 /**
- * An API key created for a user.
- *
- * <p>Philter stores only the hash of a key, so {@link #getApiKey()} is the one chance to capture its
- * value. It cannot be read back afterwards.</p>
+ * A request to replace an API key's scopes.
  */
-public class CreatedApiKeyResponse {
-
-    @Expose
-    @SerializedName("id")
-    private String id;
-
-    @Expose
-    @SerializedName("username")
-    private String username;
-
-    @Expose
-    @SerializedName("apiKey")
-    private String apiKey;
+public class SetApiKeyScopesRequest {
 
     @Expose
     @SerializedName("scopes")
     private List<String> scopes;
 
-    /** The key's ID, used to change its scopes or revoke it. */
-    public String getId() {
-        return id;
+    public SetApiKeyScopesRequest() {
     }
 
-    public void setId(String id) {
-        this.id = id;
+    public SetApiKeyScopesRequest(List<String> scopes) {
+        this.scopes = scopes;
     }
 
-    public String getUsername() {
-        return username;
-    }
-
-    public void setUsername(String username) {
-        this.username = username;
-    }
-
-    public String getApiKey() {
-        return apiKey;
-    }
-
-    public void setApiKey(String apiKey) {
-        this.apiKey = apiKey;
-    }
-
+    /** The scopes, which replace the key's current set. */
     public List<String> getScopes() {
         return scopes;
     }

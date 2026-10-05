@@ -36,9 +36,13 @@ from it.
   counts, output signing, the webhook destination allowlist, and Phield publishing. The Phield API key is
   reported only as whether it is set. An update sends only the settings set on the request. Both require an
   administrator and `settings:read` or `settings:write`.
-* Added `createApiKey(...)` for `POST /api/users/{username}/api-keys`, with the `CreateApiKeyRequest` and
-  `CreatedApiKeyResponse` models. It requires an administrator and `api-keys:write`. A created key's value is
-  returned only in the response, so capture it there: Philter stores only its hash.
+* Added API key management, with the `ApiKey`, `GetApiKeysResponse`, `CreateApiKeyRequest`,
+  `CreatedApiKeyResponse`, and `SetApiKeyScopesRequest` models. `getApiKeys` lists the caller's keys, or with
+  `owner` another user's (administrator only), paged. `createApiKey(scopes)` creates a key for the caller, and
+  `createApiKey(username, scopes)` one for another user (administrator only). `setApiKeyScopes` and
+  `revokeApiKey` act on a key by ID. A key's value is returned only when it is created, so capture it there:
+  Philter stores only its hash. `ApiKey` has no field for it, and `CreatedApiKeyResponse.getId()` gives the ID
+  to manage the new key with.
 * Added `deleteLedgerEntry(String documentId)` for `DELETE /api/ledger/{documentId}`.
 * Added `purgeLedger(int olderThanDays)` for `DELETE /api/ledger`, which prunes completed chains older than
   the given number of days. Philter restricts both ledger deletions to administrators on deployments that

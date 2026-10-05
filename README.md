@@ -89,7 +89,7 @@ deployment requires it. The `health()` endpoint does not require authentication.
 
 In addition to filtering, the client covers the full Philter 4.0.0 API: policies (including versions, diffs,
 rollbacks, descriptions and notes, managed policies, and copies), contexts, documents, legal holds, the redaction
-ledger, the audit log CSV export, custom lists, redact lists, re-identification, user management, webhooks, creating
+ledger, the audit log CSV export, custom lists, redact lists, re-identification, user management, webhooks, managing
 API keys, admin settings, and administrator listings of policies, contexts, custom lists, ledger chains, and legal
 holds across all users.
 

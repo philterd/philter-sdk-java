@@ -21,28 +21,30 @@ import com.google.gson.annotations.SerializedName;
 import java.util.List;
 
 /**
- * An API key created for a user.
- *
- * <p>Philter stores only the hash of a key, so {@link #getApiKey()} is the one chance to capture its
- * value. It cannot be read back afterwards.</p>
+ * An API key as Philter lists it. Philter never returns a key after creating it, so this has no
+ * field for its value, only a prefix to tell keys apart.
  */
-public class CreatedApiKeyResponse {
+public class ApiKey {
 
     @Expose
     @SerializedName("id")
     private String id;
 
     @Expose
-    @SerializedName("username")
-    private String username;
-
-    @Expose
-    @SerializedName("apiKey")
-    private String apiKey;
+    @SerializedName("prefix")
+    private String prefix;
 
     @Expose
     @SerializedName("scopes")
     private List<String> scopes;
+
+    @Expose
+    @SerializedName("created")
+    private String created;
+
+    @Expose
+    @SerializedName("bootstrap")
+    private boolean bootstrap;
 
     /** The key's ID, used to change its scopes or revoke it. */
     public String getId() {
@@ -53,28 +55,40 @@ public class CreatedApiKeyResponse {
         this.id = id;
     }
 
-    public String getUsername() {
-        return username;
+    /** The first characters of the key. */
+    public String getPrefix() {
+        return prefix;
     }
 
-    public void setUsername(String username) {
-        this.username = username;
+    public void setPrefix(String prefix) {
+        this.prefix = prefix;
     }
 
-    public String getApiKey() {
-        return apiKey;
-    }
-
-    public void setApiKey(String apiKey) {
-        this.apiKey = apiKey;
-    }
-
+    /** The scopes the key holds. */
     public List<String> getScopes() {
         return scopes;
     }
 
     public void setScopes(List<String> scopes) {
         this.scopes = scopes;
+    }
+
+    /** When the key was created. */
+    public String getCreated() {
+        return created;
+    }
+
+    public void setCreated(String created) {
+        this.created = created;
+    }
+
+    /** Whether this is the key seeded from {@code PHILTER_BOOTSTRAP_API_KEY}. */
+    public boolean isBootstrap() {
+        return bootstrap;
+    }
+
+    public void setBootstrap(boolean bootstrap) {
+        this.bootstrap = bootstrap;
     }
 
 }
