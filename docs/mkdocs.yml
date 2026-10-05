@@ -28,6 +28,7 @@ nav:
   - Audit Log: audit-log.md
   - Owners and Pagination: owners-and-pagination.md
   - Users and API Keys: provisioning.md
+  - Admin Settings: admin-settings.md
   - Server Health: health.md
   - Error Handling: error-handling.md
   - End-to-End Example: end-to-end-example.md

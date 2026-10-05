@@ -24,6 +24,11 @@ from it.
   is where Philter notifies the user when an asynchronous redaction completes or fails. Reading it returns
   the URL and whether a secret is set, never the secret. They require `webhooks:read` or `webhooks:write`,
   and an administrator only for another user's webhook.
+* Added `getAdminSettings()` and `updateAdminSettings(UpdateAdminSettingsRequest)` for `GET` and `PATCH` on
+  `/api/settings`, with the `AdminSettings` and `UpdateAdminSettingsRequest` models: differential-privacy
+  counts, output signing, the webhook destination allowlist, and Phield publishing. The Phield API key is
+  reported only as whether it is set. An update sends only the settings set on the request. Both require an
+  administrator and `settings:read` or `settings:write`.
 * Added `createApiKey(...)` for `POST /api/users/{username}/api-keys`, with the `CreateApiKeyRequest` and
   `CreatedApiKeyResponse` models. It requires an administrator and `api-keys:write`. A created key's value is
   returned only in the response, so capture it there: Philter stores only its hash.

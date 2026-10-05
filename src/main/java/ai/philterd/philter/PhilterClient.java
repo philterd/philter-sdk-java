@@ -15,6 +15,7 @@
  ******************************************************************************/
 package ai.philterd.philter;
 
+import ai.philterd.philter.model.AdminSettings;
 import ai.philterd.philter.model.AsyncFilterResponse;
 import ai.philterd.philter.model.AuditLogExport;
 import ai.philterd.philter.model.BinaryFilterResponse;
@@ -37,6 +38,7 @@ import ai.philterd.philter.model.ReidentifyRequest;
 import ai.philterd.philter.model.SetUserRoleRequest;
 import ai.philterd.philter.model.SetWebhookRequest;
 import ai.philterd.philter.model.StatusResponse;
+import ai.philterd.philter.model.UpdateAdminSettingsRequest;
 import ai.philterd.philter.model.User;
 import ai.philterd.philter.model.Webhook;
 import ai.philterd.philter.model.exceptions.ClientException;
@@ -1940,6 +1942,60 @@ public class PhilterClient {
 			throw new ClientException("The audit log export response has a malformed "
 					+ EXPORT_ROWS_HEADER + " or " + EXPORT_NEXT_OFFSET_HEADER + " header.");
 		}
+
+	}
+
+	// Admin settings.
+
+	/**
+	 * Gets the deployment's admin settings: differential-privacy counts, output signing, the webhook
+	 * destination allowlist, and Phield publishing. The Phield API key is never returned, only whether
+	 * one is set.
+	 *
+	 * <p>Requires the {@code settings:read} scope and an administrator. A key without the scope is refused
+	 * with an HTTP 403 whose message names the scope; a key that has it but does not belong to an
+	 * administrator is refused with an HTTP 403 saying an administrator is required. Both are thrown
+	 * as a {@link ClientException} carrying that message.</p>
+	 *
+	 * @return The settings. {@link AdminSettings#getWarnings()} is empty on a read.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public AdminSettings getAdminSettings() throws IOException {
+		return sendExpectingJson(json(uri("/api/settings")).GET().build(), AdminSettings.class);
+	}
+
+	/**
+	 * Changes the deployment's admin settings. Only the fields set on the request are sent, and Philter
+	 * leaves the rest as they are. Set {@code phieldApiKey} to an empty string to remove the key.
+	 *
+	 * <p>Requires the {@code settings:write} scope and an administrator. A key without the scope is refused
+	 * with an HTTP 403 whose message names the scope; a key that has it but does not belong to an
+	 * administrator is refused with an HTTP 403 saying an administrator is required. Both are thrown
+	 * as a {@link ClientException} carrying that message.</p>
+	 *
+	 * <p>Philter validates every value before saving any. A {@code webhookAllowlist} entry that is not
+	 * a hostname, an IP address, or a CIDR range, a {@code phieldUrl} that is not an absolute
+	 * {@code http} or {@code https} URL, or a request that sets {@code phieldEnabled} or
+	 * {@code phieldUrl} and would leave Phield enabled without a URL is an HTTP 400, thrown as a
+	 * {@link ClientException} carrying Philter's reason. Nothing is changed.</p>
+	 *
+	 * <p>Each Philter instance caches the settings for up to {@code ADMIN_SETTINGS_CACHE_TTL_SECONDS},
+	 * so a change applies at once on the instance that made it and on others when their cache
+	 * expires.</p>
+	 *
+	 * @param request The settings to change.
+	 * @return The settings as saved, with any warnings, such as a Phield API key that will be sent over
+	 * {@code http}.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public AdminSettings updateAdminSettings(UpdateAdminSettingsRequest request) throws IOException {
+
+		final HttpRequest httpRequest = json(uri("/api/settings"))
+				.header("Content-Type", APPLICATION_JSON)
+				.method("PATCH", text(gson.toJson(request)))
+				.build();
+
+		return sendExpectingJson(httpRequest, AdminSettings.class);
 
 	}
 

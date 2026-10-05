@@ -16,6 +16,7 @@
 package ai.philterd;
 
 import ai.philterd.philter.PhilterClient;
+import ai.philterd.philter.model.AdminSettings;
 import ai.philterd.philter.model.AuditLogExport;
 import ai.philterd.philter.model.BinaryFilterResponse;
 import ai.philterd.philter.model.CreateApiKeyRequest;
@@ -35,6 +36,7 @@ import ai.philterd.philter.model.PolicyRollbackResponse;
 import ai.philterd.philter.model.PolicyVersionSummary;
 import ai.philterd.philter.model.ReidentifyRequest;
 import ai.philterd.philter.model.StatusResponse;
+import ai.philterd.philter.model.UpdateAdminSettingsRequest;
 import ai.philterd.philter.model.User;
 import ai.philterd.philter.model.Webhook;
 import ai.philterd.philter.model.exceptions.ClientException;
@@ -1084,6 +1086,91 @@ public class PhilterClientMockTest {
         Assert.assertEquals("offset on " + path, "25", queryParameter("offset"));
         Assert.assertEquals("limit on " + path, "50", queryParameter("limit"));
 
+    }
+
+
+    // Admin settings.
+
+    @Test
+    public void getAdminSettingsMapsEverySetting() throws Exception {
+
+        respond(200, "{\"diffuseCountsEnabled\":false,\"signingEnabled\":true,"
+                + "\"webhookAllowlist\":\"hooks.example.com, 10.4.0.0/16\",\"phieldEnabled\":true,"
+                + "\"phieldUrl\":\"https://phield.example.com\",\"phieldSourceId\":\"philter\","
+                + "\"phieldOrganization\":\"acme\",\"phieldApiKeySet\":true,\"warnings\":[]}");
+
+        final AdminSettings settings = client().getAdminSettings();
+
+        Assert.assertEquals("GET", method);
+        Assert.assertEquals("/api/settings", path);
+        Assert.assertTrue(queryParameters.isEmpty());
+        Assert.assertEquals("application/json", header("Accept"));
+
+        Assert.assertFalse(settings.isDiffuseCountsEnabled());
+        Assert.assertTrue(settings.isSigningEnabled());
+        Assert.assertEquals("hooks.example.com, 10.4.0.0/16", settings.getWebhookAllowlist());
+        Assert.assertTrue(settings.isPhieldEnabled());
+        Assert.assertEquals("https://phield.example.com", settings.getPhieldUrl());
+        Assert.assertEquals("philter", settings.getPhieldSourceId());
+        Assert.assertEquals("acme", settings.getPhieldOrganization());
+        Assert.assertTrue(settings.isPhieldApiKeySet());
+        Assert.assertTrue(settings.getWarnings().isEmpty());
+    }
+
+    @Test
+    public void updateAdminSettingsSendsOnlyTheChangedSettings() throws Exception {
+
+        respond(200, "{\"diffuseCountsEnabled\":false,\"signingEnabled\":true,\"webhookAllowlist\":\"\","
+                + "\"phieldEnabled\":true,\"phieldUrl\":\"http://phield.example.com\",\"phieldSourceId\":\"philter\","
+                + "\"phieldOrganization\":\"philter\",\"phieldApiKeySet\":true,"
+                + "\"warnings\":[\"The Phield URL is http, so the API key is sent in the clear. Use an https URL.\"]}");
+
+        final UpdateAdminSettingsRequest request = new UpdateAdminSettingsRequest();
+        request.setSigningEnabled(true);
+        request.setPhieldEnabled(true);
+        request.setPhieldUrl("http://phield.example.com");
+        request.setPhieldApiKey("phield-key");
+
+        final AdminSettings settings = client().updateAdminSettings(request);
+
+        Assert.assertEquals("PATCH", method);
+        Assert.assertEquals("/api/settings", path);
+        Assert.assertTrue(queryParameters.isEmpty());
+        Assert.assertEquals("application/json", header("Content-Type"));
+        // A setting left unset is left out, so Philter leaves it as it is.
+        Assert.assertEquals("{\"signingEnabled\":true,\"phieldEnabled\":true,"
+                + "\"phieldUrl\":\"http://phield.example.com\",\"phieldApiKey\":\"phield-key\"}", requestBodyAsString());
+
+        Assert.assertTrue(settings.isSigningEnabled());
+        Assert.assertEquals(1, settings.getWarnings().size());
+        Assert.assertTrue(settings.getWarnings().get(0).contains("sent in the clear"));
+    }
+
+    @Test
+    public void updateAdminSettingsSendsAnEmptyPhieldApiKeyToRemoveIt() throws Exception {
+
+        respond(200, "{\"phieldApiKeySet\":false,\"warnings\":[]}");
+
+        final UpdateAdminSettingsRequest request = new UpdateAdminSettingsRequest();
+        request.setPhieldApiKey("");
+
+        Assert.assertFalse(client().updateAdminSettings(request).isPhieldApiKeySet());
+        Assert.assertEquals("{\"phieldApiKey\":\"\"}", requestBodyAsString());
+    }
+
+    @Test
+    public void updateAdminSettingsSurfacesPhilterReason() {
+
+        respond(400, "webhookAllowlist entry 'not a host' is not a hostname, an IP address, or a CIDR range.");
+
+        final UpdateAdminSettingsRequest request = new UpdateAdminSettingsRequest();
+        request.setWebhookAllowlist("hooks.example.com,not a host");
+
+        final ClientException ex = Assert.assertThrows(ClientException.class,
+                () -> client().updateAdminSettings(request));
+
+        Assert.assertTrue(ex.getMessage(), ex.getMessage().contains("HTTP 400"));
+        Assert.assertTrue(ex.getMessage(), ex.getMessage().contains("'not a host' is not a hostname"));
     }
 
     // Webhook.

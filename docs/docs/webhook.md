@@ -23,7 +23,7 @@ client.removeWebhook();
 
 - a missing URL or secret;
 - a URL that is not `http` or `https`;
-- a host the administrator's webhook destination allowlist does not permit, or, with no allowlist, a private or loopback address;
+- a host the administrator's webhook destination allowlist (see [Admin Settings](admin-settings.md)) does not permit, or, with no allowlist, a private or loopback address;
 - a secret shorter than 16 characters.
 
 Setting and removing a webhook are recorded in Philter's audit log as `webhook_configured` and `webhook_removed`. The URL and secret are not recorded.
