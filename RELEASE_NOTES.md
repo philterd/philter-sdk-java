@@ -5,183 +5,74 @@ Release notes for the Philter SDK for Java. Dates for tagged releases are taken 
 
 ## 2.0.0-SNAPSHOT (unreleased)
 
-**Compatible with Philter 4.0.0.** This is a major version that updates the client for the Philter 4.0.0 API and
-is not backward compatible with earlier versions of the client. It has not been released; the changes below
+**Compatible with Philter 4.0.0.** A major version, not backward compatible with 1.x. Not yet released; changes
 are relative to 1.5.0.
 
-### API compatibility
+### Breaking changes
 
-* Updated the client for compatibility with the **Philter 4.0.0** API.
-* Added `withApiKey(...)` to the client builder for `Authorization` header authentication. The value is sent
-  verbatim on every request, so include any scheme prefix (for example `"Bearer "`) if your deployment requires it.
-* Dropped the document ID request parameter from `filter` and `explain`; Philter now assigns the document ID and
-  returns it via the `x-document-id` response header.
-* The text `filter` request now forces synchronous processing so the filtered text is returned directly.
-* Added the unauthenticated `health()` call for `/api/health`, which returns a structured `StatusResponse`.
-* Removed mTLS / SSL client-certificate support (`withSslConfiguration(...)`) and the `ayza` dependency. It may be
-  reintroduced in a future release if needed.
+* Authenticate with `withApiKey(...)`, which sends its value verbatim in the `Authorization` header, so include
+  any scheme prefix such as `"Bearer "`.
+* `filter` and `explain` no longer take a document ID. Philter assigns it and returns it in the
+  `x-document-id` header.
+* Removed `status()`, since Philter 4.0.0 removed `/api/status`. Use `health()`, which returns a
+  `StatusResponse`.
+* Removed mTLS client-certificate support (`withSslConfiguration(...)`) and alerts, which Philter no longer
+  has.
+* Replaced Retrofit and OkHttp with the JDK's `java.net.http.HttpClient`. `withOkHttpClientBuilder(...)` is
+  replaced by `withHttpClientBuilder(HttpClient.Builder)`, which still gets the per-request timeout and the
+  `Authorization` header but not the connect timeout. `withMaxIdleConnections(...)` and
+  `withKeepAliveDurationMs(...)` are deprecated no-ops; use the `jdk.httpclient.connectionPoolSize` and
+  `jdk.httpclient.keepalive.timeout` system properties. `AbstractClient` is removed, and the `UNAUTHORIZED`
+  and `SERVICE_UNAVAILABLE` constants moved to `PhilterClient`.
 
-### New functionality
+### Philter 4.0.0 API coverage
 
-* Added support for the full Philter 4.0.0 API surface:
-  * Policies: versions, diff, rollback, and compilation.
-  * Contexts and context entries (create, update, delete, export, import).
-  * Documents (list, retrieve, delete, status).
-  * Legal holds.
-  * Redaction ledger.
-  * Custom lists and redact lists.
-  * Re-identification of redacted values.
-* Removed alerts support (no longer part of the Philter API).
+The client implements every operation in Philter's OpenAPI specification, and every optional query parameter
+can be supplied. Methods that gained parameters keep their signatures and gained overloads.
+
+* **Filtering:** `filterToPdf` returns a redacted PDF; `filterAsync` and `filterToPdfAsync` submit a PDF for
+  asynchronous redaction and return its document ID for `getDocumentStatus` and `getDocument`. `filter` and
+  `explain` take an optional filename.
+* **Policies:** versions, diffs, rollback, and PhiSQL compilation; descriptions and notes (`getPolicyDetails`,
+  `setPolicyDetails`, and a `savePolicy` overload); managed policies (`getManagedPolicies`); and `copyPolicy`.
+* **Contexts, documents, legal holds, the redaction ledger, custom lists, redact lists, and
+  re-identification**, including context entry export and import, `getContext`'s per-filter-type counts,
+  and ledger deletion (`deleteLedgerEntry`, `purgeLedger`).
+* **Users:** `getUsers`, `getUser`, `getCurrentUser`, `createUser` (optionally with a password),
+  `setUserRole`, `deactivateUser`, and `reactivateUser`.
+* **Sign-in:** `signIn` returns a session key or an MFA challenge for `completeSignIn`, and `signOut` revokes
+  the session key. Passwords (`changePassword`, `setPassword`), MFA (`startMfaEnrollment`,
+  `confirmMfaEnrollment`, `removeMfaEnrollment`, `removeUserMfa`, `unlockUserMfa`), and
+  `revokeSessionKeys`.
+* **API keys:** `getApiKeys`, `createApiKey` for the caller or another user, `setApiKeyScopes`, and
+  `revokeApiKey`. A key's value is returned only when it is created.
+* **Administration:** `getAdminSettings` and `updateAdminSettings`; `getWebhook`, `setWebhook`, and
+  `removeWebhook`; `getAuditLog` and `exportAuditLog` (CSV); `regenerateSigningKey`; and listings of
+  policies, contexts, lists, ledger chains, and holds across all users.
+* `owner` overloads let an administrator act on another user's data, and paged calls take `offset` and
+  `limit`.
+
+Responses for the new endpoints are typed models, such as `User`, `ApiKey`, `PolicyDetails`, `AuditEvent`,
+and `SignInResponse`. Older collection calls such as `getContexts` and `getLedger` still return raw JSON.
+
+### Errors
+
+* `ClientException` carries Philter's response body after the status code, truncated at 512 characters.
+* `UnauthorizedException` carries Philter's message.
+* A sign-in for a locked username raises `SignInLockedException`, and one over the rate limit
+  `SignInRateLimitedException`. Both extend `ClientException` and carry the seconds to wait.
 
 ### Build and tooling
 
-* Targets Java 11 bytecode (via `<release>11</release>`) for broad consumer compatibility, while building with a current JDK.
-* Migrated artifact publishing to Maven Central.
-* Updated dependencies: `commons-lang3` (#11) and `log4j-core` (#14, #15), now used only by the tests.
-* Added mocked unit tests covering the full client surface, plus env-gated live integration tests that run
-  against a real Philter instance when `PHILTER_ENDPOINT` is configured.
-
-### API coverage
-
-Reconciled the client against Philter's OpenAPI specification and the API controllers on `philterd/philter`
-`main`. The client now implements every endpoint in the specification, and no endpoint it calls is absent
-from it.
-
-* Added `getSigningKey(String keyId)` for `GET /api/signing-key/{keyId}`, which returns a retained public
-  signing key by ID.
-* Added password sign-in, with the `SignInResponse` model: `signIn(username, password)` returns a session key
-  with its expiry, or an MFA challenge that `completeSignIn(challenge, code)` exchanges for the key, and
-  `signOut()` revokes the calling session key. `SignInResponse` reports when the key can only change the
-  password or enroll in MFA.
-* Added passwords: `changePassword` changes the caller's own, `setPassword` sets or resets another user's
-  (administrator only), and `createUser(username, email, role, password)` creates a user with one. `User`
-  gained `isPasswordSet()`, `isPasswordChangeRequired()`, `isMfaEnabled()`, and `isMfaLocked()`.
-* Added MFA: `startMfaEnrollment`, `confirmMfaEnrollment`, and `removeMfaEnrollment` for the caller, and
-  `removeUserMfa` and `unlockUserMfa` for an administrator, with the `MfaEnrollment` model. `AdminSettings`
-  and `UpdateAdminSettingsRequest` gained `mfaAvailable` and `mfaRequired`.
-* Added session keys: `ApiKey` gained `isSession()`, `getExpiresAt()`, `getIdleExpiresAt()`, and
-  `getLastUsedAt()`, and `revokeSessionKeys(username)` revokes all of a user's session keys (administrator
-  only).
-* A username locked after repeated failed sign-ins and a client address over the sign-in rate limit now
-  raise `SignInLockedException` and `SignInRateLimitedException`, subclasses of `ClientException` that carry
-  the seconds to wait. An `UnauthorizedException` now carries Philter's message instead of a fixed
-  `Unauthorized`.
-* Added `regenerateSigningKey()` for `POST /api/signing-key/regenerate`, which rotates the output signing key
-  and returns the ID of the key now active. It requires an administrator and `signing:write`.
-* Added user management: `getUsers` (paged with `offset` and `limit`), `getUser`, `getCurrentUser`,
-  `createUser`, `setUserRole`, `deactivateUser`, and `reactivateUser`, with the `User`, `GetUsersResponse`,
-  `CreateUserRequest`, `CreatedUserResponse`, and `SetUserRoleRequest` models. Users have no password and
-  authenticate with API keys, so `createUser(username, email)` and `createUser(username, email, role)` take
-  none; the role is `user` (the default) or `admin`. Every call requires an administrator except
-  `getCurrentUser`, plus `users:read` or `users:write`.
-* Added `getWebhook`, `setWebhook(url, secret)`, and `removeWebhook` for `GET`, `PUT`, and `DELETE` on
-  `/api/webhook`, each with an `owner` overload, and the `Webhook` and `SetWebhookRequest` models. A webhook
-  is where Philter notifies the user when an asynchronous redaction completes or fails. Reading it returns
-  the URL and whether a secret is set, never the secret. They require `webhooks:read` or `webhooks:write`,
-  and an administrator only for another user's webhook.
-* Added policy descriptions and notes, managed policies, and copies. `savePolicy(name, json, description,
-  notes)` saves a description and notes with the policy, and the existing `savePolicy` overloads leave them
-  unchanged. `getPolicyDetails` and `setPolicyDetails` read and change them, with the `PolicyDetails` and
-  `SetPolicyDetailsRequest` models; `getPolicy` still returns only the policy JSON. `getManagedPolicies`
-  lists the built-in managed policies, which `getPolicy` reads by name, and `copyPolicy` creates a policy
-  from a managed policy or duplicates one of the caller's own. Each has an `owner` overload except
-  `getManagedPolicies`.
-* Added `getAdminSettings()` and `updateAdminSettings(UpdateAdminSettingsRequest)` for `GET` and `PATCH` on
-  `/api/settings`, with the `AdminSettings` and `UpdateAdminSettingsRequest` models: differential-privacy
-  counts, output signing, the webhook destination allowlist, and Phield publishing. The Phield API key is
-  reported only as whether it is set. An update sends only the settings set on the request. Both require an
-  administrator and `settings:read` or `settings:write`.
-* Added API key management, with the `ApiKey`, `GetApiKeysResponse`, `CreateApiKeyRequest`,
-  `CreatedApiKeyResponse`, and `SetApiKeyScopesRequest` models. `getApiKeys` lists the caller's keys, or with
-  `owner` another user's (administrator only), paged. `createApiKey(scopes)` creates a key for the caller, and
-  `createApiKey(username, scopes)` one for another user (administrator only). `setApiKeyScopes` and
-  `revokeApiKey` act on a key by ID. A key's value is returned only when it is created, so capture it there:
-  Philter stores only its hash. `ApiKey` has no field for it, and `CreatedApiKeyResponse.getId()` gives the ID
-  to manage the new key with.
-* Added `deleteLedgerEntry(String documentId)` for `DELETE /api/ledger/{documentId}`.
-* Added `purgeLedger(int olderThanDays)` for `DELETE /api/ledger`, which prunes completed chains older than
-  the given number of days. Philter restricts both ledger deletions to administrators on deployments that
-  set `LEDGER_DELETION_ENABLED=true`.
-* Documented the fields `getContext` returns. Philter's `GET /api/contexts/{name}` now includes entry counts
-  per filter type (`filterTypes`) and entries with no filter type (`untyped`) alongside `size`, and the
-  client passes them through unchanged.
-* Added `getAuditLog()` and `getAuditLog(event, from, to, owner, offset, limit)` for `GET /api/audit`, with the
-  `AuditEvent` and `GetAuditLogResponse` models. They read the audit log most recent first, filtered by event
-  type, time (`java.time.Instant`, `from` inclusive and `to` exclusive), and acting user, paged, with the total
-  matching the filters. They require an administrator and `audit:read`.
-* Added `exportAuditLog(...)` for `GET /api/audit/export`, which exports the audit log as CSV for a range of
-  whole days, with optional `zone`, `offset`, and `limit`. It returns an `AuditLogExport` holding the CSV and
-  the row count, whether the page was truncated, the offset of the next page, and the time zone the dates were
-  read in. A response without the row-count or truncation header is rejected rather than treated as complete.
-  Requires an administrator and the `audit:read` scope.
-* Added administrator listings across all users: `getPoliciesAcrossUsers`, `getContextsAcrossUsers`,
-  `getListsAcrossUsers`, `getLedgerAcrossUsers`, and `getHoldsAcrossUsers`, each with an `(offset, limit)`
-  overload. They send `all_users=true` and name each item's owner. Policies come back as `OwnedName` and holds
-  as `OwnedLegalHoldResponse`, a `LegalHoldResponse` with `getOwner()`; contexts, lists, and ledger chains are
-  raw JSON, as their per-user calls are. Requires an administrator and `ADMIN_CROSS_USER_ACCESS_ENABLED=true`.
-* **Breaking change: removed `status()`.** Philter 4.0.0 standardized on `/api/health` and removed
-  `/api/status`, so the call could only ever return an HTTP 404. Use `health()`.
-
-### Parameter coverage
-
-Every query parameter Philter defines is now reachable. Each affected method keeps its existing signature
-and gained an overload with the optional parameters appended, so no existing call changes.
-
-* `owner` can be passed to every endpoint that accepts it, for administrators acting on another user's
-  data. Previously only `getPolicies`, `exportContextEntries`, `importContextEntries`, and `reidentify`
-  exposed it and the rest sent nothing.
-* `offset` and `limit` can be passed to `getPolicyVersions`, `getContexts`, `getContextEntries`,
-  `getDocuments`, `getHolds`, and `getLedger`, which previously always took the server's first page.
-* `filter(context, policy, filename, text)` and `explain(context, policy, filename, text)` record the
-  source filename against the document.
-* Added `filterToPdf(...)`, which returns a redacted PDF rather than a ZIP archive.
-* Added `filterAsync(...)` and `filterToPdfAsync(...)`, which submit a PDF for asynchronous redaction and
-  return the assigned document ID for use with `getDocumentStatus` and `getDocument`. The PDF endpoint
-  defaults to asynchronous, so the waiting calls now send `async=false` explicitly.
-* The text `filter` no longer sends `async`. Philter's text endpoint does not define that parameter and is
-  always synchronous.
-* Added the `AsyncFilterResponse` model for the 202 response body.
-
-### Error reporting
-
-* `ClientException` now carries Philter's response body after the status code, truncated at 512
-  characters. A rejected request previously reported only `Unknown error: HTTP 400`, discarding the
-  server's explanation of what was wrong. `UnauthorizedException` and `ServiceUnavailableException`
-  keep their fixed messages.
-
-### Documentation
-
-Audited every page of the documentation site against the client and Philter's API controllers. Every code
-sample now compiles against the SDK.
-
-* Corrected `health()`: the status field is `"UP"`, not `"Healthy"`.
-* Corrected `compilePolicy`: it compiles PhiSQL source into a native policy and returns its `name`,
-  `description`, and `policy`. It does not check a policy body.
-* Corrected the re-identification example: the strategy must be `CRYPTO_REPLACE` or `FPE_ENCRYPT_REPLACE`.
-  The previous `"encryption"` would have been rejected with an HTTP 400.
-* Added pages for legal holds, the always-redact and never-redact lists, the redaction ledger, and the
-  `owner` and pagination parameters. Every public method on the client is now documented.
-* Documented the asynchronous PDF flow, `filterToPdf`, `compilePolicy`, the context entry endpoints, and the
-  document status values (`PENDING`, `PROCESSING`, `COMPLETE`, `FAILED`).
-* Noted that `createContext` and `updateContext` treat an omitted flag as `false` rather than as
-  "leave unchanged", in both the guide and the javadoc.
-
-### HTTP client
-
-* Replaced Retrofit and OkHttp with the JDK's `java.net.http.HttpClient`. The only remaining runtime
-  dependencies are Gson and `commons-lang3`.
-* Replaced `withOkHttpClientBuilder(OkHttpClient.Builder)` with `withHttpClientBuilder(HttpClient.Builder)`.
-  The per-request timeout and the `Authorization` header are still applied to a supplied builder; the
-  connect timeout is not.
-* `withMaxIdleConnections(...)` and `withKeepAliveDurationMs(...)` are deprecated no-ops. The JDK client
-  sizes its connection pool through the `jdk.httpclient.connectionPoolSize` and
-  `jdk.httpclient.keepalive.timeout` system properties.
-* Removed the `AbstractClient` base class and the internal `PhilterService` Retrofit interface. The
-  `UNAUTHORIZED` and `SERVICE_UNAVAILABLE` constants now live on `PhilterClient`.
-* Requests are pinned to HTTP/1.1 and follow redirects, matching the wire behavior of the OkHttp-based
-  releases. The default client also honors the `http.proxyHost` / `https.proxyHost` system properties,
-  which the JDK client otherwise ignores.
-* An endpoint URL without a trailing slash is now accepted; Retrofit rejected it.
+* Targets Java 11 bytecode. The only runtime dependencies are Gson and `commons-lang3`.
+* Publishes to Maven Central; snapshots are published from `main`.
+* The default HTTP client uses HTTP/1.1, follows redirects, and honors the `http.proxyHost` and
+  `https.proxyHost` system properties; a builder passed to `withHttpClientBuilder` is used as given. An
+  endpoint URL without a trailing slash is accepted.
+* Updated `commons-lang3` (#11) and `log4j-core` (#14, #15), now used only by the tests.
+* Mocked unit tests cover the whole client, and live integration tests run against a real Philter when
+  `PHILTER_ENDPOINT` is set.
+* The documentation covers every public method, and every code sample compiles against the SDK.
 
 ## 1.5.0 (2025-03-19)
 
