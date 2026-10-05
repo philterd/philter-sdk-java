@@ -51,6 +51,7 @@ import ai.philterd.philter.model.exceptions.ClientException;
 import ai.philterd.philter.model.exceptions.ServiceUnavailableException;
 import ai.philterd.philter.model.exceptions.UnauthorizedException;
 import com.google.gson.Gson;
+import com.google.gson.JsonObject;
 import com.google.gson.reflect.TypeToken;
 
 import java.io.File;
@@ -619,17 +620,27 @@ public class PhilterClient {
 	}
 
 	/**
-	 * Compiles a policy, returning the compiled representation.
-	 * @param policy The policy to compile.
-	 * @return The compiled policy.
+	 * Compiles PhiSQL source into a native policy. Nothing is saved: pass the returned {@code policy}
+	 * to {@link #savePolicy(String, String)} to store it.
+	 *
+	 * <p>Requires the {@code policies:read} scope. Does not require an administrator.</p>
+	 *
+	 * <p>The compiled policy is validated before it is returned. Source that fails to parse or compile,
+	 * or a compiled policy that fails validation, is an HTTP 400, thrown as a {@link ClientException}
+	 * carrying the compiler's message.</p>
+	 *
+	 * @param phiSql The PhiSQL source, for example {@code POLICY ssn_only; REDACT SSN WITH MASK;}.
+	 * @return JSON with the compiled {@code policy}, the {@code name} from the source's {@code POLICY}
+	 * declaration ({@code null} when it has none), and the {@code description} when the source declares
+	 * one.
 	 * @throws IOException Thrown if the request can not be completed.
 	 */
-	public String compilePolicy(String policy) throws IOException {
+	public String compilePolicy(String phiSql) throws IOException {
 
 		final HttpRequest request = request(uri("/api/policies/compile"))
 				.header("Accept", APPLICATION_JSON)
 				.header("Content-Type", TEXT_PLAIN)
-				.POST(text(policy))
+				.POST(text(phiSql))
 				.build();
 
 		return sendExpectingString(request);
@@ -684,6 +695,36 @@ public class PhilterClient {
 	 */
 	public String getSigningKey(String keyId) throws IOException {
 		return sendExpectingString(json(uri("/api/signing-key/" + encode(keyId))).GET().build());
+	}
+
+	/**
+	 * Rotates the output signing key: Philter generates a new ES256 keypair and makes it the active
+	 * signing key. The superseded key is retained and stays retrievable with
+	 * {@link #getSigningKey(String)}, so signatures and ledger entries made with it remain verifiable.
+	 * Verifiers should resolve each signature's key ID rather than caching one key.
+	 *
+	 * <p>Requires the {@code signing:write} scope and an administrator. A key without the scope is
+	 * refused with an HTTP 403 whose message names the scope; a key that has it but does not belong to
+	 * an administrator is refused with an HTTP 403 saying an administrator is required. Where the
+	 * signing key is managed by {@code PHILTER_SIGNING_KEY_PATH}, Philter refuses with an HTTP 409:
+	 * replace that file and restart every instance instead. Each is thrown as a
+	 * {@link ClientException} carrying Philter's message.</p>
+	 *
+	 * <p>Each rotation is recorded in Philter's audit log as a {@code signing_key_regenerated} event.</p>
+	 *
+	 * @return The ID of the key that is now active.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public String regenerateSigningKey() throws IOException {
+
+		final HttpRequest request = json(uri("/api/signing-key/regenerate"))
+				.POST(HttpRequest.BodyPublishers.noBody())
+				.build();
+
+		final JsonObject response = sendExpectingJson(request, JsonObject.class);
+
+		return response == null || !response.has("keyId") ? null : response.get("keyId").getAsString();
+
 	}
 
 	// Policies.

@@ -78,10 +78,15 @@ PolicyRollbackResponse rollback = client.rollbackPolicy("my-policy", 1);
 System.out.println("rolled back to revision " + rollback.getRevision());
 ```
 
-`compilePolicy(policyJson)` asks Philter to compile a policy without saving it, which is a way to check a policy body before you store it:
+## Compiling PhiSQL
+
+`compilePolicy(phiSql)` compiles [PhiSQL](https://github.com/philterd/phisql) source into a native policy without saving it. It requires the `policies:read` scope.
 
 ```java
-String compiled = client.compilePolicy(policyJson);
+String compiled = client.compilePolicy("POLICY ssn_only;\nREDACT SSN WITH MASK;");
+// JSON: {"name": "ssn_only", "policy": {"identifiers": {...}}}
 ```
 
-An invalid policy is rejected with an HTTP 400, raised as a `ClientException`.
+The response carries the compiled `policy`, the `name` from the source's `POLICY` declaration (`null` when it has none), and the `description` when the source declares one. The policy is validated before it is returned. To store it, pass the `policy` object's JSON to `savePolicy`, supplying a name if the source had none.
+
+Source that fails to parse or compile, or a compiled policy that fails validation, is rejected with an HTTP 400, raised as a `ClientException` carrying the compiler's message.

@@ -3,7 +3,43 @@
 Release notes for the Philter SDK for Java. Dates for tagged releases are taken from their git tags and
 [GitHub releases](https://github.com/philterd/philter-sdk-java/releases).
 
-## 2.1.0 (unreleased)
+## 2.0.0-SNAPSHOT (unreleased)
+
+**Compatible with Philter 4.0.0.** This is a major version that updates the client for the Philter 4.0.0 API and
+is not backward compatible with earlier versions of the client. It has not been released; the changes below
+are relative to 1.5.0.
+
+### API compatibility
+
+* Updated the client for compatibility with the **Philter 4.0.0** API.
+* Added `withApiKey(...)` to the client builder for `Authorization` header authentication. The value is sent
+  verbatim on every request, so include any scheme prefix (for example `"Bearer "`) if your deployment requires it.
+* Dropped the document ID request parameter from `filter` and `explain`; Philter now assigns the document ID and
+  returns it via the `x-document-id` response header.
+* The text `filter` request now forces synchronous processing so the filtered text is returned directly.
+* Added the unauthenticated `health()` call for `/api/health`, which returns a structured `StatusResponse`.
+* Removed mTLS / SSL client-certificate support (`withSslConfiguration(...)`) and the `ayza` dependency. It may be
+  reintroduced in a future release if needed.
+
+### New functionality
+
+* Added support for the full Philter 4.0.0 API surface:
+  * Policies: versions, diff, rollback, and compilation.
+  * Contexts and context entries (create, update, delete, export, import).
+  * Documents (list, retrieve, delete, status).
+  * Legal holds.
+  * Redaction ledger.
+  * Custom lists and redact lists.
+  * Re-identification of redacted values.
+* Removed alerts support (no longer part of the Philter API).
+
+### Build and tooling
+
+* Targets Java 11 bytecode (via `<release>11</release>`) for broad consumer compatibility, while building with a current JDK.
+* Migrated artifact publishing to Maven Central.
+* Updated dependencies: `commons-lang3` (#11) and `log4j-core` (#14, #15), now used only by the tests.
+* Added mocked unit tests covering the full client surface, plus env-gated live integration tests that run
+  against a real Philter instance when `PHILTER_ENDPOINT` is configured.
 
 ### API coverage
 
@@ -13,6 +49,8 @@ from it.
 
 * Added `getSigningKey(String keyId)` for `GET /api/signing-key/{keyId}`, which returns a retained public
   signing key by ID.
+* Added `regenerateSigningKey()` for `POST /api/signing-key/regenerate`, which rotates the output signing key
+  and returns the ID of the key now active. It requires an administrator and `signing:write`.
 * Added user management: `getUsers` (paged with `offset` and `limit`), `getUser`, `getCurrentUser`,
   `createUser`, `setUserRole`, `deactivateUser`, and `reactivateUser`, with the `User`, `GetUsersResponse`,
   `CreateUserRequest`, `CreatedUserResponse`, and `SetUserRoleRequest` models. Users have no password and
@@ -65,8 +103,7 @@ from it.
   as `OwnedLegalHoldResponse`, a `LegalHoldResponse` with `getOwner()`; contexts, lists, and ledger chains are
   raw JSON, as their per-user calls are. Requires an administrator and `ADMIN_CROSS_USER_ACCESS_ENABLED=true`.
 * **Breaking change: removed `status()`.** Philter 4.0.0 standardized on `/api/health` and removed
-  `/api/status`, so the call could only ever return an HTTP 404. Use `health()`, which returns the same
-  `StatusResponse`.
+  `/api/status`, so the call could only ever return an HTTP 404. Use `health()`.
 
 ### Parameter coverage
 
@@ -101,6 +138,8 @@ Audited every page of the documentation site against the client and Philter's AP
 sample now compiles against the SDK.
 
 * Corrected `health()`: the status field is `"UP"`, not `"Healthy"`.
+* Corrected `compilePolicy`: it compiles PhiSQL source into a native policy and returns its `name`,
+  `description`, and `policy`. It does not check a policy body.
 * Corrected the re-identification example: the strategy must be `CRYPTO_REPLACE` or `FPE_ENCRYPT_REPLACE`.
   The previous `"encryption"` would have been rejected with an HTTP 400.
 * Added pages for legal holds, the always-redact and never-redact lists, the redaction ledger, and the
@@ -126,47 +165,6 @@ sample now compiles against the SDK.
   releases. The default client also honors the `http.proxyHost` / `https.proxyHost` system properties,
   which the JDK client otherwise ignores.
 * An endpoint URL without a trailing slash is now accepted; Retrofit rejected it.
-* Unit tests run against the JDK's `com.sun.net.httpserver.HttpServer` rather than OkHttp's
-  `MockWebServer`.
-
-## 2.0.0 (2026-06-12)
-
-**Compatible with Philter 4.0.0.** This is a major release that updates the client for the Philter 4.0.0 API and
-is not backward compatible with earlier versions of the client.
-
-### API compatibility
-
-* Updated the client for compatibility with the **Philter 4.0.0** API.
-* Added `withApiKey(...)` to the client builder for `Authorization` header authentication. The value is sent
-  verbatim on every request, so include any scheme prefix (for example `"Bearer "`) if your deployment requires it.
-* Dropped the document ID request parameter from `filter` and `explain`; Philter now assigns the document ID and
-  returns it via the `x-document-id` response header.
-* The text `filter` request now forces synchronous processing so the filtered text is returned directly.
-* Replaced the `status()` string response with the structured `StatusResponse` object and added the unauthenticated
-  `health()` endpoint.
-* Removed mTLS / SSL client-certificate support (`withSslConfiguration(...)`) and the `ayza` dependency. It may be
-  reintroduced in a future release if needed.
-
-### New functionality
-
-* Added support for the full Philter 4.0.0 API surface:
-  * Policies: versions, diff, rollback, and compilation.
-  * Contexts and context entries (create, update, delete, export, import).
-  * Documents (list, retrieve, delete, status).
-  * Legal holds.
-  * Redaction ledger.
-  * Custom lists and redact lists.
-  * Re-identification of redacted values.
-* Removed alerts support (no longer part of the Philter API).
-
-### Build and tooling
-
-* Targets Java 11 bytecode (via `<release>11</release>`) for broad consumer compatibility, while building with a current JDK.
-* Migrated artifact publishing to Maven Central.
-* Upgraded OkHttp from 3.14.9 to 4.9.2 (#13).
-* Updated dependencies: `commons-lang3` (#11), `commons-io` (#10), and `log4j-core` (#14, #15).
-* Added mocked unit tests (OkHttp `MockWebServer`) covering the full client surface, plus env-gated live
-  integration tests that run against a real Philter instance when `PHILTER_ENDPOINT` is configured.
 
 ## 1.5.0 (2025-03-19)
 

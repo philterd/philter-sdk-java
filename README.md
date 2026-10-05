@@ -55,7 +55,7 @@ To track the latest development build, depend on the current `-SNAPSHOT` version
 <dependency>
     <groupId>ai.philterd</groupId>
     <artifactId>philter-sdk-java</artifactId>
-    <version>2.1.0-SNAPSHOT</version>
+    <version>2.0.0-SNAPSHOT</version>
 </dependency>
 ```
 
@@ -90,8 +90,8 @@ deployment requires it. The `health()` endpoint does not require authentication.
 In addition to filtering, the client covers the full Philter 4.0.0 API: policies (including versions, diffs,
 rollbacks, descriptions and notes, managed policies, and copies), contexts, documents, legal holds, the redaction
 ledger, the audit log and its CSV export, custom lists, redact lists, re-identification, user management, webhooks,
-managing API keys, admin settings, and administrator listings of policies, contexts, custom lists, ledger chains, and
-legal holds across all users.
+managing API keys, rotating the output signing key, admin settings, and administrator listings of policies, contexts,
+custom lists, ledger chains, and legal holds across all users.
 
 ## Testing
 

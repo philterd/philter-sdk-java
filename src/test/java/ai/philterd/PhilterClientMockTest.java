@@ -423,6 +423,31 @@ public class PhilterClientMockTest {
         Assert.assertEquals("/api/health", path);
     }
 
+    @Test
+    public void regenerateSigningKeyReturnsTheActiveKeyId() throws Exception {
+
+        respond(200, "{\"keyId\":\"k-2026-10-05\"}");
+
+        Assert.assertEquals("k-2026-10-05", client().regenerateSigningKey());
+
+        Assert.assertEquals("POST", method);
+        Assert.assertEquals("/api/signing-key/regenerate", path);
+        Assert.assertTrue(queryParameters.isEmpty());
+        Assert.assertEquals(0, requestBody.length);
+    }
+
+    @Test
+    public void regenerateSigningKeyManagedByAFileIsAClientException() {
+
+        respond(409, "{\"message\":\"The signing key is managed by PHILTER_SIGNING_KEY_PATH; "
+                + "replace the file and restart all instances.\"}");
+
+        final ClientException ex = Assert.assertThrows(ClientException.class, () -> client().regenerateSigningKey());
+
+        Assert.assertTrue(ex.getMessage(), ex.getMessage().contains("409"));
+        Assert.assertTrue(ex.getMessage(), ex.getMessage().contains("PHILTER_SIGNING_KEY_PATH"));
+    }
+
     // Policies.
 
     @Test
