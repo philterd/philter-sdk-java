@@ -22,11 +22,25 @@ List the contexts, and inspect or clear the values a context has accumulated:
 
 ```java
 String contexts = client.getContexts();                   // JSON
+String context = client.getContext("tenant-a");           // JSON
 String entries = client.getContextEntries("tenant-a");    // JSON
 String export = client.exportContextEntries("tenant-a", null);
 
 client.deleteContextEntry("tenant-a", entryId);
 client.deleteContextEntries("tenant-a");
+```
+
+`getContext` returns the context's size and its entries counted by filter type. The counts are computed by Philter in one query and sum to `size`; `untyped` counts entries with no filter type, which only an import creates.
+
+```json
+{
+  "size": 125,
+  "filterTypes": {
+    "EMAIL_ADDRESS": 40,
+    "PERSON": 83
+  },
+  "untyped": 2
+}
 ```
 
 A context's entries are its token-to-replacement mapping table, which is what gives [consistent pseudonymization](concepts.md) its referential integrity: the same source value keeps the same replacement until the entries are deleted. An export carries only token hashes and their replacements, never the original values, so it can be moved between environments. `importContextEntries(name, onConflict, owner, json)` loads one into another context; `onConflict` defaults to `skip`.

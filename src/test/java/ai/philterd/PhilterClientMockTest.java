@@ -759,6 +759,18 @@ public class PhilterClientMockTest {
         Assert.assertEquals("30", queryParameter("older_than_days"));
     }
 
+    @Test
+    public void getContextReturnsFilterTypeCounts() throws Exception {
+
+        final String body = "{\"size\":125,\"filterTypes\":{\"EMAIL_ADDRESS\":40,\"PERSON\":83},\"untyped\":2}";
+        respond(200, body);
+
+        Assert.assertEquals(body, client().getContext("c1"));
+
+        Assert.assertEquals("GET", method);
+        Assert.assertEquals("/api/contexts/c1", path);
+    }
+
     // Optional parameters: every overload that accepts `owner` must put it on the wire, and every
     // paged endpoint must send offset and limit. A missing parameter here is silent in production
     // (the server falls back to the caller's own data, or to the default page), so each overload is

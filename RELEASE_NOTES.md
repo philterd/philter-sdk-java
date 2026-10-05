@@ -24,6 +24,9 @@ from it.
 * Added `purgeLedger(int olderThanDays)` for `DELETE /api/ledger`, which prunes completed chains older than
   the given number of days. Philter restricts both ledger deletions to administrators on deployments that
   set `LEDGER_DELETION_ENABLED=true`.
+* Documented the fields `getContext` returns. Philter's `GET /api/contexts/{name}` now includes entry counts
+  per filter type (`filterTypes`) and entries with no filter type (`untyped`) alongside `size`, and the
+  client passes them through unchanged.
 * **Removed `status()`.** Philter 4.0.0 standardized on `/api/health` and removed `/api/status`, so the call
   could only ever return an HTTP 404. Use `health()`, which returns the same `StatusResponse`.
 

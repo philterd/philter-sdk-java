@@ -945,7 +945,9 @@ public class PhilterClient {
 	/**
 	 * Gets a context by name.
 	 * @param name The name of the context.
-	 * @return The context.
+	 * @return The context as JSON: {@code size}, the number of entries; {@code filterTypes}, a map of
+	 * filter type to entry count; and {@code untyped}, the entries with no filter type. The counts sum
+	 * to {@code size}.
 	 * @throws IOException Thrown if the call can not be executed.
 	 */
 	public String getContext(String name) throws IOException {
@@ -956,7 +958,7 @@ public class PhilterClient {
 	 * Gets a context by name.
 	 * @param name The name of the context.
 	 * @param owner The owner of the context. May be {@code null}.
-	 * @return The context.
+	 * @return The context as JSON, as described on {@link #getContext(String)}.
 	 * @throws IOException Thrown if the call can not be executed.
 	 */
 	public String getContext(String name, String owner) throws IOException {
