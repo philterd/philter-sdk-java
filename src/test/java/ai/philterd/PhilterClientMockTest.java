@@ -26,6 +26,7 @@ import ai.philterd.philter.model.ExplainResponse;
 import ai.philterd.philter.model.FilterResponse;
 import ai.philterd.philter.model.GenericResponse;
 import ai.philterd.philter.model.GetListsResponse;
+import ai.philterd.philter.model.GetUsersResponse;
 import ai.philterd.philter.model.LegalHoldRequest;
 import ai.philterd.philter.model.LegalHoldResponse;
 import ai.philterd.philter.model.OwnedLegalHoldResponse;
@@ -34,6 +35,7 @@ import ai.philterd.philter.model.PolicyRollbackResponse;
 import ai.philterd.philter.model.PolicyVersionSummary;
 import ai.philterd.philter.model.ReidentifyRequest;
 import ai.philterd.philter.model.StatusResponse;
+import ai.philterd.philter.model.User;
 import ai.philterd.philter.model.exceptions.ClientException;
 import ai.philterd.philter.model.exceptions.ServiceUnavailableException;
 import ai.philterd.philter.model.exceptions.UnauthorizedException;
@@ -550,14 +552,14 @@ public class PhilterClientMockTest {
         Assert.assertEquals("[\"alpha\",\"beta\"]", requestBodyAsString());
     }
 
-    // Provisioning.
+    // Users.
 
     @Test
     public void createUser() throws Exception {
 
         respond(201, "{\"username\":\"ci\",\"role\":\"user\"}");
 
-        final CreatedUserResponse response = client().createUser("ci", "ci@example.com", "a-sixteen-char-password");
+        final CreatedUserResponse response = client().createUser("ci", "ci@example.com");
 
         Assert.assertEquals("ci", response.getUsername());
         Assert.assertEquals("user", response.getRole());
@@ -567,10 +569,19 @@ public class PhilterClientMockTest {
         Assert.assertEquals("application/json", header("Content-Type"));
         Assert.assertEquals("application/json", header("Accept"));
 
-        final String body = requestBodyAsString();
-        Assert.assertTrue(body, body.contains("\"username\":\"ci\""));
-        Assert.assertTrue(body, body.contains("\"email\":\"ci@example.com\""));
-        Assert.assertTrue(body, body.contains("\"password\":\"a-sixteen-char-password\""));
+        // No role means Philter's default, and Philter refuses any password, so neither is sent.
+        Assert.assertEquals("{\"username\":\"ci\",\"email\":\"ci@example.com\"}", requestBodyAsString());
+    }
+
+    @Test
+    public void createUserWithRole() throws Exception {
+
+        respond(201, "{\"username\":\"ops\",\"role\":\"admin\"}");
+
+        Assert.assertEquals("admin", client().createUser("ops", null, "admin").getRole());
+
+        // An omitted email is left out of the body rather than sent as null.
+        Assert.assertEquals("{\"username\":\"ops\",\"role\":\"admin\"}", requestBodyAsString());
     }
 
     @Test
@@ -580,14 +591,12 @@ public class PhilterClientMockTest {
 
         final CreateUserRequest request = new CreateUserRequest();
         request.setUsername("ci");
-        request.setPassword("a-sixteen-char-password");
 
         Assert.assertEquals("ci", client().createUser(request).getUsername());
 
         Assert.assertEquals("POST", method);
         Assert.assertEquals("/api/users", path);
-        // An omitted email is left out of the body rather than sent as null.
-        Assert.assertFalse(requestBodyAsString(), requestBodyAsString().contains("email"));
+        Assert.assertEquals("{\"username\":\"ci\"}", requestBodyAsString());
     }
 
     @Test
@@ -596,22 +605,129 @@ public class PhilterClientMockTest {
         respond(409, "{\"message\":\"That username is taken.\"}");
 
         final ClientException ex = Assert.assertThrows(ClientException.class,
-                () -> client().createUser("ci", null, "a-sixteen-char-password"));
+                () -> client().createUser("ci", null));
 
         Assert.assertTrue(ex.getMessage(), ex.getMessage().contains("409"));
         Assert.assertTrue(ex.getMessage(), ex.getMessage().contains("That username is taken."));
     }
 
     @Test
-    public void createUserWhenProvisioningIsDisabled() {
+    public void getUsersMapsThePageAndTotal() throws Exception {
 
-        // With PROVISIONING_API_ENABLED unset the endpoint is not there, and answers 404 with no body.
-        respond(404, "");
+        respond(200, "{\"users\":[{\"username\":\"alice\",\"email\":\"alice@example.com\",\"role\":\"admin\","
+                + "\"active\":true,\"created\":\"2026-10-01T12:00:00.000+00:00\"},"
+                + "{\"username\":\"bob\",\"role\":\"user\",\"active\":false,"
+                + "\"created\":\"2026-10-02T12:00:00.000+00:00\",\"deactivatedAt\":\"2026-10-04T12:00:00.000+00:00\"}],"
+                + "\"total\":30}");
 
-        final ClientException ex = Assert.assertThrows(ClientException.class,
-                () -> client().createUser("ci", null, "a-sixteen-char-password"));
+        final GetUsersResponse response = client().getUsers(25, 50);
 
-        Assert.assertTrue(ex.getMessage(), ex.getMessage().contains("404"));
+        Assert.assertEquals("GET", method);
+        Assert.assertEquals("/api/users", path);
+        Assert.assertEquals("25", queryParameter("offset"));
+        Assert.assertEquals("50", queryParameter("limit"));
+        Assert.assertEquals("application/json", header("Accept"));
+
+        Assert.assertEquals(30, response.getTotal());
+        Assert.assertEquals(2, response.getUsers().size());
+
+        final User alice = response.getUsers().get(0);
+        Assert.assertEquals("alice", alice.getUsername());
+        Assert.assertEquals("alice@example.com", alice.getEmail());
+        Assert.assertEquals("admin", alice.getRole());
+        Assert.assertTrue(alice.isActive());
+        Assert.assertEquals("2026-10-01T12:00:00.000+00:00", alice.getCreated());
+        Assert.assertNull(alice.getDeactivatedAt());
+
+        final User bob = response.getUsers().get(1);
+        Assert.assertNull(bob.getEmail());
+        Assert.assertFalse(bob.isActive());
+        Assert.assertEquals("2026-10-04T12:00:00.000+00:00", bob.getDeactivatedAt());
+    }
+
+    @Test
+    public void getUsersShortFormSendsNoPaging() throws Exception {
+
+        respond(200, "{\"users\":[],\"total\":0}");
+
+        Assert.assertEquals(0, client().getUsers().getTotal());
+
+        Assert.assertEquals("/api/users", path);
+        Assert.assertTrue(queryParameters.isEmpty());
+    }
+
+    @Test
+    public void getUserEncodesTheUsername() throws Exception {
+
+        respond(200, "{\"username\":\"ci\",\"email\":\"ci@example.com\",\"role\":\"user\",\"active\":true,"
+                + "\"created\":\"2026-10-05T12:00:00.000+00:00\"}");
+
+        final User user = client().getUser("ci user");
+
+        Assert.assertEquals("GET", method);
+        Assert.assertEquals("/api/users/ci%20user", rawPath);
+        Assert.assertEquals("ci", user.getUsername());
+        Assert.assertTrue(user.isActive());
+    }
+
+    @Test
+    public void getCurrentUser() throws Exception {
+
+        respond(200, "{\"username\":\"ci\",\"email\":\"ci@example.com\",\"role\":\"user\",\"active\":true,"
+                + "\"created\":\"2026-10-05T12:00:00.000+00:00\"}");
+
+        Assert.assertEquals("ci", client().getCurrentUser().getUsername());
+
+        Assert.assertEquals("GET", method);
+        Assert.assertEquals("/api/users/me", path);
+    }
+
+    @Test
+    public void setUserRole() throws Exception {
+
+        respond(200, "{\"username\":\"ci\",\"role\":\"admin\",\"active\":true}");
+
+        final User user = client().setUserRole("ci", "admin");
+
+        Assert.assertEquals("PUT", method);
+        Assert.assertEquals("/api/users/ci/role", path);
+        Assert.assertEquals("application/json", header("Content-Type"));
+        Assert.assertEquals("{\"role\":\"admin\"}", requestBodyAsString());
+        Assert.assertEquals("admin", user.getRole());
+    }
+
+    @Test
+    public void deactivateAndReactivateUser() throws Exception {
+
+        respond(200, "{\"username\":\"ci\",\"role\":\"user\",\"active\":false,"
+                + "\"deactivatedAt\":\"2026-10-05T12:00:00.000+00:00\"}");
+
+        Assert.assertFalse(client().deactivateUser("ci").isActive());
+        Assert.assertEquals("POST", method);
+        Assert.assertEquals("/api/users/ci/deactivate", path);
+        Assert.assertEquals(0, requestBody.length);
+
+        respond(200, "{\"username\":\"ci\",\"role\":\"user\",\"active\":true}");
+
+        Assert.assertTrue(client().reactivateUser("ci").isActive());
+        Assert.assertEquals("POST", method);
+        Assert.assertEquals("/api/users/ci/reactivate", path);
+        Assert.assertEquals(0, requestBody.length);
+    }
+
+    // Philter answers both refusals with a 403, so the message is what tells them apart.
+    @Test
+    public void missingScopeAndNonAdministratorAreDistinguishable() {
+
+        respond(403, "{\"error\": \"Forbidden\", \"message\": \"This API key does not have the 'users:read' scope.\"}");
+        final ClientException scope = Assert.assertThrows(ClientException.class, () -> client().getUsers());
+
+        respond(403, "{\"message\":\"Listing users requires an administrator.\"}");
+        final ClientException admin = Assert.assertThrows(ClientException.class, () -> client().getUsers());
+
+        Assert.assertTrue(scope.getMessage(), scope.getMessage().contains("does not have the 'users:read' scope"));
+        Assert.assertTrue(admin.getMessage(), admin.getMessage().contains("requires an administrator"));
+        Assert.assertNotEquals(scope.getMessage(), admin.getMessage());
     }
 
     @Test

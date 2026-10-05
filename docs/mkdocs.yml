@@ -26,7 +26,7 @@ nav:
   - Redaction Ledger: ledger.md
   - Audit Log: audit-log.md
   - Owners and Pagination: owners-and-pagination.md
-  - Provisioning: provisioning.md
+  - Users and API Keys: provisioning.md
   - Server Health: health.md
   - Error Handling: error-handling.md
   - End-to-End Example: end-to-end-example.md

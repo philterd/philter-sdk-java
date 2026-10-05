@@ -52,9 +52,9 @@ import java.util.List;
  *   <li>{@code PHILTER_API_KEY} (optional) - value sent in the Authorization header</li>
  *   <li>{@code PHILTER_INSECURE} (optional) - {@code true} to trust self-signed certificates</li>
  *   <li>{@code PHILTER_PDF_FILE} (optional) - path to a PDF used by the PDF filtering test</li>
- *   <li>{@code PHILTER_PROVISIONING} (optional) - {@code true} when the instance runs with
- *       {@code PROVISIONING_API_ENABLED=true} and {@code PHILTER_API_KEY} is an administrator's key, to run
- *       the provisioning tests. They create a user, which nothing in the API removes, so they are opt-in.</li>
+ *   <li>{@code PHILTER_PROVISIONING} (optional) - {@code true} when {@code PHILTER_API_KEY} is an
+ *       administrator's key holding {@code users:write} and {@code api-keys:write}, to run the provisioning
+ *       tests. They create a user, which nothing in the API removes, so they are opt-in.</li>
  * </ul>
  */
 public class PhilterClientTest {
@@ -235,17 +235,16 @@ public class PhilterClientTest {
     @Test
     public void provisionUserAndApiKey() throws Exception {
 
-        Assume.assumeTrue("Set PHILTER_PROVISIONING=true against an instance with PROVISIONING_API_ENABLED=true.",
+        Assume.assumeTrue("Set PHILTER_PROVISIONING=true with an administrator's API key.",
                 PROVISIONING);
 
         final PhilterClient client = client();
         final String username = "sdk-it-user-" + System.currentTimeMillis();
 
-        final CreatedUserResponse user = client.createUser(username, username + "@example.com",
-                "sdk-it-password-that-is-long-enough");
+        final CreatedUserResponse user = client.createUser(username, username + "@example.com");
 
         Assert.assertEquals(username, user.getUsername());
-        Assert.assertEquals("Provisioning only ever creates a non-administrator.", "user", user.getRole());
+        Assert.assertEquals("A user is created with the user role unless one is given.", "user", user.getRole());
 
         final CreatedApiKeyResponse key = client.createApiKey(username, List.of("redact"));
 

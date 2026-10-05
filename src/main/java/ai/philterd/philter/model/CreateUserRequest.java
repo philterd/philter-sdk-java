@@ -19,10 +19,7 @@ import com.google.gson.annotations.Expose;
 import com.google.gson.annotations.SerializedName;
 
 /**
- * A request to create a non-administrator user through Philter's provisioning API.
- *
- * <p>The role is not a parameter. The endpoint only ever creates a non-administrator; an
- * administrator account is made in the dashboard.</p>
+ * A request to create a user. Users have no password: they authenticate with API keys.
  */
 public class CreateUserRequest {
 
@@ -35,8 +32,8 @@ public class CreateUserRequest {
     private String email;
 
     @Expose
-    @SerializedName("password")
-    private String password;
+    @SerializedName("role")
+    private String role;
 
     public String getUsername() {
         return username;
@@ -54,12 +51,13 @@ public class CreateUserRequest {
         this.email = email;
     }
 
-    public String getPassword() {
-        return password;
+    /** {@code user} or {@code admin}. {@code null} creates a {@code user}. */
+    public String getRole() {
+        return role;
     }
 
-    public void setPassword(String password) {
-        this.password = password;
+    public void setRole(String role) {
+        this.role = role;
     }
 
 }

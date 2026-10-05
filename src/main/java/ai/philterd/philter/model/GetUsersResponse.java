@@ -18,33 +18,37 @@ package ai.philterd.philter.model;
 import com.google.gson.annotations.Expose;
 import com.google.gson.annotations.SerializedName;
 
+import java.util.List;
+
 /**
- * A user created through Philter's API.
+ * A page of users and the total number of users.
  */
-public class CreatedUserResponse {
+public class GetUsersResponse {
 
     @Expose
-    @SerializedName("username")
-    private String username;
+    @SerializedName("users")
+    private List<User> users;
 
     @Expose
-    @SerializedName("role")
-    private String role;
+    @SerializedName("total")
+    private long total;
 
-    public String getUsername() {
-        return username;
+    /** The users in this page, sorted by username, including deactivated users. */
+    public List<User> getUsers() {
+        return users;
     }
 
-    public void setUsername(String username) {
-        this.username = username;
+    public void setUsers(List<User> users) {
+        this.users = users;
     }
 
-    public String getRole() {
-        return role;
+    /** Every user, across all pages. */
+    public long getTotal() {
+        return total;
     }
 
-    public void setRole(String role) {
-        this.role = role;
+    public void setTotal(long total) {
+        this.total = total;
     }
 
 }

@@ -19,26 +19,22 @@ import com.google.gson.annotations.Expose;
 import com.google.gson.annotations.SerializedName;
 
 /**
- * A user created through Philter's API.
+ * A request to set a user's role.
  */
-public class CreatedUserResponse {
-
-    @Expose
-    @SerializedName("username")
-    private String username;
+public class SetUserRoleRequest {
 
     @Expose
     @SerializedName("role")
     private String role;
 
-    public String getUsername() {
-        return username;
+    public SetUserRoleRequest() {
     }
 
-    public void setUsername(String username) {
-        this.username = username;
+    public SetUserRoleRequest(String role) {
+        this.role = role;
     }
 
+    /** {@code user} or {@code admin}. */
     public String getRole() {
         return role;
     }

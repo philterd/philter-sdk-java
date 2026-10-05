@@ -21,7 +21,7 @@ import com.google.gson.annotations.SerializedName;
 import java.util.List;
 
 /**
- * An API key created through Philter's provisioning API.
+ * An API key created for a user.
  *
  * <p>Philter stores only the hash of a key, so {@link #getApiKey()} is the one chance to capture its
  * value. It cannot be read back afterwards.</p>

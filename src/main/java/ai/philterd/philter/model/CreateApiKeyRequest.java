@@ -21,7 +21,7 @@ import com.google.gson.annotations.SerializedName;
 import java.util.List;
 
 /**
- * A request to create an API key for a user through Philter's provisioning API.
+ * A request to create an API key for a user.
  *
  * <p>The scopes are required and are not defaulted. They must be a subset of the scopes held by the
  * key making the request: a key cannot grant a scope it does not itself carry.</p>

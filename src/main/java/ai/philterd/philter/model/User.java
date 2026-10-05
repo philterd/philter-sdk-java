@@ -19,17 +19,33 @@ import com.google.gson.annotations.Expose;
 import com.google.gson.annotations.SerializedName;
 
 /**
- * A user created through Philter's API.
+ * A Philter user. Users have no password: they authenticate with API keys.
  */
-public class CreatedUserResponse {
+public class User {
 
     @Expose
     @SerializedName("username")
     private String username;
 
     @Expose
+    @SerializedName("email")
+    private String email;
+
+    @Expose
     @SerializedName("role")
     private String role;
+
+    @Expose
+    @SerializedName("active")
+    private boolean active;
+
+    @Expose
+    @SerializedName("created")
+    private String created;
+
+    @Expose
+    @SerializedName("deactivatedAt")
+    private String deactivatedAt;
 
     public String getUsername() {
         return username;
@@ -39,12 +55,48 @@ public class CreatedUserResponse {
         this.username = username;
     }
 
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
+    }
+
+    /** {@code user} or {@code admin}. */
     public String getRole() {
         return role;
     }
 
     public void setRole(String role) {
         this.role = role;
+    }
+
+    /** {@code false} once the user is deactivated, which stops its API keys working. */
+    public boolean isActive() {
+        return active;
+    }
+
+    public void setActive(boolean active) {
+        this.active = active;
+    }
+
+    /** When the user was created. */
+    public String getCreated() {
+        return created;
+    }
+
+    public void setCreated(String created) {
+        this.created = created;
+    }
+
+    /** When the user was deactivated, or {@code null} if it never was. */
+    public String getDeactivatedAt() {
+        return deactivatedAt;
+    }
+
+    public void setDeactivatedAt(String deactivatedAt) {
+        this.deactivatedAt = deactivatedAt;
     }
 
 }

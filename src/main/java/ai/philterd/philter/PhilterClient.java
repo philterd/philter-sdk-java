@@ -26,6 +26,7 @@ import ai.philterd.philter.model.ExplainResponse;
 import ai.philterd.philter.model.FilterResponse;
 import ai.philterd.philter.model.GenericResponse;
 import ai.philterd.philter.model.GetListsResponse;
+import ai.philterd.philter.model.GetUsersResponse;
 import ai.philterd.philter.model.LegalHoldRequest;
 import ai.philterd.philter.model.LegalHoldResponse;
 import ai.philterd.philter.model.OwnedLegalHoldResponse;
@@ -33,7 +34,9 @@ import ai.philterd.philter.model.OwnedName;
 import ai.philterd.philter.model.PolicyRollbackResponse;
 import ai.philterd.philter.model.PolicyVersionSummary;
 import ai.philterd.philter.model.ReidentifyRequest;
+import ai.philterd.philter.model.SetUserRoleRequest;
 import ai.philterd.philter.model.StatusResponse;
+import ai.philterd.philter.model.User;
 import ai.philterd.philter.model.exceptions.ClientException;
 import ai.philterd.philter.model.exceptions.ServiceUnavailableException;
 import ai.philterd.philter.model.exceptions.UnauthorizedException;
@@ -1934,35 +1937,118 @@ public class PhilterClient {
 
 	}
 
-	// Provisioning.
+	// Users.
 
 	/**
-	 * Creates a non-administrator user.
+	 * Gets the first page of users. Requires the {@code users:read} scope and an administrator. See
+	 * {@link #getUsers(Integer, Integer)}.
+	 * @return The page of users and the total.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public GetUsersResponse getUsers() throws IOException {
+		return getUsers(null, null);
+	}
+
+	/**
+	 * Gets a page of users, sorted by username, including deactivated users.
 	 *
-	 * <p>Philter's provisioning endpoints exist only where the deployment sets
-	 * {@code PROVISIONING_API_ENABLED=true}; where it does not, this call fails with an HTTP 404. The
-	 * calling key must hold the {@code users:write} scope and belong to an administrator. The role is
-	 * not a parameter: this endpoint cannot create an administrator.</p>
+	 * <p>Requires the {@code users:read} scope and an administrator. A key without the scope is refused
+	 * with an HTTP 403 whose message names the scope; a key that has it but does not belong to an
+	 * administrator is refused with an HTTP 403 saying an administrator is required. Both are thrown
+	 * as a {@link ClientException} carrying that message.</p>
 	 *
+	 * @param offset The number of users to skip. May be {@code null} for {@code 0}.
+	 * @param limit The most users to return, up to 100. May be {@code null} for Philter's default of 25.
+	 * @return The page of users and the total number of users.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public GetUsersResponse getUsers(Integer offset, Integer limit) throws IOException {
+
+		final HttpRequest request = json(uri("/api/users", "offset", offset, "limit", limit))
+				.GET()
+				.build();
+
+		return sendExpectingJson(request, GetUsersResponse.class);
+
+	}
+
+	/**
+	 * Gets a user by username, active or deactivated.
+	 *
+	 * <p>Requires the {@code users:read} scope and an administrator. A key without the scope is refused
+	 * with an HTTP 403 whose message names the scope; a key that has it but does not belong to an
+	 * administrator is refused with an HTTP 403 saying an administrator is required. Both are thrown
+	 * as a {@link ClientException} carrying that message.</p>
+	 *
+	 * <p>A username that does not exist is an HTTP 404, thrown as a {@link ClientException}. The
+	 * username {@code me} is reserved and returns the calling key's user, as
+	 * {@link #getCurrentUser()} does.</p>
+	 *
+	 * @param username The username.
+	 * @return The user.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public User getUser(String username) throws IOException {
+		return sendExpectingJson(json(uri("/api/users/" + encode(username))).GET().build(), User.class);
+	}
+
+	/**
+	 * Gets the user that owns the calling API key.
+	 *
+	 * <p>Requires the {@code users:read} scope. Does not require an administrator.</p>
+	 *
+	 * @return The calling key's user.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public User getCurrentUser() throws IOException {
+		return sendExpectingJson(json(uri("/api/users/me")).GET().build(), User.class);
+	}
+
+	/**
+	 * Creates a user with the {@code user} role. Requires the {@code users:write} scope and an
+	 * administrator. See {@link #createUser(CreateUserRequest)}.
 	 * @param username The username. Required.
 	 * @param email The email address. May be {@code null}.
-	 * @param password The password. Required, and at least 16 characters.
 	 * @return The created {@link CreatedUserResponse}.
 	 * @throws IOException Thrown if the call can not be executed.
 	 */
-	public CreatedUserResponse createUser(String username, String email, String password) throws IOException {
+	public CreatedUserResponse createUser(String username, String email) throws IOException {
+		return createUser(username, email, null);
+	}
+
+	/**
+	 * Creates a user. Requires the {@code users:write} scope and an administrator. See
+	 * {@link #createUser(CreateUserRequest)}.
+	 * @param username The username. Required.
+	 * @param email The email address. May be {@code null}.
+	 * @param role {@code user} or {@code admin}. May be {@code null} for {@code user}.
+	 * @return The created {@link CreatedUserResponse}.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public CreatedUserResponse createUser(String username, String email, String role) throws IOException {
 
 		final CreateUserRequest request = new CreateUserRequest();
 		request.setUsername(username);
 		request.setEmail(email);
-		request.setPassword(password);
+		request.setRole(role);
 
 		return createUser(request);
 
 	}
 
 	/**
-	 * Creates a non-administrator user.
+	 * Creates a user, with a default policy and context. The user has no password and authenticates
+	 * with API keys; create one with {@link #createApiKey(String, List)}.
+	 *
+	 * <p>Requires the {@code users:write} scope and an administrator. A key without the scope is refused
+	 * with an HTTP 403 whose message names the scope; a key that has it but does not belong to an
+	 * administrator is refused with an HTTP 403 saying an administrator is required. Both are thrown
+	 * as a {@link ClientException} carrying that message.</p>
+	 *
+	 * <p>A missing or reserved username, or a role other than {@code user} or {@code admin}, is an
+	 * HTTP 400. A username already taken, by an active or a deactivated user, is an HTTP 409. Both are
+	 * thrown as a {@link ClientException} carrying Philter's reason.</p>
+	 *
 	 * @param request The {@link CreateUserRequest}.
 	 * @return The created {@link CreatedUserResponse}.
 	 * @throws IOException Thrown if the call can not be executed.
@@ -1979,12 +2065,91 @@ public class PhilterClient {
 	}
 
 	/**
+	 * Sets a user's role.
+	 *
+	 * <p>Requires the {@code users:write} scope and an administrator. A key without the scope is refused
+	 * with an HTTP 403 whose message names the scope; a key that has it but does not belong to an
+	 * administrator is refused with an HTTP 403 saying an administrator is required. Both are thrown
+	 * as a {@link ClientException} carrying that message.</p>
+	 *
+	 * <p>A role other than {@code user} or {@code admin} is an HTTP 400, an unknown username an
+	 * HTTP 404, and demoting the last active administrator an HTTP 409, each thrown as a
+	 * {@link ClientException}.</p>
+	 *
+	 * @param username The username.
+	 * @param role {@code user} or {@code admin}.
+	 * @return The user, with its new role.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public User setUserRole(String username, String role) throws IOException {
+
+		final HttpRequest request = json(uri("/api/users/" + encode(username) + "/role"))
+				.header("Content-Type", APPLICATION_JSON)
+				.PUT(text(gson.toJson(new SetUserRoleRequest(role))))
+				.build();
+
+		return sendExpectingJson(request, User.class);
+
+	}
+
+	/**
+	 * Deactivates a user. Its API keys stop working, and the user and its data are retained so it can
+	 * be reactivated with {@link #reactivateUser(String)}. The username stays reserved.
+	 *
+	 * <p>Requires the {@code users:write} scope and an administrator. A key without the scope is refused
+	 * with an HTTP 403 whose message names the scope; a key that has it but does not belong to an
+	 * administrator is refused with an HTTP 403 saying an administrator is required. Both are thrown
+	 * as a {@link ClientException} carrying that message.</p>
+	 *
+	 * <p>An unknown username is an HTTP 404. A user that is already deactivated, is the caller, or is
+	 * the last active administrator is an HTTP 409. Both are thrown as a {@link ClientException}.</p>
+	 *
+	 * @param username The username.
+	 * @return The user.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public User deactivateUser(String username) throws IOException {
+
+		final HttpRequest request = json(uri("/api/users/" + encode(username) + "/deactivate"))
+				.POST(HttpRequest.BodyPublishers.noBody())
+				.build();
+
+		return sendExpectingJson(request, User.class);
+
+	}
+
+	/**
+	 * Reactivates a deactivated user, restoring its API keys.
+	 *
+	 * <p>Requires the {@code users:write} scope and an administrator. A key without the scope is refused
+	 * with an HTTP 403 whose message names the scope; a key that has it but does not belong to an
+	 * administrator is refused with an HTTP 403 saying an administrator is required. Both are thrown
+	 * as a {@link ClientException} carrying that message.</p>
+	 *
+	 * <p>An unknown username is an HTTP 404, and a user that is already active an HTTP 409. Both are
+	 * thrown as a {@link ClientException}.</p>
+	 *
+	 * @param username The username.
+	 * @return The user.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public User reactivateUser(String username) throws IOException {
+
+		final HttpRequest request = json(uri("/api/users/" + encode(username) + "/reactivate"))
+				.POST(HttpRequest.BodyPublishers.noBody())
+				.build();
+
+		return sendExpectingJson(request, User.class);
+
+	}
+
+	// API keys.
+
+	/**
 	 * Creates an API key for a user.
 	 *
-	 * <p>Philter's provisioning endpoints exist only where the deployment sets
-	 * {@code PROVISIONING_API_ENABLED=true}; where it does not, this call fails with an HTTP 404. The
-	 * calling key must hold the {@code api-keys:write} scope and belong to an administrator, and the
-	 * requested scopes must be a subset of those the calling key holds.</p>
+	 * <p>The calling key must hold the {@code api-keys:write} scope and belong to an administrator,
+	 * and the requested scopes must be a subset of those the calling key holds.</p>
 	 *
 	 * <p>The key's value is returned only here. Philter stores only its hash, so a value not captured
 	 * from the response cannot be recovered.</p>
