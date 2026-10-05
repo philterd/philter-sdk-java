@@ -19,7 +19,7 @@ import com.google.gson.annotations.Expose;
 import com.google.gson.annotations.SerializedName;
 
 /**
- * A Philter user. Users have no password: they authenticate with API keys.
+ * A Philter user. Philter never returns a password, its hash, or an MFA secret.
  */
 public class User {
 
@@ -46,6 +46,22 @@ public class User {
     @Expose
     @SerializedName("deactivatedAt")
     private String deactivatedAt;
+
+    @Expose
+    @SerializedName("passwordSet")
+    private boolean passwordSet;
+
+    @Expose
+    @SerializedName("passwordChangeRequired")
+    private boolean passwordChangeRequired;
+
+    @Expose
+    @SerializedName("mfaEnabled")
+    private boolean mfaEnabled;
+
+    @Expose
+    @SerializedName("mfaLocked")
+    private boolean mfaLocked;
 
     public String getUsername() {
         return username;
@@ -97,6 +113,42 @@ public class User {
 
     public void setDeactivatedAt(String deactivatedAt) {
         this.deactivatedAt = deactivatedAt;
+    }
+
+    /** Whether the user has a password, for signing in. */
+    public boolean isPasswordSet() {
+        return passwordSet;
+    }
+
+    public void setPasswordSet(boolean passwordSet) {
+        this.passwordSet = passwordSet;
+    }
+
+    /** Whether the user must change the password at next sign-in, because an administrator set it. */
+    public boolean isPasswordChangeRequired() {
+        return passwordChangeRequired;
+    }
+
+    public void setPasswordChangeRequired(boolean passwordChangeRequired) {
+        this.passwordChangeRequired = passwordChangeRequired;
+    }
+
+    /** Whether the user is enrolled in MFA. */
+    public boolean isMfaEnabled() {
+        return mfaEnabled;
+    }
+
+    public void setMfaEnabled(boolean mfaEnabled) {
+        this.mfaEnabled = mfaEnabled;
+    }
+
+    /** Whether the user's MFA is locked after repeated bad codes, until an administrator unlocks it. */
+    public boolean isMfaLocked() {
+        return mfaLocked;
+    }
+
+    public void setMfaLocked(boolean mfaLocked) {
+        this.mfaLocked = mfaLocked;
     }
 
 }

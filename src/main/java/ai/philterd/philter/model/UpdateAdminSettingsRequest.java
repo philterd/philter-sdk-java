@@ -56,6 +56,14 @@ public class UpdateAdminSettingsRequest {
     @SerializedName("phieldApiKey")
     private String phieldApiKey;
 
+    @Expose
+    @SerializedName("mfaAvailable")
+    private Boolean mfaAvailable;
+
+    @Expose
+    @SerializedName("mfaRequired")
+    private Boolean mfaRequired;
+
     /** Whether to record PII counts for differential-privacy reporting. */
     public Boolean getDiffuseCountsEnabled() {
         return diffuseCountsEnabled;
@@ -129,6 +137,27 @@ public class UpdateAdminSettingsRequest {
 
     public void setPhieldApiKey(String phieldApiKey) {
         this.phieldApiKey = phieldApiKey;
+    }
+
+    /**
+     * Whether users may enroll in MFA for sign-in. Users already enrolled are asked for a code
+     * whatever this says.
+     */
+    public Boolean getMfaAvailable() {
+        return mfaAvailable;
+    }
+
+    public void setMfaAvailable(Boolean mfaAvailable) {
+        this.mfaAvailable = mfaAvailable;
+    }
+
+    /** Whether every user who signs in must enroll in MFA. Requires {@code mfaAvailable}. */
+    public Boolean getMfaRequired() {
+        return mfaRequired;
+    }
+
+    public void setMfaRequired(Boolean mfaRequired) {
+        this.mfaRequired = mfaRequired;
     }
 
 }

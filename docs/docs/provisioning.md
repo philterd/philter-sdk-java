@@ -1,6 +1,6 @@
 # Users and API Keys
 
-Users own API keys and the policies, contexts, and other resources made with them. Users have no password: they authenticate with API keys. These calls create and manage users and their keys, for example to stand up a deployment in CI, in a marketplace image, or for a test harness.
+Users own API keys and the policies, contexts, and other resources made with them. Automation authenticates with long-lived API keys; a person can also sign in with a password through a user interface, which gets a session key (see [Sign-in, Passwords, and MFA](sign-in.md)). These calls create and manage users and their keys, for example to stand up a deployment in CI, in a marketplace image, or for a test harness.
 
 Every user call on this page requires an administrator's key, except `getCurrentUser`, along with the scope noted for each. A user can manage its own API keys without an administrator; managing another user's requires one. Philter refuses both a missing scope and a non-administrator with an HTTP 403, raised as a `ClientException`. The message tells them apart: a missing scope names the scope (`This API key does not have the 'users:read' scope.`), and a non-administrator is told an administrator is required (`Listing users requires an administrator.`).
 
@@ -20,7 +20,7 @@ System.out.println(user.getRole());      // user
 CreatedUserResponse admin = client.createUser("ops", null, "admin");
 ```
 
-The email is optional. The role is `user` or `admin`, and defaults to `user`. The new user gets a default policy and context.
+The email is optional. The role is `user` or `admin`, and defaults to `user`. `createUser(username, email, role, password)` also gives the user a password, which they must change at next sign-in; without one, the user can only use API keys. See [Passwords](sign-in.md#passwords). The new user gets a default policy and context.
 
 A missing or reserved username (`me`), or any other role, is rejected with an HTTP 400. A username already taken, by an active user or a deactivated one holding the name in reserve, returns an HTTP 409. Both surface as a `ClientException` carrying Philter's explanation.
 
@@ -81,7 +81,7 @@ for (ApiKey k : mine.getApiKeys()) {
 GetApiKeysResponse theirs = client.getApiKeys("ci", 0, 100);
 ```
 
-Each key has its ID, a prefix to tell keys apart, its scopes, when it was created, and whether it is the bootstrap key seeded from `PHILTER_BOOTSTRAP_API_KEY`. The key itself is never returned after it is created. Listing another user's keys requires an administrator, but not `ADMIN_CROSS_USER_ACCESS_ENABLED`; an unknown username is an HTTP 404.
+Each key has its ID, a prefix to tell keys apart, its scopes, when it was created, and whether it is the bootstrap key seeded from `PHILTER_BOOTSTRAP_API_KEY`. Session keys, issued when a person signs in, are listed too, with their expiry; see [Session keys](sign-in.md#session-keys). The key itself is never returned after it is created. Listing another user's keys requires an administrator, but not `ADMIN_CROSS_USER_ACCESS_ENABLED`; an unknown username is an HTTP 404.
 
 ## Creating an API key
 

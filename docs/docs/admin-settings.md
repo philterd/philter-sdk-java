@@ -15,6 +15,8 @@ settings.getPhieldUrl();
 settings.getPhieldSourceId();
 settings.getPhieldOrganization();
 settings.isPhieldApiKeySet();        // the key itself is never returned
+settings.isMfaAvailable();           // users may enroll in MFA for sign-in
+settings.isMfaRequired();            // every user who signs in must enroll
 ```
 
 ## Changing settings
@@ -38,6 +40,7 @@ for (String warning : saved.getWarnings()) {
 - `webhookAllowlist` is comma-separated hostnames, IP addresses, and CIDR ranges. An empty string allows any public address.
 - `phieldApiKey` sets the Phield API key. An empty string removes it.
 - `phieldSourceId` and `phieldOrganization` are set to `philter` when blank.
+- `mfaRequired` requires `mfaAvailable`; turning it on while `mfaAvailable` is off is an HTTP 400. Users already enrolled in MFA are asked for a code whatever `mfaAvailable` says. See [Multi-factor authentication](sign-in.md#multi-factor-authentication).
 
 Philter validates every value before saving any, and changes nothing if one is invalid. A `webhookAllowlist` entry that is not a hostname, an IP address, or a CIDR range, a `phieldUrl` that is not an absolute `http` or `https` URL, or a request that sets `phieldEnabled` or `phieldUrl` and would leave Phield enabled without a URL is an HTTP 400, raised as a `ClientException` carrying Philter's reason.
 

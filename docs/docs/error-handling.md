@@ -5,6 +5,7 @@ Every operation declares a checked `IOException`, thrown when the request cannot
 | HTTP status | Exception |
 |-------------|-----------|
 | 401         | `UnauthorizedException` |
+| 429 from `signIn` or `completeSignIn` | `SignInLockedException` or `SignInRateLimitedException` |
 | 503         | `ServiceUnavailableException` |
 | any other non-2xx | `ClientException` |
 
@@ -14,7 +15,9 @@ Philter explains a rejected request in the response body, and the `ClientExcepti
 Unknown error: HTTP 400: {"message":"'strategy' must be CRYPTO_REPLACE or FPE_ENCRYPT_REPLACE."}
 ```
 
-`UnauthorizedException` and `ServiceUnavailableException` carry fixed messages, since a 401 and a 503 say all there is to say.
+`UnauthorizedException` carries Philter's message, such as `Invalid or missing credentials`, or `Unauthorized` when the response has none. Philter gives the same 401 for an unknown key, an expired or revoked session key, and a deactivated user, so the client cannot tell them apart. `ServiceUnavailableException` carries a fixed message.
+
+`SignInLockedException` and `SignInRateLimitedException` are subclasses of `ClientException`, so a handler for `ClientException` still catches them. See [Failed sign-ins](sign-in.md#failed-sign-ins).
 
 ```java
 import ai.philterd.philter.model.FilterResponse;

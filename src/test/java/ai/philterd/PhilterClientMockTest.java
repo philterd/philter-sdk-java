@@ -17,6 +17,8 @@ package ai.philterd;
 
 import ai.philterd.philter.PhilterClient;
 import ai.philterd.philter.model.AdminSettings;
+import ai.philterd.philter.model.SignInResponse;
+import ai.philterd.philter.model.MfaEnrollment;
 import ai.philterd.philter.model.ApiKey;
 import ai.philterd.philter.model.AuditEvent;
 import ai.philterd.philter.model.AuditLogExport;
@@ -46,6 +48,9 @@ import ai.philterd.philter.model.User;
 import ai.philterd.philter.model.Webhook;
 import ai.philterd.philter.model.exceptions.ClientException;
 import ai.philterd.philter.model.exceptions.ServiceUnavailableException;
+import ai.philterd.philter.model.exceptions.SignInLockedException;
+import ai.philterd.philter.model.exceptions.SignInRateLimitedException;
+import ai.philterd.philter.model.exceptions.SignInThrottledException;
 import ai.philterd.philter.model.exceptions.UnauthorizedException;
 import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
@@ -706,6 +711,157 @@ public class PhilterClientMockTest {
         Assert.assertEquals("[\"alpha\",\"beta\"]", requestBodyAsString());
     }
 
+    // Sign-in.
+
+    @Test
+    public void signInReturnsASessionKey() throws Exception {
+
+        respond(200, "{\"apiKey\":\"sk_AbCdEfGhIjKlMnOpQrStUvWxYz012345\",\"username\":\"jordan\",\"scopes\":[\"redact\",\"contexts:read\"],"
+                + "\"expiresAt\":\"2026-10-06T02:03:11.000Z\",\"idleExpiresAt\":\"2026-10-05T14:33:11.000Z\","
+                + "\"passwordChangeRequired\":false,\"mfaEnrollmentRequired\":false}");
+
+        final SignInResponse response = client().signIn("jordan", "the-users-password");
+
+        Assert.assertEquals("POST", method);
+        Assert.assertEquals("/api/sign-in", path);
+        Assert.assertTrue(queryParameters.isEmpty());
+        Assert.assertEquals("application/json", header("Content-Type"));
+        Assert.assertEquals("{\"username\":\"jordan\",\"password\":\"the-users-password\"}", requestBodyAsString());
+
+        Assert.assertFalse(response.isMfaRequired());
+        Assert.assertEquals("sk_AbCdEfGhIjKlMnOpQrStUvWxYz012345", response.getApiKey());
+        Assert.assertEquals("jordan", response.getUsername());
+        Assert.assertEquals(List.of("redact", "contexts:read"), response.getScopes());
+        Assert.assertEquals("2026-10-06T02:03:11.000Z", response.getExpiresAt());
+        Assert.assertEquals("2026-10-05T14:33:11.000Z", response.getIdleExpiresAt());
+        Assert.assertFalse(response.isPasswordChangeRequired());
+        Assert.assertFalse(response.isMfaEnrollmentRequired());
+        Assert.assertNull(response.getChallenge());
+    }
+
+    @Test
+    public void signInReturnsARestrictedKeyWhenThePasswordMustChange() throws Exception {
+
+        respond(200, "{\"apiKey\":\"sk_AbCdEfGhIjKlMnOpQrStUvWxYz012345\",\"username\":\"jordan\","
+                + "\"passwordChangeRequired\":true,\"mfaEnrollmentRequired\":false}");
+
+        final SignInResponse response = client().signIn("jordan", "the-users-password");
+
+        Assert.assertTrue(response.isPasswordChangeRequired());
+        Assert.assertNotNull(response.getApiKey());
+    }
+
+    @Test
+    public void signInReturnsAnMfaChallengeAndCompleteSignInReturnsTheKey() throws Exception {
+
+        respond(200, "{\"mfaRequired\":true,\"challenge\":\"y4pY0m3l8f2rVq7d\","
+                + "\"challengeExpiresAt\":\"2026-10-05T14:08:11.000Z\"}");
+
+        final SignInResponse challenge = client().signIn("jordan", "the-users-password");
+
+        Assert.assertTrue(challenge.isMfaRequired());
+        Assert.assertEquals("y4pY0m3l8f2rVq7d", challenge.getChallenge());
+        Assert.assertEquals("2026-10-05T14:08:11.000Z", challenge.getChallengeExpiresAt());
+        Assert.assertNull(challenge.getApiKey());
+
+        respond(200, "{\"apiKey\":\"sk_AbCdEfGhIjKlMnOpQrStUvWxYz012345\",\"username\":\"jordan\",\"scopes\":[\"redact\",\"contexts:read\"],"
+                + "\"expiresAt\":\"2026-10-06T02:03:11.000Z\",\"idleExpiresAt\":\"2026-10-05T14:33:11.000Z\","
+                + "\"passwordChangeRequired\":false,\"mfaEnrollmentRequired\":false}");
+
+        final SignInResponse response = client().completeSignIn("y4pY0m3l8f2rVq7d", "123456");
+
+        Assert.assertEquals("POST", method);
+        Assert.assertEquals("/api/sign-in/mfa", path);
+        Assert.assertEquals("{\"challenge\":\"y4pY0m3l8f2rVq7d\",\"code\":\"123456\"}", requestBodyAsString());
+        Assert.assertEquals("sk_AbCdEfGhIjKlMnOpQrStUvWxYz012345", response.getApiKey());
+    }
+
+    @Test
+    public void signInWithBadCredentialsIsUnauthorizedWithPhilterMessage() {
+
+        respond(401, "{\"message\":\"Invalid username or password.\"}");
+
+        final UnauthorizedException ex = Assert.assertThrows(UnauthorizedException.class,
+                () -> client().signIn("jordan", "wrong-password-0123"));
+
+        Assert.assertEquals("Invalid username or password.", ex.getMessage());
+    }
+
+    @Test
+    public void aLockedUsernameIsASignInLockedException() {
+
+        responseHeaders.put("Retry-After", "900");
+        respond(429, "{\"message\":\"Too many failed sign-ins for this username. Try again later.\",\"reason\":\"locked\"}");
+
+        final SignInLockedException ex = Assert.assertThrows(SignInLockedException.class,
+                () -> client().signIn("jordan", "the-users-password"));
+
+        Assert.assertEquals("locked", ex.getReason());
+        Assert.assertEquals(Integer.valueOf(900), ex.getRetryAfterSeconds());
+        Assert.assertEquals("Too many failed sign-ins for this username. Try again later.", ex.getMessage());
+    }
+
+    @Test
+    public void anAddressOverTheRateLimitIsASignInRateLimitedException() {
+
+        responseHeaders.put("Retry-After", "60");
+        respond(429, "{\"message\":\"Too many sign-in requests. Try again later.\",\"reason\":\"rate_limited\"}");
+
+        final SignInRateLimitedException ex = Assert.assertThrows(SignInRateLimitedException.class,
+                () -> client().completeSignIn("y4pY0m3l8f2rVq7d", "123456"));
+
+        Assert.assertEquals("rate_limited", ex.getReason());
+        Assert.assertEquals(Integer.valueOf(60), ex.getRetryAfterSeconds());
+        // A subclass of ClientException, so existing handlers still catch it.
+        Assert.assertTrue(ex instanceof ClientException);
+    }
+
+    @Test
+    public void a429WithoutAKnownReasonIsAClientException() {
+
+        respond(429, "{\"message\":\"Slow down.\"}");
+
+        final ClientException ex = Assert.assertThrows(ClientException.class,
+                () -> client().signIn("jordan", "the-users-password"));
+
+        Assert.assertFalse(ex instanceof SignInThrottledException);
+        Assert.assertTrue(ex.getMessage(), ex.getMessage().contains("HTTP 429"));
+    }
+
+    @Test
+    public void aLockedMfaIsAClientExceptionWithPhilterMessage() {
+
+        respond(403, "{\"message\":\"MFA is locked after repeated bad codes. An administrator must unlock it.\"}");
+
+        final ClientException ex = Assert.assertThrows(ClientException.class,
+                () -> client().completeSignIn("y4pY0m3l8f2rVq7d", "000000"));
+
+        Assert.assertTrue(ex.getMessage(), ex.getMessage().contains("HTTP 403"));
+        Assert.assertTrue(ex.getMessage(), ex.getMessage().contains("MFA is locked"));
+    }
+
+    @Test
+    public void signOutRevokesTheCallingKey() throws Exception {
+
+        respond(204, "");
+
+        client().signOut();
+
+        Assert.assertEquals("DELETE", method);
+        Assert.assertEquals("/api/api-keys/current", path);
+        Assert.assertTrue(queryParameters.isEmpty());
+    }
+
+    @Test
+    public void signingOutALongLivedKeyIsAClientException() {
+
+        respond(409, "{\"message\":\"A long-lived key cannot revoke itself.\"}");
+
+        final ClientException ex = Assert.assertThrows(ClientException.class, () -> client().signOut());
+
+        Assert.assertTrue(ex.getMessage(), ex.getMessage().contains("HTTP 409"));
+    }
+
     // Users.
 
     @Test
@@ -723,7 +879,7 @@ public class PhilterClientMockTest {
         Assert.assertEquals("application/json", header("Content-Type"));
         Assert.assertEquals("application/json", header("Accept"));
 
-        // No role means Philter's default, and Philter refuses any password, so neither is sent.
+        // No role means Philter's default, and no password a user who can only use API keys, so neither is sent.
         Assert.assertEquals("{\"username\":\"ci\",\"email\":\"ci@example.com\"}", requestBodyAsString());
     }
 
@@ -1487,6 +1643,183 @@ public class PhilterClientMockTest {
 
         Assert.assertTrue(ex.getMessage(), ex.getMessage().contains("HTTP 400"));
         Assert.assertTrue(ex.getMessage(), ex.getMessage().contains("'not a host' is not a hostname"));
+    }
+
+    @Test
+    public void createUserWithAPassword() throws Exception {
+
+        respond(201, "{\"username\":\"jordan\",\"role\":\"user\"}");
+
+        client().createUser("jordan", null, null, "a-password-of-16-or-more");
+
+        Assert.assertEquals("POST", method);
+        Assert.assertEquals("/api/users", path);
+        Assert.assertEquals("{\"username\":\"jordan\",\"password\":\"a-password-of-16-or-more\"}", requestBodyAsString());
+    }
+
+    @Test
+    public void getUserMapsThePasswordAndMfaFields() throws Exception {
+
+        respond(200, "{\"username\":\"jordan\",\"role\":\"user\",\"active\":true,\"passwordSet\":true,"
+                + "\"passwordChangeRequired\":true,\"mfaEnabled\":true,\"mfaLocked\":true}");
+
+        final User user = client().getUser("jordan");
+
+        Assert.assertTrue(user.isPasswordSet());
+        Assert.assertTrue(user.isPasswordChangeRequired());
+        Assert.assertTrue(user.isMfaEnabled());
+        Assert.assertTrue(user.isMfaLocked());
+    }
+
+    @Test
+    public void changePassword() throws Exception {
+
+        respond(204, "");
+
+        client().changePassword("the-current-password", "a-new-password-of-16-or-more");
+
+        Assert.assertEquals("PUT", method);
+        Assert.assertEquals("/api/users/me/password", path);
+        Assert.assertEquals("application/json", header("Content-Type"));
+        Assert.assertEquals("{\"currentPassword\":\"the-current-password\","
+                + "\"newPassword\":\"a-new-password-of-16-or-more\"}", requestBodyAsString());
+    }
+
+    @Test
+    public void aWrongCurrentPasswordIsAClientException() {
+
+        respond(403, "{\"message\":\"The current password is not correct.\"}");
+
+        final ClientException ex = Assert.assertThrows(ClientException.class,
+                () -> client().changePassword("wrong-password-0123", "a-new-password-of-16-or-more"));
+
+        Assert.assertTrue(ex.getMessage(), ex.getMessage().contains("HTTP 403"));
+    }
+
+    @Test
+    public void setPassword() throws Exception {
+
+        respond(204, "");
+
+        client().setPassword("jordan user", "a-password-of-16-or-more");
+
+        Assert.assertEquals("PUT", method);
+        Assert.assertEquals("/api/users/jordan%20user/password", rawPath);
+        Assert.assertEquals("{\"password\":\"a-password-of-16-or-more\"}", requestBodyAsString());
+    }
+
+    @Test
+    public void startMfaEnrollment() throws Exception {
+
+        respond(200, "{\"secret\":\"JBSWY3DPEHPK3PXP\","
+                + "\"otpauthUri\":\"otpauth://totp/Philter:jordan?secret=JBSWY3DPEHPK3PXP&issuer=Philter\"}");
+
+        final MfaEnrollment enrollment = client().startMfaEnrollment();
+
+        Assert.assertEquals("POST", method);
+        Assert.assertEquals("/api/users/me/mfa", path);
+        Assert.assertEquals(0, requestBody.length);
+        Assert.assertEquals("JBSWY3DPEHPK3PXP", enrollment.getSecret());
+        Assert.assertEquals("otpauth://totp/Philter:jordan?secret=JBSWY3DPEHPK3PXP&issuer=Philter", enrollment.getOtpauthUri());
+    }
+
+    @Test
+    public void confirmAndRemoveMfaEnrollmentSendTheCode() throws Exception {
+
+        respond(204, "");
+
+        client().confirmMfaEnrollment("123456");
+        Assert.assertEquals("POST", method);
+        Assert.assertEquals("/api/users/me/mfa/confirm", path);
+        Assert.assertEquals("{\"code\":\"123456\"}", requestBodyAsString());
+
+        client().removeMfaEnrollment("654321");
+        Assert.assertEquals("POST", method);
+        Assert.assertEquals("/api/users/me/mfa/remove", path);
+        Assert.assertEquals("{\"code\":\"654321\"}", requestBodyAsString());
+    }
+
+    @Test
+    public void removeAndUnlockAnotherUsersMfa() throws Exception {
+
+        respond(204, "");
+
+        client().removeUserMfa("jordan");
+        Assert.assertEquals("DELETE", method);
+        Assert.assertEquals("/api/users/jordan/mfa", path);
+
+        client().unlockUserMfa("jordan");
+        Assert.assertEquals("POST", method);
+        Assert.assertEquals("/api/users/jordan/mfa/unlock", path);
+        Assert.assertEquals(0, requestBody.length);
+    }
+
+    @Test
+    public void revokeSessionKeysReturnsTheCount() throws Exception {
+
+        respond(200, "{\"revoked\":2}");
+
+        Assert.assertEquals(2, client().revokeSessionKeys("jordan"));
+
+        Assert.assertEquals("DELETE", method);
+        Assert.assertEquals("/api/users/jordan/session-keys", path);
+    }
+
+    @Test
+    public void getApiKeysMapsSessionKeyFields() throws Exception {
+
+        respond(200, "{\"apiKeys\":[{\"id\":\"6a0f1c2e9b1d4e3f2a1b0c9d\",\"prefix\":\"sk_AbCdEfGhI...\","
+                + "\"scopes\":[\"redact\"],\"bootstrap\":false,\"session\":true,"
+                + "\"expiresAt\":\"2026-10-06T02:03:11.000Z\",\"idleExpiresAt\":\"2026-10-05T14:33:11.000Z\","
+                + "\"lastUsedAt\":\"2026-10-05T14:03:11.000Z\"},"
+                + "{\"id\":\"6a0f1c2e9b1d4e3f2a1b0c9e\",\"scopes\":[\"redact\"],\"session\":false}],\"total\":2}");
+
+        final GetApiKeysResponse response = client().getApiKeys();
+
+        final ApiKey session = response.getApiKeys().get(0);
+        Assert.assertTrue(session.isSession());
+        Assert.assertEquals("2026-10-06T02:03:11.000Z", session.getExpiresAt());
+        Assert.assertEquals("2026-10-05T14:33:11.000Z", session.getIdleExpiresAt());
+        Assert.assertEquals("2026-10-05T14:03:11.000Z", session.getLastUsedAt());
+
+        final ApiKey longLived = response.getApiKeys().get(1);
+        Assert.assertFalse(longLived.isSession());
+        Assert.assertNull(longLived.getExpiresAt());
+    }
+
+    @Test
+    public void adminSettingsCarryTheMfaSettings() throws Exception {
+
+        respond(200, "{\"mfaAvailable\":true,\"mfaRequired\":false,\"warnings\":[]}");
+
+        final UpdateAdminSettingsRequest request = new UpdateAdminSettingsRequest();
+        request.setMfaAvailable(true);
+
+        final AdminSettings settings = client().updateAdminSettings(request);
+
+        Assert.assertEquals("{\"mfaAvailable\":true}", requestBodyAsString());
+        Assert.assertTrue(settings.isMfaAvailable());
+        Assert.assertFalse(settings.isMfaRequired());
+    }
+
+    @Test
+    public void unauthorizedCarriesPhilterMessage() {
+
+        respond(401, "{\"error\": \"Unauthorized\", \"message\": \"Invalid or missing credentials\"}");
+
+        final UnauthorizedException ex = Assert.assertThrows(UnauthorizedException.class, () -> client().getPolicies());
+
+        Assert.assertEquals("Invalid or missing credentials", ex.getMessage());
+    }
+
+    @Test
+    public void unauthorizedWithoutABodyKeepsTheFixedMessage() {
+
+        respond(401, "");
+
+        final UnauthorizedException ex = Assert.assertThrows(UnauthorizedException.class, () -> client().getPolicies());
+
+        Assert.assertEquals(PhilterClient.UNAUTHORIZED, ex.getMessage());
     }
 
     // Webhook.

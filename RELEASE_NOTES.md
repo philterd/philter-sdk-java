@@ -49,6 +49,23 @@ from it.
 
 * Added `getSigningKey(String keyId)` for `GET /api/signing-key/{keyId}`, which returns a retained public
   signing key by ID.
+* Added password sign-in, with the `SignInResponse` model: `signIn(username, password)` returns a session key
+  with its expiry, or an MFA challenge that `completeSignIn(challenge, code)` exchanges for the key, and
+  `signOut()` revokes the calling session key. `SignInResponse` reports when the key can only change the
+  password or enroll in MFA.
+* Added passwords: `changePassword` changes the caller's own, `setPassword` sets or resets another user's
+  (administrator only), and `createUser(username, email, role, password)` creates a user with one. `User`
+  gained `isPasswordSet()`, `isPasswordChangeRequired()`, `isMfaEnabled()`, and `isMfaLocked()`.
+* Added MFA: `startMfaEnrollment`, `confirmMfaEnrollment`, and `removeMfaEnrollment` for the caller, and
+  `removeUserMfa` and `unlockUserMfa` for an administrator, with the `MfaEnrollment` model. `AdminSettings`
+  and `UpdateAdminSettingsRequest` gained `mfaAvailable` and `mfaRequired`.
+* Added session keys: `ApiKey` gained `isSession()`, `getExpiresAt()`, `getIdleExpiresAt()`, and
+  `getLastUsedAt()`, and `revokeSessionKeys(username)` revokes all of a user's session keys (administrator
+  only).
+* A username locked after repeated failed sign-ins and a client address over the sign-in rate limit now
+  raise `SignInLockedException` and `SignInRateLimitedException`, subclasses of `ClientException` that carry
+  the seconds to wait. An `UnauthorizedException` now carries Philter's message instead of a fixed
+  `Unauthorized`.
 * Added `regenerateSigningKey()` for `POST /api/signing-key/regenerate`, which rotates the output signing key
   and returns the ID of the key now active. It requires an administrator and `signing:write`.
 * Added user management: `getUsers` (paged with `offset` and `limit`), `getUser`, `getCurrentUser`,

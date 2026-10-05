@@ -16,6 +16,14 @@
 package ai.philterd.philter;
 
 import ai.philterd.philter.model.AdminSettings;
+import ai.philterd.philter.model.SignInResponse;
+import ai.philterd.philter.model.SignInRequest;
+import ai.philterd.philter.model.SignInMfaRequest;
+import ai.philterd.philter.model.SetPasswordRequest;
+import ai.philterd.philter.model.RevokedSessionKeysResponse;
+import ai.philterd.philter.model.MfaEnrollment;
+import ai.philterd.philter.model.MfaCodeRequest;
+import ai.philterd.philter.model.ChangePasswordRequest;
 import ai.philterd.philter.model.ApiKey;
 import ai.philterd.philter.model.AsyncFilterResponse;
 import ai.philterd.philter.model.AuditLogExport;
@@ -49,9 +57,14 @@ import ai.philterd.philter.model.User;
 import ai.philterd.philter.model.Webhook;
 import ai.philterd.philter.model.exceptions.ClientException;
 import ai.philterd.philter.model.exceptions.ServiceUnavailableException;
+import ai.philterd.philter.model.exceptions.SignInLockedException;
+import ai.philterd.philter.model.exceptions.SignInRateLimitedException;
 import ai.philterd.philter.model.exceptions.UnauthorizedException;
 import com.google.gson.Gson;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonParseException;
+import com.google.gson.JsonParser;
 import com.google.gson.reflect.TypeToken;
 
 import java.io.File;
@@ -317,12 +330,76 @@ public class PhilterClient {
 	private static RuntimeException toException(final int code, final String body) {
 
 		if(code == 401) {
-			return new UnauthorizedException(UNAUTHORIZED);
+			final String message = messageOf(body);
+			return new UnauthorizedException(message == null ? UNAUTHORIZED : message);
 		} else if(code == 503) {
 			return new ServiceUnavailableException(SERVICE_UNAVAILABLE);
 		} else {
 			return new ClientException(describe(code, body));
 		}
+
+	}
+
+	/**
+	 * The {@code message} field of a JSON error body, or {@code null} when the body is not JSON or has
+	 * none.
+	 */
+	private static String messageOf(final String body) {
+
+		if(body == null || body.isBlank()) {
+			return null;
+		}
+
+		try {
+			final JsonElement element = JsonParser.parseString(body);
+			if(element.isJsonObject() && element.getAsJsonObject().has("message")
+					&& element.getAsJsonObject().get("message").isJsonPrimitive()) {
+				return element.getAsJsonObject().get("message").getAsString();
+			}
+		} catch (final JsonParseException ex) {
+			// Not JSON, so there is no message to carry.
+		}
+
+		return null;
+
+	}
+
+	/**
+	 * Maps a failed sign-in response to a client exception. Philter refuses both a locked username and an
+	 * address over the rate limit with an HTTP 429, and its {@code reason} field says which.
+	 */
+	private static RuntimeException toSignInException(final HttpResponse<String> response) {
+
+		if(response.statusCode() == 429) {
+
+			final String message = messageOf(response.body());
+			final Integer retryAfter = response.headers().firstValue("Retry-After").map(value -> {
+				try {
+					return Integer.valueOf(value.trim());
+				} catch (final NumberFormatException ex) {
+					return null;
+				}
+			}).orElse(null);
+
+			String reason = null;
+			try {
+				final JsonElement element = JsonParser.parseString(response.body());
+				if(element.isJsonObject() && element.getAsJsonObject().has("reason")) {
+					reason = element.getAsJsonObject().get("reason").getAsString();
+				}
+			} catch (final RuntimeException ex) {
+				// Not JSON; handled below as an unknown reason.
+			}
+
+			if("locked".equals(reason)) {
+				return new SignInLockedException(message, retryAfter);
+			} else if("rate_limited".equals(reason)) {
+				return new SignInRateLimitedException(message, retryAfter);
+			}
+
+		}
+
+		return toException(response.statusCode(), response.body());
 
 	}
 
@@ -2249,6 +2326,95 @@ public class PhilterClient {
 
 	}
 
+	// Sign-in.
+
+	/**
+	 * Signs a person in with a username and password, for a user interface acting as that person.
+	 * Requires no API key: Philter ignores any the client was built with, so a client holding an expired
+	 * session key can still sign in.
+	 *
+	 * <p>The result is either a session key or, for a user enrolled in MFA, a challenge: when
+	 * {@link SignInResponse#isMfaRequired()} is {@code true}, pass {@link SignInResponse#getChallenge()}
+	 * and a code from the person's authenticator app to {@link #completeSignIn(String, String)}.
+	 * Otherwise use {@link SignInResponse#getApiKey()} for the person's requests: build a client with
+	 * {@code withApiKey("Bearer " + response.getApiKey())}. The key expires after a period without a
+	 * request ({@link SignInResponse#getIdleExpiresAt()}) or at the end of its maximum lifetime
+	 * ({@link SignInResponse#getExpiresAt()}); a request with an expired or revoked key is refused with
+	 * an {@link UnauthorizedException}. When {@link SignInResponse#isPasswordChangeRequired()} or
+	 * {@link SignInResponse#isMfaEnrollmentRequired()} is {@code true}, the key can only change the
+	 * password or enroll in MFA, and sign out.</p>
+	 *
+	 * <p>Password sign-in is disabled unless the deployment sets {@code PASSWORD_SIGN_IN_ENABLED=true};
+	 * otherwise Philter answers HTTP 404, thrown as a {@link ClientException}. A wrong password, an
+	 * unknown username, a user without a password, and a deactivated user are all refused with the same
+	 * HTTP 401, thrown as an {@link UnauthorizedException}. A user whose MFA is locked after repeated bad
+	 * codes is refused with an HTTP 403, thrown as a {@link ClientException}, until an administrator
+	 * unlocks them.</p>
+	 *
+	 * <p>A username locked after repeated failed sign-ins is refused with a
+	 * {@link ai.philterd.philter.model.exceptions.SignInLockedException}, even with the right password,
+	 * and a client address over the sign-in rate limit with a
+	 * {@link ai.philterd.philter.model.exceptions.SignInRateLimitedException}. Both carry the seconds to
+	 * wait.</p>
+	 *
+	 * @param username The username.
+	 * @param password The password.
+	 * @return The session key, or an MFA challenge.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public SignInResponse signIn(String username, String password) throws IOException {
+		return sendSignIn("/api/sign-in", new SignInRequest(username, password));
+	}
+
+	/**
+	 * Completes a sign-in for a user enrolled in MFA, with the challenge {@link #signIn(String, String)}
+	 * returned and a code from the person's authenticator app. Requires no API key.
+	 *
+	 * <p>The challenge expires after five minutes and is used up by any attempt, right or wrong, so a
+	 * wrong code means signing in again with the password. A wrong code, or an unknown, used, or expired
+	 * challenge, is refused with an HTTP 401, thrown as an {@link UnauthorizedException}; Philter does not
+	 * say which. The fifth consecutive bad code locks the user's MFA, which is then refused with an HTTP
+	 * 403, thrown as a {@link ClientException}, until an administrator unlocks it. A client address over
+	 * the sign-in rate limit is refused with a
+	 * {@link ai.philterd.philter.model.exceptions.SignInRateLimitedException}.</p>
+	 *
+	 * @param challenge The challenge from {@link SignInResponse#getChallenge()}.
+	 * @param code The code from the person's authenticator app.
+	 * @return The session key.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public SignInResponse completeSignIn(String challenge, String code) throws IOException {
+		return sendSignIn("/api/sign-in/mfa", new SignInMfaRequest(challenge, code));
+	}
+
+	private SignInResponse sendSignIn(final String path, final Object body) throws IOException {
+
+		final HttpRequest request = json(uri(path))
+				.header("Content-Type", APPLICATION_JSON)
+				.POST(text(gson.toJson(body)))
+				.build();
+
+		final HttpResponse<String> response = send(request, HttpResponse.BodyHandlers.ofString());
+
+		if(!isSuccessful(response)) {
+			throw toSignInException(response);
+		}
+
+		return gson.fromJson(response.body(), SignInResponse.class);
+
+	}
+
+	/**
+	 * Signs out: revokes the session key this client was built with. Any key can call it, whatever its
+	 * scopes, and no administrator is needed. A long-lived key cannot revoke itself, so calling this with
+	 * one is refused with an HTTP 409, thrown as a {@link ClientException}; revoke it with another key
+	 * with {@link #revokeApiKey(String)}.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public void signOut() throws IOException {
+		sendExpectingNoContent(request(uri("/api/api-keys/current")).DELETE().build());
+	}
+
 	// Admin settings.
 
 	/**
@@ -2392,27 +2558,45 @@ public class PhilterClient {
 	 * @throws IOException Thrown if the call can not be executed.
 	 */
 	public CreatedUserResponse createUser(String username, String email, String role) throws IOException {
+		return createUser(username, email, role, null);
+	}
+
+	/**
+	 * Creates a user with a password, for a person who signs in. The user must change the password at
+	 * next sign-in, because an administrator chose it. See {@link #createUser(CreateUserRequest)}.
+	 * @param username The username. Required.
+	 * @param email The email address. May be {@code null}.
+	 * @param role {@code user} or {@code admin}. May be {@code null} for {@code user}.
+	 * @param password The password, 16 characters to 72 UTF-8 bytes. May be {@code null} for a user who
+	 * can only use API keys.
+	 * @return The created {@link CreatedUserResponse}.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public CreatedUserResponse createUser(String username, String email, String role, String password)
+			throws IOException {
 
 		final CreateUserRequest request = new CreateUserRequest();
 		request.setUsername(username);
 		request.setEmail(email);
 		request.setRole(role);
+		request.setPassword(password);
 
 		return createUser(request);
 
 	}
 
 	/**
-	 * Creates a user, with a default policy and context. The user has no password and authenticates
-	 * with API keys; create one with {@link #createApiKey(String, List)}.
+	 * Creates a user, with a default policy and context. A user without a password authenticates only
+	 * with API keys; create one with {@link #createApiKey(String, List)}. A user with a password can also
+	 * sign in with {@link #signIn(String, String)}, and must change the password at next sign-in.
 	 *
 	 * <p>Requires the {@code users:write} scope and an administrator. A key without the scope is refused
 	 * with an HTTP 403 whose message names the scope; a key that has it but does not belong to an
 	 * administrator is refused with an HTTP 403 saying an administrator is required. Both are thrown
 	 * as a {@link ClientException} carrying that message.</p>
 	 *
-	 * <p>A missing or reserved username, or a role other than {@code user} or {@code admin}, is an
-	 * HTTP 400. A username already taken, by an active or a deactivated user, is an HTTP 409. Both are
+	 * <p>A missing or reserved username, a role other than {@code user} or {@code admin}, or a password
+	 * shorter than 16 characters or longer than 72 UTF-8 bytes, is an HTTP 400. A username already taken, by an active or a deactivated user, is an HTTP 409. Both are
 	 * thrown as a {@link ClientException} carrying Philter's reason.</p>
 	 *
 	 * @param request The {@link CreateUserRequest}.
@@ -2507,6 +2691,165 @@ public class PhilterClient {
 
 		return sendExpectingJson(request, User.class);
 
+	}
+
+	/**
+	 * Changes the calling key's own user's password. Clears a required change. Setting a password revokes
+	 * the user's session keys, including the calling key if it is one, so a person then signs in again
+	 * with the new password. Long-lived keys are not affected.
+	 *
+	 * <p>Requires the {@code users:write} scope. Does not require an administrator.</p>
+	 *
+	 * <p>A missing field, a new password shorter than 16 characters or longer than 72 UTF-8 bytes, or one
+	 * the same as the current password is an HTTP 400. A wrong current password is an HTTP 403. A user
+	 * with no password, whose first password an administrator sets, is an HTTP 409. Each is thrown as a
+	 * {@link ClientException} carrying Philter's reason.</p>
+	 *
+	 * @param currentPassword The current password.
+	 * @param newPassword The new password, 16 characters to 72 UTF-8 bytes.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public void changePassword(String currentPassword, String newPassword) throws IOException {
+
+		final HttpRequest request = request(uri("/api/users/me/password"))
+				.header("Content-Type", APPLICATION_JSON)
+				.PUT(text(gson.toJson(new ChangePasswordRequest(currentPassword, newPassword))))
+				.build();
+
+		sendExpectingNoContent(request);
+
+	}
+
+	/**
+	 * Sets or resets a user's password, without the current one, and marks it as one the user must
+	 * change at next sign-in. It revokes the user's session keys. Long-lived keys are not affected.
+	 *
+	 * <p>On the calling administrator's own user it sets only the first password, with no change
+	 * required: this is how the {@code admin} user gets a password, with the bootstrap API key. Once the
+	 * user has a password, change it with {@link #changePassword(String, String)}, which needs the
+	 * current one; setting it again here is an HTTP 409.</p>
+	 *
+	 * <p>Requires the {@code users:write} scope and an administrator. A key without the scope is refused
+	 * with an HTTP 403 whose message names the scope; a key that has it but does not belong to an
+	 * administrator is refused with an HTTP 403 saying an administrator is required. Both are thrown as
+	 * a {@link ClientException} carrying that message.</p>
+	 *
+	 * <p>A missing password, or one shorter than 16 characters or longer than 72 UTF-8 bytes, is an HTTP
+	 * 400, and a username that does not exist an HTTP 404. Both are thrown as a
+	 * {@link ClientException}.</p>
+	 *
+	 * @param username The username.
+	 * @param password The password, 16 characters to 72 UTF-8 bytes.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public void setPassword(String username, String password) throws IOException {
+
+		final HttpRequest request = request(uri("/api/users/" + encode(username) + "/password"))
+				.header("Content-Type", APPLICATION_JSON)
+				.PUT(text(gson.toJson(new SetPasswordRequest(password))))
+				.build();
+
+		sendExpectingNoContent(request);
+
+	}
+
+	/**
+	 * Starts MFA enrollment for the calling key's own user: Philter generates a TOTP secret. Show
+	 * {@link MfaEnrollment#getOtpauthUri()} as a QR code for an authenticator app to scan, or have the
+	 * person type in {@link MfaEnrollment#getSecret()}; neither is returned again. The enrollment does
+	 * not apply until {@link #confirmMfaEnrollment(String)}. Starting again replaces an unconfirmed
+	 * secret.
+	 *
+	 * <p>Requires the {@code users:write} scope. Does not require an administrator. Where MFA is not
+	 * available on the deployment (the {@code mfaAvailable} admin setting), or the user is already
+	 * enrolled, Philter answers HTTP 409, thrown as a {@link ClientException}.</p>
+	 *
+	 * @return The secret and the {@code otpauth://} URI.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public MfaEnrollment startMfaEnrollment() throws IOException {
+		return sendExpectingJson(json(uri("/api/users/me/mfa")).POST(HttpRequest.BodyPublishers.noBody()).build(),
+				MfaEnrollment.class);
+	}
+
+	/**
+	 * Confirms the calling key's own user's MFA enrollment with a code from the authenticator app. It
+	 * revokes the user's session keys, so a person signs in again, this time with a code.
+	 *
+	 * <p>Requires the {@code users:write} scope. Does not require an administrator. A missing or invalid
+	 * code is an HTTP 400. MFA not being available, the user already being enrolled, or no enrollment
+	 * having been started is an HTTP 409. Both are thrown as a {@link ClientException}.</p>
+	 *
+	 * @param code The code from the authenticator app.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public void confirmMfaEnrollment(String code) throws IOException {
+		sendMfaCode("/api/users/me/mfa/confirm", code);
+	}
+
+	/**
+	 * Removes the calling key's own user's MFA enrollment. It takes a valid code, so a stolen key cannot
+	 * turn MFA off, and a bad code counts toward the lock. A person who has lost their device asks an
+	 * administrator to use {@link #removeUserMfa(String)}.
+	 *
+	 * <p>Requires the {@code users:write} scope. Does not require an administrator. A missing code is an
+	 * HTTP 400, an invalid code or a locked user an HTTP 403, and a user not enrolled an HTTP 409. Each is
+	 * thrown as a {@link ClientException}.</p>
+	 *
+	 * @param code The code from the authenticator app.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public void removeMfaEnrollment(String code) throws IOException {
+		sendMfaCode("/api/users/me/mfa/remove", code);
+	}
+
+	private void sendMfaCode(final String path, final String code) throws IOException {
+
+		final HttpRequest request = request(uri(path))
+				.header("Content-Type", APPLICATION_JSON)
+				.POST(text(gson.toJson(new MfaCodeRequest(code))))
+				.build();
+
+		sendExpectingNoContent(request);
+
+	}
+
+	/**
+	 * Removes another user's MFA enrollment, for a person who has lost their device, and clears any lock.
+	 * An administrator removes their own with {@link #removeMfaEnrollment(String)}.
+	 *
+	 * <p>Requires the {@code users:write} scope and an administrator. A key without the scope is refused
+	 * with an HTTP 403 whose message names the scope; a key that has it but does not belong to an
+	 * administrator is refused with an HTTP 403 saying an administrator is required. Both are thrown as
+	 * a {@link ClientException} carrying that message.</p>
+	 *
+	 * <p>A username that does not exist is an HTTP 404, and a user who is the caller or is not enrolled an
+	 * HTTP 409. Both are thrown as a {@link ClientException}.</p>
+	 *
+	 * @param username The username.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public void removeUserMfa(String username) throws IOException {
+		sendExpectingNoContent(request(uri("/api/users/" + encode(username) + "/mfa")).DELETE().build());
+	}
+
+	/**
+	 * Unlocks a user whose MFA is locked after five consecutive bad codes, and resets the count.
+	 *
+	 * <p>Requires the {@code users:write} scope and an administrator. A key without the scope is refused
+	 * with an HTTP 403 whose message names the scope; a key that has it but does not belong to an
+	 * administrator is refused with an HTTP 403 saying an administrator is required. Both are thrown as
+	 * a {@link ClientException} carrying that message.</p>
+	 *
+	 * <p>A username that does not exist is an HTTP 404, and a user who is not locked an HTTP 409. Both
+	 * are thrown as a {@link ClientException}.</p>
+	 *
+	 * @param username The username.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public void unlockUserMfa(String username) throws IOException {
+		sendExpectingNoContent(request(uri("/api/users/" + encode(username) + "/mfa/unlock"))
+				.POST(HttpRequest.BodyPublishers.noBody()).build());
 	}
 
 	// Webhook.
@@ -2784,6 +3127,31 @@ public class PhilterClient {
 	 */
 	public void revokeApiKey(String keyId) throws IOException {
 		sendExpectingNoContent(request(uri("/api/api-keys/" + encode(keyId))).DELETE().build());
+	}
+
+	/**
+	 * Revokes every session key a user holds, signing the person out everywhere. Long-lived keys are not
+	 * affected. Session keys are checked on every request, so the revocation applies at once on every
+	 * Philter instance. To revoke one session key, use {@link #revokeApiKey(String)} with its ID from
+	 * {@link #getApiKeys(String, Integer, Integer)}.
+	 *
+	 * <p>Requires the {@code api-keys:write} scope and an administrator. A username that does not exist
+	 * is an HTTP 404, thrown as a {@link ClientException}.</p>
+	 *
+	 * @param username The username.
+	 * @return The number of session keys revoked.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public int revokeSessionKeys(String username) throws IOException {
+
+		final HttpRequest request = json(uri("/api/users/" + encode(username) + "/session-keys"))
+				.DELETE()
+				.build();
+
+		final RevokedSessionKeysResponse response = sendExpectingJson(request, RevokedSessionKeysResponse.class);
+
+		return response.getRevoked();
+
 	}
 
 }

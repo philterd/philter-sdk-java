@@ -61,6 +61,14 @@ public class AdminSettings {
     @SerializedName("warnings")
     private List<String> warnings;
 
+    @Expose
+    @SerializedName("mfaAvailable")
+    private boolean mfaAvailable;
+
+    @Expose
+    @SerializedName("mfaRequired")
+    private boolean mfaRequired;
+
     /** Whether PII counts are recorded for differential-privacy reporting. */
     public boolean isDiffuseCountsEnabled() {
         return diffuseCountsEnabled;
@@ -146,6 +154,24 @@ public class AdminSettings {
 
     public void setWarnings(List<String> warnings) {
         this.warnings = warnings;
+    }
+
+    /** Whether users may enroll in MFA for sign-in. */
+    public boolean isMfaAvailable() {
+        return mfaAvailable;
+    }
+
+    public void setMfaAvailable(boolean mfaAvailable) {
+        this.mfaAvailable = mfaAvailable;
+    }
+
+    /** Whether every user who signs in must enroll in MFA. */
+    public boolean isMfaRequired() {
+        return mfaRequired;
+    }
+
+    public void setMfaRequired(boolean mfaRequired) {
+        this.mfaRequired = mfaRequired;
     }
 
 }

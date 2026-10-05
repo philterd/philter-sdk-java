@@ -28,6 +28,7 @@ nav:
   - Audit Log: audit-log.md
   - Owners and Pagination: owners-and-pagination.md
   - Users and API Keys: provisioning.md
+  - Sign-in, Passwords, and MFA: sign-in.md
   - Admin Settings: admin-settings.md
   - Server Health: health.md
   - Error Handling: error-handling.md

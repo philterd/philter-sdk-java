@@ -19,55 +19,21 @@ import com.google.gson.annotations.Expose;
 import com.google.gson.annotations.SerializedName;
 
 /**
- * A request to create a user. A password is optional: a user without one can only use API keys.
+ * A request to set or reset a user's password.
  */
-public class CreateUserRequest {
-
-    @Expose
-    @SerializedName("username")
-    private String username;
-
-    @Expose
-    @SerializedName("email")
-    private String email;
-
-    @Expose
-    @SerializedName("role")
-    private String role;
+public class SetPasswordRequest {
 
     @Expose
     @SerializedName("password")
     private String password;
 
-    public String getUsername() {
-        return username;
+    public SetPasswordRequest() {
     }
 
-    public void setUsername(String username) {
-        this.username = username;
+    public SetPasswordRequest(String password) {
+        this.password = password;
     }
 
-    public String getEmail() {
-        return email;
-    }
-
-    public void setEmail(String email) {
-        this.email = email;
-    }
-
-    /** {@code user} or {@code admin}. {@code null} creates a {@code user}. */
-    public String getRole() {
-        return role;
-    }
-
-    public void setRole(String role) {
-        this.role = role;
-    }
-
-    /**
-     * The user's password, for signing in. 16 characters to 72 UTF-8 bytes. The user must change it at
-     * next sign-in. {@code null} creates a user who can only use API keys.
-     */
     public String getPassword() {
         return password;
     }
