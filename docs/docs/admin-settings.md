@@ -17,6 +17,11 @@ settings.getPhieldOrganization();
 settings.isPhieldApiKeySet();        // the key itself is never returned
 settings.isMfaAvailable();           // users may enroll in MFA for sign-in
 settings.isMfaRequired();            // every user who signs in must enroll
+
+// Read-only: set by the deployment's environment, not by updateAdminSettings.
+settings.isCrossUserAccessEnabled();     // ADMIN_CROSS_USER_ACCESS_ENABLED
+settings.isLedgerDeletionEnabled();      // LEDGER_DELETION_ENABLED
+settings.isSigningKeyExternallyManaged(); // PHILTER_SIGNING_KEY_PATH: the key cannot be rotated over the API
 ```
 
 ## Changing settings

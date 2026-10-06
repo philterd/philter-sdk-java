@@ -92,7 +92,7 @@ client.createUser("jordan", "jordan@example.com", "user", temporaryPassword);
 
 ## Multi-factor authentication
 
-A user who signs in with a password can add TOTP multi-factor authentication, with an authenticator app. MFA is available only when an administrator turns on `mfaAvailable` in the [admin settings](admin-settings.md); `mfaRequired` makes every user who signs in enroll. Enrolling and removing your own enrollment require `users:write` but not an administrator.
+A user who signs in with a password can add TOTP multi-factor authentication, with an authenticator app. MFA is available only when an administrator turns on `mfaAvailable` in the [admin settings](admin-settings.md); `mfaRequired` makes every user who signs in enroll. Enrolling and removing your own enrollment require `users:write` but not an administrator. A user who is not an administrator cannot read the admin settings, so `getCurrentUser()` returns `isMfaAvailable()` and `isMfaRequired()` for deciding whether to offer enrollment.
 
 ```java
 import ai.philterd.philter.model.MfaEnrollment;

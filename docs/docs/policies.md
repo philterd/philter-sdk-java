@@ -11,8 +11,11 @@ List<String> policies = client.getPolicies();
 // Retrieve a policy's JSON.
 String policyJson = client.getPolicy("default");
 
-// Create or overwrite a policy. The body is the policy JSON.
+// Create a policy. The body is the policy JSON. A name already in use is refused.
 client.savePolicy("my-policy", policyJson);
+
+// Replace an existing policy with a new revision.
+client.replacePolicy("my-policy", policyJson);
 
 // Apply your policy when filtering.
 client.filter("my-context", "my-policy", "Some sensitive text...");
@@ -21,18 +24,20 @@ client.filter("my-context", "my-policy", "Some sensitive text...");
 client.deletePolicy("my-policy");
 ```
 
+`savePolicy` only creates. A name the owner already uses is refused with a `ClientException` whose `getStatusCode()` is `409` and `getReason()` is `policy_exists`; replace the policy with `replacePolicy` instead. `replacePolicy` is refused with a `404` if there is no such policy, and with a `409` whose reason is `policy_changed` if the policy changed concurrently, in which case reload it and retry. `deletePolicy` is refused with a `404` if there is no such policy, and with a `409` whose reason is `policy_default` for the `default` policy, which cannot be deleted.
+
 ## Description and notes
 
-A policy can carry a description (up to 200 characters) and notes (up to 1000). They are not part of the policy's JSON, so `getPolicy` does not return them and changing them does not create a new revision. Saving requires `policies:write`, and reading requires `policies:read`.
+A policy can carry a description (up to 200 characters) and notes (up to 1000). They are not part of the policy's JSON, so `getPolicy` does not return them and changing them does not create a new revision. Creating and replacing require `policies:write`, and reading requires `policies:read`.
 
 ```java
 import ai.philterd.philter.model.PolicyDetails;
 
-// Save the policy with a description and notes.
+// Create the policy with a description and notes.
 client.savePolicy("court", policyJson, "Federal court filings", "Reviewed with the clerk's office.");
 
-// Saving without them keeps the policy's current description and notes.
-client.savePolicy("court", policyJson);
+// Replacing it without them keeps its current description and notes.
+client.replacePolicy("court", policyJson);
 
 // The description, notes, revision, whether it is managed, and when it was created and last updated.
 PolicyDetails details = client.getPolicyDetails("court");

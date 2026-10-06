@@ -44,6 +44,7 @@ import ai.philterd.philter.model.CreateApiKeyRequest;
 import ai.philterd.philter.model.CreateUserRequest;
 import ai.philterd.philter.model.CreatedApiKeyResponse;
 import ai.philterd.philter.model.CreatedUserResponse;
+import ai.philterd.philter.model.CurrentUser;
 import ai.philterd.philter.model.ExplainResponse;
 import ai.philterd.philter.model.FilterResponse;
 import ai.philterd.philter.model.GenericResponse;
@@ -2402,6 +2403,158 @@ public class PhilterClientMockTest {
         final String lists = recorded("lists.json");
         respond(200, lists);
         Assert.assertEquals(lists, client().getLists());
+    }
+
+    // Create only creates; replace with PUT.
+
+    @Test
+    public void savePolicyWithAnExistingNameIsA409WithItsReason() {
+
+        respond(409, "{\"message\":\"A policy with this name already exists.\",\"reason\":\"policy_exists\"}");
+
+        final ClientException ex = Assert.assertThrows(ClientException.class,
+                () -> client().savePolicy("court", "{\"identifiers\":{}}"));
+
+        Assert.assertEquals("POST", method);
+        Assert.assertEquals("/api/policies", path);
+        Assert.assertEquals(409, ex.getStatusCode());
+        Assert.assertEquals("policy_exists", ex.getReason());
+    }
+
+    @Test
+    public void replacePolicySendsAPutWithOnlyTheGivenFields() throws Exception {
+
+        respond(200, "");
+
+        client().replacePolicy("court", "{\"identifiers\":{}}");
+        Assert.assertEquals("PUT", method);
+        Assert.assertEquals("/api/policies/court", path);
+        Assert.assertEquals("application/json", header("Content-Type"));
+        Assert.assertEquals("{\"identifiers\":{}}", requestBodyAsString());
+        // Left out, so Philter keeps the current description and notes.
+        Assert.assertTrue(queryParameters.isEmpty());
+
+        client().replacePolicy("court", "{\"identifiers\":{}}", "Federal court filings", null, OWNER);
+        Assert.assertEquals(Map.of("description", "Federal court filings", "owner", OWNER), queryParameters);
+    }
+
+    @Test
+    public void replacingAPolicyThatDoesNotExistIsA404() {
+
+        respond(404, "{\"message\":\"Policy does not exist.\"}");
+
+        final ClientException ex = Assert.assertThrows(ClientException.class,
+                () -> client().replacePolicy("nope", "{\"identifiers\":{}}"));
+
+        Assert.assertEquals(404, ex.getStatusCode());
+        Assert.assertEquals("Policy does not exist.", ex.getErrorMessage());
+    }
+
+    @Test
+    public void aConcurrentPolicyChangeIsA409WithItsReason() {
+
+        respond(409, "{\"message\":\"Policy changed concurrently. Reload and retry.\",\"reason\":\"policy_changed\"}");
+
+        Assert.assertEquals("policy_changed", Assert.assertThrows(ClientException.class,
+                () -> client().replacePolicy("court", "{\"identifiers\":{}}")).getReason());
+    }
+
+    @Test
+    public void saveListWithAnExistingNameIsA409WithItsReason() {
+
+        respond(409, "{\"message\":\"A list with this name already exists.\",\"reason\":\"list_exists\"}");
+
+        final ClientException ex = Assert.assertThrows(ClientException.class,
+                () -> client().saveList("customer-names", "Customer names", List.of("Jordan Example")));
+
+        Assert.assertEquals("POST", method);
+        Assert.assertEquals(409, ex.getStatusCode());
+        Assert.assertEquals("list_exists", ex.getReason());
+    }
+
+    @Test
+    public void replaceListSendsAPutAndPassesTheDescriptionThrough() throws Exception {
+
+        respond(200, "{\"message\":\"List saved.\"}");
+
+        client().replaceList("customer-names", null, List.of("Jordan Example", "Avery Example"));
+        Assert.assertEquals("PUT", method);
+        Assert.assertEquals("/api/lists/customer-names", path);
+        Assert.assertEquals("[\"Jordan Example\",\"Avery Example\"]", requestBodyAsString());
+        // A null description is left out, so Philter keeps the current one.
+        Assert.assertFalse(queryParameters.containsKey("description"));
+
+        client().replaceList("customer-names", "", List.of("Jordan Example"), OWNER);
+        // An empty description is sent, which clears it.
+        Assert.assertEquals("", queryParameter("description"));
+        Assert.assertEquals(OWNER, queryParameter("owner"));
+    }
+
+    @Test
+    public void replacingAListThatDoesNotExistIsA404() {
+
+        respond(404, "{\"message\":\"List does not exist.\"}");
+
+        final ClientException ex = Assert.assertThrows(ClientException.class,
+                () -> client().replaceList("nope", null, List.of("x")));
+        Assert.assertEquals(404, ex.getStatusCode());
+        Assert.assertEquals("List does not exist.", ex.getErrorMessage());
+    }
+
+    @Test
+    public void deletePolicyReportsAMissingPolicyAndTheDefaultPolicy() {
+
+        respond(404, "{\"message\":\"Policy does not exist.\"}");
+        Assert.assertEquals(404, Assert.assertThrows(ClientException.class,
+                () -> client().deletePolicy("nope")).getStatusCode());
+
+        respond(409, "{\"message\":\"Cannot delete the default policy.\",\"reason\":\"policy_default\"}");
+        final ClientException ex = Assert.assertThrows(ClientException.class, () -> client().deletePolicy("default"));
+        Assert.assertEquals(409, ex.getStatusCode());
+        Assert.assertEquals("policy_default", ex.getReason());
+    }
+
+    @Test
+    public void createHoldConflictsCarryTheirReason() {
+
+        respond(409, "{\"message\":\"A hold with reference 'case-1' already exists.\",\"reason\":\"hold_exists\"}");
+
+        final LegalHoldRequest hold = new LegalHoldRequest();
+        Assert.assertEquals("hold_exists", Assert.assertThrows(ClientException.class,
+                () -> client().createHold(hold)).getReason());
+    }
+
+    @Test
+    public void adminSettingsCarryTheReadOnlyDeploymentFlags() throws Exception {
+
+        respond(200, "{\"signingEnabled\":true,\"crossUserAccessEnabled\":true,\"ledgerDeletionEnabled\":false,"
+                + "\"signingKeyExternallyManaged\":true,\"warnings\":[]}");
+
+        final AdminSettings settings = client().getAdminSettings();
+
+        Assert.assertTrue(settings.isCrossUserAccessEnabled());
+        Assert.assertFalse(settings.isLedgerDeletionEnabled());
+        Assert.assertTrue(settings.isSigningKeyExternallyManaged());
+
+        // Read-only, so an update cannot carry them.
+        for (final String flag : List.of("crossUserAccessEnabled", "ledgerDeletionEnabled", "signingKeyExternallyManaged")) {
+            Assert.assertThrows(flag, NoSuchFieldException.class, () -> UpdateAdminSettingsRequest.class.getDeclaredField(flag));
+        }
+    }
+
+    @Test
+    public void getCurrentUserCarriesTheMfaSettings() throws Exception {
+
+        respond(200, "{\"username\":\"jordan\",\"role\":\"user\",\"active\":true,\"mfaEnabled\":false,"
+                + "\"mfaAvailable\":true,\"mfaRequired\":true}");
+
+        final CurrentUser me = client().getCurrentUser();
+
+        Assert.assertEquals("/api/users/me", path);
+        Assert.assertEquals("jordan", me.getUsername());
+        Assert.assertTrue(me.isActive());
+        Assert.assertTrue(me.isMfaAvailable());
+        Assert.assertTrue(me.isMfaRequired());
     }
 
     // Listings across all users.

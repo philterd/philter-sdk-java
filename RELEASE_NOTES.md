@@ -35,13 +35,17 @@ can be supplied. Methods that gained parameters keep their signatures and gained
   takes the document as a `File` or as a `byte[]`, so an upload need not be written to disk first. `filter` and
   `explain` take an optional filename, and can ask for a signed response: `FilterResponse` and
   `ExplainResponse` return the `X-Philter-Signature` JWT, and `ExplainResponse` keeps the body it covers.
+* **Creating and replacing:** `savePolicy` and `saveList` only create; a name already in use is a
+  `ClientException` with status 409 and reason `policy_exists` or `list_exists`. Replace with
+  `replacePolicy` and `replaceList`, which refuse a missing policy or list with a 404. `deletePolicy` refuses
+  the `default` policy with a 409 and reason `policy_default`.
 * **Policies:** versions, diffs, rollback, and PhiSQL compilation; descriptions and notes (`getPolicyDetails`,
   `setPolicyDetails`, and a `savePolicy` overload); managed policies (`getManagedPolicies`); and `copyPolicy`.
 * **Contexts, documents, legal holds, the redaction ledger, custom lists, redact lists, and
   re-identification**, including context entry export and import, `getContext`'s per-filter-type counts,
   and ledger deletion (`deleteLedgerEntry`, `purgeLedger`).
-* **Users:** `getUsers`, `getUser`, `getCurrentUser`, `createUser` (optionally with a password),
-  `setUserRole`, `deactivateUser`, and `reactivateUser`.
+* **Users:** `getUsers`, `getUser`, `getCurrentUser` (a `CurrentUser`, with the deployment's MFA settings),
+  `createUser` (optionally with a password), `setUserRole`, `deactivateUser`, and `reactivateUser`.
 * **Sign-in:** `signIn` returns a session key or an MFA challenge for `completeSignIn`, and `signOut` revokes
   the session key. Passwords (`changePassword`, `setPassword`), MFA (`startMfaEnrollment`,
   `confirmMfaEnrollment`, `removeMfaEnrollment`, `removeUserMfa`, `unlockUserMfa`), and
@@ -49,9 +53,10 @@ can be supplied. Methods that gained parameters keep their signatures and gained
 * **API keys:** `getApiKeys`, `createApiKey` for the caller or another user, `setApiKeyScopes`, and
   `revokeApiKey`. A key's value is returned only when it is created. `listApiKeyScopes` lists every scope a
   key can carry, with what it allows.
-* **Administration:** `getAdminSettings` and `updateAdminSettings`; `getWebhook`, `setWebhook`, and
-  `removeWebhook`; `getAuditLog` and `exportAuditLog` (CSV); `regenerateSigningKey`; and listings of
-  policies, contexts, lists, ledger chains, and holds across all users.
+* **Administration:** `getAdminSettings` and `updateAdminSettings`, with the read-only deployment flags
+  `crossUserAccessEnabled`, `ledgerDeletionEnabled`, and `signingKeyExternallyManaged`; `getWebhook`,
+  `setWebhook`, and `removeWebhook`; `getAuditLog` and `exportAuditLog` (CSV); `regenerateSigningKey`; and
+  listings of policies, contexts, lists, ledger chains, and holds across all users.
 * `owner` overloads let an administrator act on another user's data, and paged calls take `offset` and
   `limit`.
 

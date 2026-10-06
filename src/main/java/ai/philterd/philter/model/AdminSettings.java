@@ -69,6 +69,18 @@ public class AdminSettings {
     @SerializedName("mfaRequired")
     private boolean mfaRequired;
 
+    @Expose
+    @SerializedName("crossUserAccessEnabled")
+    private boolean crossUserAccessEnabled;
+
+    @Expose
+    @SerializedName("ledgerDeletionEnabled")
+    private boolean ledgerDeletionEnabled;
+
+    @Expose
+    @SerializedName("signingKeyExternallyManaged")
+    private boolean signingKeyExternallyManaged;
+
     /** Whether PII counts are recorded for differential-privacy reporting. */
     public boolean isDiffuseCountsEnabled() {
         return diffuseCountsEnabled;
@@ -172,6 +184,42 @@ public class AdminSettings {
 
     public void setMfaRequired(boolean mfaRequired) {
         this.mfaRequired = mfaRequired;
+    }
+
+    /**
+     * Whether an administrator may act on other users' data with {@code owner} and the
+     * across-users listings ({@code ADMIN_CROSS_USER_ACCESS_ENABLED}). Read-only: set by the deployment.
+     */
+    public boolean isCrossUserAccessEnabled() {
+        return crossUserAccessEnabled;
+    }
+
+    public void setCrossUserAccessEnabled(boolean crossUserAccessEnabled) {
+        this.crossUserAccessEnabled = crossUserAccessEnabled;
+    }
+
+    /**
+     * Whether ledger chains may be deleted ({@code LEDGER_DELETION_ENABLED}). Read-only: set by the
+     * deployment.
+     */
+    public boolean isLedgerDeletionEnabled() {
+        return ledgerDeletionEnabled;
+    }
+
+    public void setLedgerDeletionEnabled(boolean ledgerDeletionEnabled) {
+        this.ledgerDeletionEnabled = ledgerDeletionEnabled;
+    }
+
+    /**
+     * Whether the signing key comes from {@code PHILTER_SIGNING_KEY_PATH}, in which case it cannot be
+     * rotated with {@code regenerateSigningKey}. Read-only: set by the deployment.
+     */
+    public boolean isSigningKeyExternallyManaged() {
+        return signingKeyExternallyManaged;
+    }
+
+    public void setSigningKeyExternallyManaged(boolean signingKeyExternallyManaged) {
+        this.signingKeyExternallyManaged = signingKeyExternallyManaged;
     }
 
 }

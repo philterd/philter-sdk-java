@@ -29,6 +29,7 @@ A missing or reserved username (`me`), or any other role, is rejected with an HT
 Requires the `users:read` scope.
 
 ```java
+import ai.philterd.philter.model.CurrentUser;
 import ai.philterd.philter.model.GetUsersResponse;
 import ai.philterd.philter.model.User;
 
@@ -41,8 +42,9 @@ for (User u : page.getUsers()) {
 
 User ci = client.getUser("ci");
 
-// The user that owns the calling key. Does not require an administrator.
-User me = client.getCurrentUser();
+// The user that owns the calling key, with the deployment's MFA settings. Does not require an administrator.
+CurrentUser me = client.getCurrentUser();
+boolean offerMfa = me.isMfaAvailable() && !me.isMfaEnabled();
 ```
 
 `getUsers` defaults to the first 25 users and returns at most 100 per page. `getUser` returns an HTTP 404 for a username that does not exist.

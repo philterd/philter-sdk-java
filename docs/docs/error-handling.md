@@ -70,6 +70,12 @@ Where refusals share a status, `getReason()` tells them apart with a stable, mac
 | Call | Status | `getReason()` |
 |------|--------|---------------|
 | `createContext` | `409` | `context_exists`: the caller already has a context with that name, even at the limit. `context_limit_reached`: the caller already has the most contexts a user may have. |
+| `savePolicy` | `409` | `policy_exists`: the owner already has a policy with that name. Replace it with `replacePolicy`. |
+| `replacePolicy` | `409` | `policy_changed`: the policy changed concurrently. Reload it and retry. |
+| `deletePolicy` | `409` | `policy_default`: the `default` policy cannot be deleted. |
+| `saveList` | `409` | `list_exists`: the owner already has a list with that name. Replace it with `replaceList`. |
+| `createHold` | `409` | `hold_exists`: a hold with that reference exists. `operation_in_progress`: an evidence or hold operation for the owner is active or needs recovery. |
+| `deleteHold` | `409` | `operation_in_progress`, as for `createHold`. |
 | `signIn` | `429` | `locked`: the username is locked after repeated failures. `rate_limited`: the client address is over the sign-in rate limit. These are raised as `SignInLockedException` and `SignInRateLimitedException`. |
 | `completeSignIn` | `429` | `rate_limited`, raised as `SignInRateLimitedException`. The MFA step has no username lockout. |
 

@@ -45,6 +45,7 @@ import ai.philterd.philter.model.CreateApiKeyRequest;
 import ai.philterd.philter.model.CreateUserRequest;
 import ai.philterd.philter.model.CreatedApiKeyResponse;
 import ai.philterd.philter.model.CreatedUserResponse;
+import ai.philterd.philter.model.CurrentUser;
 import ai.philterd.philter.model.ExplainResponse;
 import ai.philterd.philter.model.FilterResponse;
 import ai.philterd.philter.model.GenericResponse;
@@ -1099,7 +1100,9 @@ public class PhilterClient {
 	}
 
 	/**
-	 * Saves (or overwrites) the policy. An existing policy keeps its description and notes.
+	 * Creates a policy. It only creates: a name the owner already uses is a {@link ClientException}
+	 * with status {@code 409} and {@link ClientException#getReason()} {@code policy_exists}. Replace an
+	 * existing policy with {@link #replacePolicy(String, String)}.
 	 * @param name The name of the policy.
 	 * @param json The body of the policy.
 	 * @throws IOException Thrown if the call can not be executed.
@@ -1109,7 +1112,9 @@ public class PhilterClient {
 	}
 
 	/**
-	 * Saves (or overwrites) the policy. An existing policy keeps its description and notes.
+	 * Creates a policy. It only creates: a name the owner already uses is a {@link ClientException}
+	 * with status {@code 409} and {@link ClientException#getReason()} {@code policy_exists}. Replace an
+	 * existing policy with {@link #replacePolicy(String, String)}.
 	 * @param name The name of the policy.
 	 * @param json The body of the policy.
 	 * @param owner The owner of the policy. May be {@code null}.
@@ -1120,14 +1125,12 @@ public class PhilterClient {
 	}
 
 	/**
-	 * Saves (or overwrites) the policy with a description and notes. Requires the {@code policies:write}
-	 * scope. See {@link #savePolicy(String, String, String, String, String)}.
+	 * Creates a policy with a description and notes. Requires the {@code policies:write} scope. See
+	 * {@link #savePolicy(String, String, String, String, String)}.
 	 * @param name The name of the policy.
 	 * @param json The body of the policy.
-	 * @param description The description, up to 200 characters. May be {@code null} to keep an
-	 * existing policy's description.
-	 * @param notes The notes, up to 1000 characters. May be {@code null} to keep an existing policy's
-	 * notes.
+	 * @param description The description, up to 200 characters. May be {@code null}.
+	 * @param notes The notes, up to 1000 characters. May be {@code null}.
 	 * @throws IOException Thrown if the call can not be executed.
 	 */
 	public void savePolicy(String name, String json, String description, String notes) throws IOException {
@@ -1135,22 +1138,22 @@ public class PhilterClient {
 	}
 
 	/**
-	 * Saves (or overwrites) the policy with a description and notes. The description and notes are not
-	 * part of the policy's content, so they do not change its revision.
+	 * Creates a policy with a description and notes. It only creates: a name the owner already uses is
+	 * a {@link ClientException} with status {@code 409} and {@link ClientException#getReason()}
+	 * {@code policy_exists}, and nothing is changed. Replace an existing policy with
+	 * {@link #replacePolicy(String, String, String, String, String)}.
 	 *
 	 * <p>Requires the {@code policies:write} scope. Does not require an administrator, except to save
 	 * another user's policy with {@code owner}.</p>
 	 *
-	 * <p>Philter rejects a missing or invalid name, an invalid policy, a description over 200
-	 * characters, and notes over 1000 characters with an HTTP 400, and a name beginning with
-	 * {@code managed_} with an HTTP 400 or 409. Each is thrown as a {@link ClientException}.</p>
+	 * <p>Philter rejects a missing or invalid name (including one beginning with {@code managed_}), an
+	 * invalid policy, a description over 200 characters, and notes over 1000 characters with an HTTP
+	 * 400, thrown as a {@link ClientException}.</p>
 	 *
 	 * @param name The name of the policy.
 	 * @param json The body of the policy.
-	 * @param description The description, up to 200 characters. May be {@code null} to keep an
-	 * existing policy's description.
-	 * @param notes The notes, up to 1000 characters. May be {@code null} to keep an existing policy's
-	 * notes.
+	 * @param description The description, up to 200 characters. May be {@code null}.
+	 * @param notes The notes, up to 1000 characters. May be {@code null}.
 	 * @param owner The owner of the policy. May be {@code null} for the caller's own. Another user's
 	 * requires an administrator and {@code ADMIN_CROSS_USER_ACCESS_ENABLED=true} on the Philter
 	 * deployment; otherwise, or for an owner that does not exist, Philter answers HTTP 404, thrown as a
@@ -1164,6 +1167,82 @@ public class PhilterClient {
 				"description", description, "notes", notes))
 				.header("Content-Type", APPLICATION_JSON)
 				.POST(text(json))
+				.build();
+
+		sendExpectingNoContent(request);
+
+	}
+
+	/**
+	 * Replaces an existing policy. Its description and notes are kept. Requires the
+	 * {@code policies:write} scope. See {@link #replacePolicy(String, String, String, String, String)}.
+	 * @param name The name of the policy.
+	 * @param json The body of the policy.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public void replacePolicy(String name, String json) throws IOException {
+		replacePolicy(name, json, null, null, null);
+	}
+
+	/**
+	 * Replaces another user's existing policy. Its description and notes are kept. See
+	 * {@link #replacePolicy(String, String, String, String, String)}.
+	 * @param name The name of the policy.
+	 * @param json The body of the policy.
+	 * @param owner The owner of the policy. May be {@code null} for the caller's own. Another user's
+	 * requires an administrator and {@code ADMIN_CROSS_USER_ACCESS_ENABLED=true} on the Philter
+	 * deployment; otherwise, or for an owner that does not exist, Philter answers HTTP 404, thrown as a
+	 * {@link ClientException}.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public void replacePolicy(String name, String json, String owner) throws IOException {
+		replacePolicy(name, json, null, null, owner);
+	}
+
+	/**
+	 * Replaces an existing policy and sets its description and notes. Requires the
+	 * {@code policies:write} scope. See {@link #replacePolicy(String, String, String, String, String)}.
+	 * @param name The name of the policy.
+	 * @param json The body of the policy.
+	 * @param description The description, up to 200 characters. May be {@code null} to keep the
+	 * current one.
+	 * @param notes The notes, up to 1000 characters. May be {@code null} to keep the current notes.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public void replacePolicy(String name, String json, String description, String notes) throws IOException {
+		replacePolicy(name, json, description, notes, null);
+	}
+
+	/**
+	 * Replaces an existing policy with a new revision. Use {@link #savePolicy(String, String)} to
+	 * create one. A {@code null} description or notes keeps the current value.
+	 *
+	 * <p>Requires the {@code policies:write} scope. Does not require an administrator, except to
+	 * replace another user's policy with {@code owner}.</p>
+	 *
+	 * <p>A policy that does not exist is an HTTP 404. A policy that changed concurrently is an HTTP 409
+	 * whose {@link ClientException#getReason()} is {@code policy_changed}: reload it and retry. An
+	 * invalid policy, a description over 200 characters, or notes over 1000 are an HTTP 400. Each is
+	 * thrown as a {@link ClientException}.</p>
+	 *
+	 * @param name The name of the policy.
+	 * @param json The body of the policy.
+	 * @param description The description, up to 200 characters. May be {@code null} to keep the
+	 * current one.
+	 * @param notes The notes, up to 1000 characters. May be {@code null} to keep the current notes.
+	 * @param owner The owner of the policy. May be {@code null} for the caller's own. Another user's
+	 * requires an administrator and {@code ADMIN_CROSS_USER_ACCESS_ENABLED=true} on the Philter
+	 * deployment; otherwise, or for an owner that does not exist, Philter answers HTTP 404, thrown as a
+	 * {@link ClientException}.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public void replacePolicy(String name, String json, String description, String notes, String owner)
+			throws IOException {
+
+		final HttpRequest request = request(uri("/api/policies/" + encode(name), "owner", owner,
+				"description", description, "notes", notes))
+				.header("Content-Type", APPLICATION_JSON)
+				.PUT(text(json))
 				.build();
 
 		sendExpectingNoContent(request);
@@ -1299,6 +1378,11 @@ public class PhilterClient {
 
 	/**
 	 * Deletes a policy.
+	 *
+	 * <p>A policy that does not exist is an HTTP 404. The {@code default} policy cannot be deleted: that
+	 * is an HTTP 409 whose {@link ClientException#getReason()} is {@code policy_default}. Both are thrown
+	 * as a {@link ClientException}.</p>
+	 *
 	 * @param policyName The name of the policy to delete.
 	 * @throws IOException Thrown if the call can not be executed.
 	 */
@@ -1308,6 +1392,11 @@ public class PhilterClient {
 
 	/**
 	 * Deletes a policy.
+	 *
+	 * <p>A policy that does not exist is an HTTP 404. The {@code default} policy cannot be deleted: that
+	 * is an HTTP 409 whose {@link ClientException#getReason()} is {@code policy_default}. Both are thrown
+	 * as a {@link ClientException}.</p>
+	 *
 	 * @param policyName The name of the policy to delete.
 	 * @param owner The owner of the policy. May be {@code null}.
 	 * @throws IOException Thrown if the call can not be executed.
@@ -2587,7 +2676,10 @@ public class PhilterClient {
 
 
 	/**
-	 * Saves (or overwrites) a custom list.
+	 * Creates a custom list. It only creates: a name the owner already uses is a {@link ClientException}
+	 * with status {@code 409} and {@link ClientException#getReason()} {@code list_exists}. Replace an
+	 * existing list with {@link #replaceList(String, String, List)}. A list holds up to 100 items of up
+	 * to 50 characters; more is an HTTP 400, thrown as a {@link ClientException}.
 	 * @param list The name of the list.
 	 * @param description The description of the list. May be {@code null}.
 	 * @param values The values in the list.
@@ -2599,7 +2691,10 @@ public class PhilterClient {
 	}
 
 	/**
-	 * Saves (or overwrites) a custom list.
+	 * Creates a custom list. It only creates: a name the owner already uses is a {@link ClientException}
+	 * with status {@code 409} and {@link ClientException#getReason()} {@code list_exists}. Replace an
+	 * existing list with {@link #replaceList(String, String, List)}. A list holds up to 100 items of up
+	 * to 50 characters; more is an HTTP 400, thrown as a {@link ClientException}.
 	 * @param list The name of the list.
 	 * @param description The description of the list. May be {@code null}.
 	 * @param values The values in the list.
@@ -2612,6 +2707,51 @@ public class PhilterClient {
 		final HttpRequest request = request(uri("/api/lists/" + encode(list), "description", description, "owner", owner))
 				.header("Content-Type", APPLICATION_JSON)
 				.POST(text(gson.toJson(values)))
+				.build();
+
+		return sendExpectingJson(request, GenericResponse.class);
+
+	}
+
+	/**
+	 * Replaces an existing custom list's items. Requires the {@code lists:write} scope. See
+	 * {@link #replaceList(String, String, List, String)}.
+	 * @param list The name of the list.
+	 * @param description The description. {@code null} keeps the current one, and an empty string clears it.
+	 * @param values The items, which replace the list's current items.
+	 * @return A {@link GenericResponse}.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public GenericResponse replaceList(String list, String description, List<String> values) throws IOException {
+		return replaceList(list, description, values, null);
+	}
+
+	/**
+	 * Replaces an existing custom list's items, and optionally its description. Use
+	 * {@link #saveList(String, String, List)} to create one.
+	 *
+	 * <p>Requires the {@code lists:write} scope. Does not require an administrator, except to replace
+	 * another user's list with {@code owner}.</p>
+	 *
+	 * <p>A list that does not exist is an HTTP 404. More than 100 items, or an item over 50 characters,
+	 * is an HTTP 400. Both are thrown as a {@link ClientException}.</p>
+	 *
+	 * @param list The name of the list.
+	 * @param description The description. {@code null} keeps the current one, and an empty string clears it.
+	 * @param values The items, which replace the list's current items.
+	 * @param owner The owner of the list. May be {@code null} for the caller's own. Another user's
+	 * requires an administrator and {@code ADMIN_CROSS_USER_ACCESS_ENABLED=true} on the Philter
+	 * deployment; otherwise, or for an owner that does not exist, Philter answers HTTP 404, thrown as a
+	 * {@link ClientException}.
+	 * @return A {@link GenericResponse}.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public GenericResponse replaceList(String list, String description, List<String> values, String owner)
+			throws IOException {
+
+		final HttpRequest request = request(uri("/api/lists/" + encode(list), "description", description, "owner", owner))
+				.header("Content-Type", APPLICATION_JSON)
+				.PUT(text(gson.toJson(values)))
 				.build();
 
 		return sendExpectingJson(request, GenericResponse.class);
@@ -3153,15 +3293,17 @@ public class PhilterClient {
 	}
 
 	/**
-	 * Gets the user that owns the calling API key.
+	 * Gets the user that owns the calling API key, with the deployment's MFA settings, so a user
+	 * interface can decide whether to offer MFA enrollment without reading the admin settings.
 	 *
 	 * <p>Requires the {@code users:read} scope. Does not require an administrator.</p>
 	 *
-	 * @return The calling key's user.
+	 * @return The calling key's user, with {@link CurrentUser#isMfaAvailable()} and
+	 * {@link CurrentUser#isMfaRequired()}.
 	 * @throws IOException Thrown if the call can not be executed.
 	 */
-	public User getCurrentUser() throws IOException {
-		return sendExpectingJson(json(uri("/api/users/me")).GET().build(), User.class);
+	public CurrentUser getCurrentUser() throws IOException {
+		return sendExpectingJson(json(uri("/api/users/me")).GET().build(), CurrentUser.class);
 	}
 
 	/**

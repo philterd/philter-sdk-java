@@ -25,6 +25,17 @@ package ai.philterd.philter.model.exceptions;
  *   <li>{@code createContext}, {@code 409}: {@code context_exists} (the caller already has a context with
  *   that name, even at the limit) or {@code context_limit_reached} (the caller already has the most
  *   contexts a user may have).</li>
+ *   <li>{@code savePolicy}, {@code 409}: {@code policy_exists} (the owner already has a policy with that
+ *   name; replace it with {@code replacePolicy}).</li>
+ *   <li>{@code replacePolicy}, {@code 409}: {@code policy_changed} (the policy changed concurrently;
+ *   reload it and retry).</li>
+ *   <li>{@code deletePolicy}, {@code 409}: {@code policy_default} (the {@code default} policy cannot be
+ *   deleted).</li>
+ *   <li>{@code saveList}, {@code 409}: {@code list_exists} (the owner already has a list with that name;
+ *   replace it with {@code replaceList}).</li>
+ *   <li>{@code createHold}, {@code 409}: {@code hold_exists} (a hold with that reference exists) or
+ *   {@code operation_in_progress} (an evidence or hold operation for the owner is active or needs
+ *   recovery). {@code deleteHold}, {@code 409}: {@code operation_in_progress}.</li>
  *   <li>{@code signIn}, {@code 429}: {@code locked} (the username is locked after repeated failures) or
  *   {@code rate_limited} (the client address is over the sign-in rate limit), raised as
  *   {@link SignInLockedException} and {@link SignInRateLimitedException}.</li>
