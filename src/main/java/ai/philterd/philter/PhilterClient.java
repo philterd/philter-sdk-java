@@ -1288,9 +1288,12 @@ public class PhilterClient {
 	 * <p>Requires the {@code policies:write} scope. Does not require an administrator, except to
 	 * replace another user's policy with {@code owner}.</p>
 	 *
-	 * <p>A policy that does not exist is an HTTP 404. A policy that changed concurrently is an HTTP 409
-	 * whose {@link ClientException#getReason()} is {@code policy_changed}: reload it and retry. An
-	 * invalid policy is an HTTP 400. Each is thrown as a {@link ClientException}.</p>
+	 * <p>A policy that does not exist is an HTTP 404. A policy that was not replaced is an HTTP 409 whose
+	 * {@link ClientException#getReason()} says why: {@code policy_managed} for a managed policy (a name
+	 * beginning with {@code managed_}), which cannot be replaced, so copy it with
+	 * {@link #copyPolicy(String, String)} and change the copy; or {@code policy_changed} when the policy
+	 * changed concurrently, in which case reload it and retry. An invalid policy is an HTTP 400. Each is
+	 * thrown as a {@link ClientException}.</p>
 	 *
 	 * <p>When {@code description} or {@code notes} is given, this is two requests: the policy is
 	 * replaced, then they are set with {@link #setPolicyDetails(String, String, String, String)}. They
@@ -1382,7 +1385,8 @@ public class PhilterClient {
 	 * another user's policy with {@code owner}.</p>
 	 *
 	 * <p>A description over 200 characters or notes over 1000 are an HTTP 400, a policy that does not
-	 * exist an HTTP 404, and a managed policy an HTTP 409. Each is thrown as a
+	 * exist an HTTP 404, and a managed policy (a name beginning with {@code managed_}) an HTTP 409 whose
+	 * {@link ClientException#getReason()} is {@code policy_managed}. Each is thrown as a
 	 * {@link ClientException}.</p>
 	 *
 	 * @param policyName The name of the policy.
@@ -1457,9 +1461,10 @@ public class PhilterClient {
 	/**
 	 * Deletes a policy.
 	 *
-	 * <p>A policy that does not exist is an HTTP 404. The {@code default} policy cannot be deleted: that
-	 * is an HTTP 409 whose {@link ClientException#getReason()} is {@code policy_default}. Both are thrown
-	 * as a {@link ClientException}.</p>
+	 * <p>A policy that does not exist is an HTTP 404. A policy that cannot be deleted is an HTTP 409 whose
+	 * {@link ClientException#getReason()} says why: {@code policy_default} for the {@code default} policy,
+	 * or {@code policy_managed} for a managed policy (a name beginning with {@code managed_}). Each is
+	 * thrown as a {@link ClientException}.</p>
 	 *
 	 * @param policyName The name of the policy to delete.
 	 * @throws IOException Thrown if the call can not be executed.
@@ -1471,9 +1476,10 @@ public class PhilterClient {
 	/**
 	 * Deletes a policy.
 	 *
-	 * <p>A policy that does not exist is an HTTP 404. The {@code default} policy cannot be deleted: that
-	 * is an HTTP 409 whose {@link ClientException#getReason()} is {@code policy_default}. Both are thrown
-	 * as a {@link ClientException}.</p>
+	 * <p>A policy that does not exist is an HTTP 404. A policy that cannot be deleted is an HTTP 409 whose
+	 * {@link ClientException#getReason()} says why: {@code policy_default} for the {@code default} policy,
+	 * or {@code policy_managed} for a managed policy (a name beginning with {@code managed_}). Each is
+	 * thrown as a {@link ClientException}.</p>
 	 *
 	 * @param policyName The name of the policy to delete.
 	 * @param owner The owner of the policy. May be {@code null}.
@@ -1592,10 +1598,11 @@ public class PhilterClient {
 	 *
 	 * <p>A policy or revision that does not exist is an HTTP 404 whose
 	 * {@link ClientException#getErrorMessage()} says which, such as {@code Revision 99 does not exist.};
-	 * it is {@code null} when the {@code owner} does not exist or may not be reached. Only the owner's
-	 * own policies can be rolled back, so a managed policy is also an HTTP 404. A policy that changed
-	 * concurrently is an HTTP 409 whose {@link ClientException#getReason()} is {@code policy_changed}:
-	 * reload it and retry. Each is thrown as a {@link ClientException}.</p>
+	 * it is {@code null} when the {@code owner} does not exist or may not be reached. A policy that was
+	 * not rolled back is an HTTP 409 whose {@link ClientException#getReason()} says why:
+	 * {@code policy_managed} for a managed policy (a name beginning with {@code managed_}), which cannot
+	 * be rolled back, or {@code policy_changed} when the policy changed concurrently, in which case reload
+	 * it and retry. Each is thrown as a {@link ClientException}.</p>
 	 *
 	 * @param policyName The name of the policy.
 	 * @param revision The revision number to roll back to.

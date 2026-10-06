@@ -38,7 +38,9 @@ can be supplied. Methods that gained parameters keep their signatures and gained
 * **Creating and replacing:** `savePolicy` and `saveList` only create; a name already in use is a
   `ClientException` with status 409 and reason `policy_exists` or `list_exists`. Replace with
   `replacePolicy` and `replaceList`, which refuse a missing policy or list with a 404. `deletePolicy` refuses
-  the `default` policy with a 409 and reason `policy_default`.
+  the `default` policy with a 409 and reason `policy_default`. After philterd/philter#146, `replacePolicy`,
+  `deletePolicy`, `rollbackPolicy`, and `setPolicyDetails` refuse a managed policy with a 409 and reason
+  `policy_managed`.
 * **Policy descriptions and notes travel in a request body.** Philter (after philterd/philter#144) refuses
   `description` and `notes` as query parameters on `POST /api/policies` and `PUT /api/policies/{policyName}`
   with a 400, so earlier clients that sent them now fail. `savePolicy` and `replacePolicy` keep their

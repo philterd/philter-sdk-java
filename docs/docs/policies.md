@@ -24,7 +24,7 @@ client.filter("my-context", "my-policy", "Some sensitive text...");
 client.deletePolicy("my-policy");
 ```
 
-`savePolicy` only creates. A name the owner already uses is refused with a `ClientException` whose `getStatusCode()` is `409` and `getReason()` is `policy_exists`; replace the policy with `replacePolicy` instead. `replacePolicy` is refused with a `404` if there is no such policy, and with a `409` whose reason is `policy_changed` if the policy changed concurrently, in which case reload it and retry. `deletePolicy` is refused with a `404` if there is no such policy, and with a `409` whose reason is `policy_default` for the `default` policy, which cannot be deleted.
+`savePolicy` only creates. A name the owner already uses is refused with a `ClientException` whose `getStatusCode()` is `409` and `getReason()` is `policy_exists`; replace the policy with `replacePolicy` instead. `replacePolicy` is refused with a `404` if there is no such policy, and with a `409` whose reason is `policy_changed` if the policy changed concurrently, in which case reload it and retry. `deletePolicy` is refused with a `404` if there is no such policy, and with a `409` whose reason is `policy_default` for the `default` policy, which cannot be deleted. Both refuse a [managed policy](#managed-policies) with a `409` whose reason is `policy_managed`.
 
 ## Description and notes
 
@@ -50,7 +50,7 @@ Philter takes a description and notes only through `setPolicyDetails`, in a JSON
 
 ## Managed policies
 
-Philter ships built-in managed policies, whose names begin with `managed_`. They can be read and copied, but not changed. Listing them requires `policies:read`; copying requires `policies:write`.
+Philter ships built-in managed policies, whose names begin with `managed_`. They can be read and copied, but not changed: `replacePolicy`, `deletePolicy`, `rollbackPolicy`, and `setPolicyDetails` refuse a `managed_` name with a `409` whose `getReason()` is `policy_managed`. Copy one with `copyPolicy` and change the copy instead. Listing them requires `policies:read`; copying requires `policies:write`.
 
 ```java
 import ai.philterd.philter.model.ManagedPolicySummary;
@@ -89,7 +89,7 @@ PolicyRollbackResponse rollback = client.rollbackPolicy("my-policy", 1);
 System.out.println("rolled back to revision " + rollback.getRevision());
 ```
 
-A rollback is refused with a `404` if the policy or the revision does not exist, and `getErrorMessage()` says which, for example `Revision 99 does not exist.` Only your own policies can be rolled back, so a managed policy is also a `404`. A rollback is refused with a `409` whose `getReason()` is `policy_changed` if the policy changed concurrently, in which case reload it and retry.
+A rollback is refused with a `404` if the policy or the revision does not exist, and `getErrorMessage()` says which, for example `Revision 99 does not exist.` It is refused with a `409` whose `getReason()` is `policy_managed` for a managed policy, and `policy_changed` if the policy changed concurrently, in which case reload it and retry.
 
 ## Compiling PhiSQL
 

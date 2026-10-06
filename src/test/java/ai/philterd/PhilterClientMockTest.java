@@ -78,6 +78,7 @@ import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.function.ThrowingRunnable;
 
 import java.io.File;
 import java.net.InetSocketAddress;
@@ -989,15 +990,29 @@ public class PhilterClientMockTest {
     }
 
     @Test
-    public void setPolicyDetailsOnAManagedPolicyIsAClientException() {
+    public void writesToAManagedPolicyAreA409WithReasonPolicyManaged() {
 
-        respond(409, "{\"message\":\"Managed policies cannot be changed.\"}");
+        // Recorded from Philter for managed_common_pii.
+        final Map<String, ThrowingRunnable> calls = new java.util.LinkedHashMap<>();
+        calls.put("Managed policies cannot be rolled back.", () -> client().rollbackPolicy("managed_common_pii", 1));
+        calls.put("Managed policies cannot be replaced.",
+                () -> client().replacePolicy("managed_common_pii", "{\"identifiers\":{}}", "A description", null));
+        calls.put("Managed policies cannot be deleted.", () -> client().deletePolicy("managed_common_pii"));
+        calls.put("Managed policies cannot be changed.", () -> client().setPolicyDetails("managed_common_pii", null, "n"));
 
-        final ClientException ex = Assert.assertThrows(ClientException.class,
-                () -> client().setPolicyDetails("managed_common_pii", null, "n"));
+        for (final Map.Entry<String, ThrowingRunnable> call : calls.entrySet()) {
 
-        Assert.assertTrue(ex.getMessage(), ex.getMessage().contains("409"));
-        Assert.assertTrue(ex.getMessage(), ex.getMessage().contains("Managed policies cannot be changed."));
+            respond(409, "{\"message\":\"" + call.getKey() + "\",\"reason\":\"policy_managed\"}");
+
+            final ClientException ex = Assert.assertThrows(call.getKey(), ClientException.class, call.getValue());
+
+            Assert.assertEquals(call.getKey(), 409, ex.getStatusCode());
+            Assert.assertEquals(call.getKey(), "policy_managed", ex.getReason());
+            Assert.assertEquals(call.getKey(), ex.getErrorMessage());
+        }
+
+        // The refused replace did not go on to set the description: the only details request is setPolicyDetails's.
+        Assert.assertEquals(1, requests.stream().filter(r -> r.path.endsWith("/details")).count());
     }
 
     @Test
