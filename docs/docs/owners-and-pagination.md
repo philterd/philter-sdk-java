@@ -50,4 +50,4 @@ Seven per-user calls are paged, taking `offset` and `limit` alongside `owner`: `
 List<String> policies = client.getPolicies(null, 100, 50);
 ```
 
-Pass `null` for either value to use the server's default. `getManagedPolicies(offset, limit)` is paged the same way, though it takes no `owner`. `getApiKeys(owner, offset, limit)` and `getAuditLog(event, from, to, owner, offset, limit)` are paged too. `exportAuditLog` is also paged with `offset` and `limit`, but with its own defaults and a truncation flag; see [Audit Log](audit-log.md). The other per-user collection calls, `listCustomLists` and `listRedactLists`, are not paged and take only an `owner`.
+Pass `null` for either value to use the server's default. `listManagedPolicies(offset, limit)` is paged the same way, though it takes no `owner`. `getApiKeys(owner, offset, limit)` and `getAuditLog(event, from, to, owner, offset, limit)` are paged too. `exportAuditLog` is also paged with `offset` and `limit`, but with its own defaults and a truncation flag; see [Audit Log](audit-log.md). The other per-user collection calls, `listCustomLists` and `listRedactLists`, are not paged and take only an `owner`.

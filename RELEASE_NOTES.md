@@ -57,8 +57,8 @@ can be supplied. Methods that gained parameters keep their signatures and gained
   `Boolean`, and `getSignedEntries()` and `getUnsignedEntries()` now return `Integer`. Each is `null` for a
   chain that could not be checked, so it is not mistaken for a failed check.
 * **Policies:** versions, diffs, rollback, and PhiSQL compilation; descriptions and notes (`getPolicyDetails`,
-  `setPolicyDetails`, and `savePolicy` and `replacePolicy` overloads); managed policies
-  (`getManagedPolicies`); and `copyPolicy`.
+  `setPolicyDetails`, and `savePolicy` and `replacePolicy` overloads); managed policies with their
+  descriptions (`listManagedPolicies`); and `copyPolicy`.
 * **Contexts, documents, legal holds, the redaction ledger, custom lists, redact lists, and
   re-identification**, including context entry export and import, `getContext`'s per-filter-type counts,
   and ledger deletion (`deleteLedgerEntry`, `purgeLedger`).
@@ -83,7 +83,9 @@ The calls that returned raw JSON have typed alternatives, and the `String` versi
 `listContexts`, `listContextsAcrossUsers`, `getContextDetails`, `listContextEntries`, `listCustomLists`,
 `listCustomListsAcrossUsers`, `listRedactLists`, `listLedgerChains`, `listLedgerChainsAcrossUsers`,
 `getLedgerChain`, `getLedgerExport`, `verifyLedgerChain`, `listDocuments`, `getDocumentState`, and
-`getSigningKeyDetails`. `createRedactList` and `updateRedactList` take a `RedactListsRequest`. Policy JSON,
+`getSigningKeyDetails`. `listManagedPolicies` returns each managed policy's name and description, after
+philterd/philter#142, and replaces `getManagedPolicies`, which still returns the names and is deprecated.
+`createRedactList` and `updateRedactList` take a `RedactListsRequest`. Policy JSON,
 policy diffs, and context exports stay strings.
 
 ### Errors

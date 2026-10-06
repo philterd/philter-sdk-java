@@ -53,8 +53,12 @@ Philter takes a description and notes only through `setPolicyDetails`, in a JSON
 Philter ships built-in managed policies, whose names begin with `managed_`. They can be read and copied, but not changed. Listing them requires `policies:read`; copying requires `policies:write`.
 
 ```java
-// The first page of managed policy names, paged like getPolicies.
-List<String> managed = client.getManagedPolicies();
+import ai.philterd.philter.model.ManagedPolicySummary;
+
+// The first page of managed policies, each with its name and description, paged like getPolicies.
+for (ManagedPolicySummary policy : client.listManagedPolicies()) {
+    System.out.println(policy.getName() + ": " + policy.getDescription());
+}
 
 // Read one by name, as any other policy.
 String managedJson = client.getPolicy("managed_common_pii");

@@ -1,0 +1,1 @@
+[{"name":"managed_common_pii","description":"Common PII including names, emails, phone numbers, and SSNs"},{"name":"managed_financial_pii","description":"Financial PII including credit cards, bank routing numbers, and Bitcoin addresses"},{"name":"managed_healthcare_phi","description":"Healthcare PHI including names, dates, addresses, and medical identifiers"}]

@@ -34,6 +34,7 @@ import ai.philterd.philter.model.SignInRequest;
 import ai.philterd.philter.model.SignInMfaRequest;
 import ai.philterd.philter.model.SetPasswordRequest;
 import ai.philterd.philter.model.RevokedSessionKeysResponse;
+import ai.philterd.philter.model.ManagedPolicySummary;
 import ai.philterd.philter.model.MfaEnrollment;
 import ai.philterd.philter.model.MfaCodeRequest;
 import ai.philterd.philter.model.ChangePasswordRequest;
@@ -97,6 +98,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -159,6 +161,7 @@ public class PhilterClient {
 	private static final Type OWNED_LEGAL_HOLD_LIST = new TypeToken<List<OwnedLegalHoldResponse>>() {}.getType();
 	private static final Type OWNED_NAME_LIST = new TypeToken<List<OwnedName>>() {}.getType();
 	private static final Type CUSTOM_LIST_SUMMARY_LIST = new TypeToken<List<CustomListSummary>>() {}.getType();
+	private static final Type MANAGED_POLICY_SUMMARY_LIST = new TypeToken<List<ManagedPolicySummary>>() {}.getType();
 
 	private final HttpClient httpClient;
 	private final URI endpoint;
@@ -1071,30 +1074,63 @@ public class PhilterClient {
 	 * scope. See {@link #getManagedPolicies(Integer, Integer)}.
 	 * @return The managed policy names.
 	 * @throws IOException Thrown if the call can not be executed.
+	 * @deprecated Use {@link #listManagedPolicies()}, which returns each policy's description too.
 	 */
+	@Deprecated
 	public List<String> getManagedPolicies() throws IOException {
 		return getManagedPolicies(null, null);
 	}
 
 	/**
-	 * Gets a page of the built-in managed policy names. Each begins with {@code managed_}. Read one with
-	 * {@link #getPolicy(String)} or {@link #getPolicyDetails(String)}, and create a policy of your own
-	 * from one with {@link #copyPolicy(String, String)}. Managed policies cannot be changed.
-	 *
-	 * <p>Requires the {@code policies:read} scope. Does not require an administrator.</p>
-	 *
+	 * Gets a page of the built-in managed policy names. See {@link #listManagedPolicies(Integer, Integer)}.
 	 * @param offset The number of names to skip. May be {@code null} for {@code 0}.
 	 * @param limit The most names to return, up to 100. May be {@code null} for Philter's default of 25.
 	 * @return The managed policy names.
 	 * @throws IOException Thrown if the call can not be executed.
+	 * @deprecated Use {@link #listManagedPolicies(Integer, Integer)}, which returns each policy's
+	 * description too.
 	 */
+	@Deprecated
 	public List<String> getManagedPolicies(Integer offset, Integer limit) throws IOException {
+
+		final List<String> names = new ArrayList<>();
+		for (final ManagedPolicySummary policy : listManagedPolicies(offset, limit)) {
+			names.add(policy.getName());
+		}
+		return names;
+
+	}
+
+	/**
+	 * Lists the first page of the built-in managed policies with their descriptions. Requires the
+	 * {@code policies:read} scope. See {@link #listManagedPolicies(Integer, Integer)}.
+	 * @return Each managed policy's name and description.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public List<ManagedPolicySummary> listManagedPolicies() throws IOException {
+		return listManagedPolicies(null, null);
+	}
+
+	/**
+	 * Lists a page of the built-in managed policies with their descriptions, ordered by name. Each name
+	 * begins with {@code managed_}. Read one with {@link #getPolicy(String)} or
+	 * {@link #getPolicyDetails(String)}, and create a policy of your own from one with
+	 * {@link #copyPolicy(String, String)}. Managed policies cannot be changed.
+	 *
+	 * <p>Requires the {@code policies:read} scope. Does not require an administrator.</p>
+	 *
+	 * @param offset The number of policies to skip. May be {@code null} for {@code 0}.
+	 * @param limit The most policies to return, up to 100. May be {@code null} for Philter's default of 25.
+	 * @return Each managed policy's name and description. A policy with no description has an empty one.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public List<ManagedPolicySummary> listManagedPolicies(Integer offset, Integer limit) throws IOException {
 
 		final HttpRequest request = json(uri("/api/policies", "managed", true, "offset", offset, "limit", limit))
 				.GET()
 				.build();
 
-		return sendExpectingJson(request, STRING_LIST);
+		return sendExpectingJson(request, MANAGED_POLICY_SUMMARY_LIST);
 
 	}
 

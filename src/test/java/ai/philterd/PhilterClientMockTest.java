@@ -56,6 +56,7 @@ import ai.philterd.philter.model.LegalHoldRequest;
 import ai.philterd.philter.model.LegalHoldResponse;
 import ai.philterd.philter.model.OwnedLegalHoldResponse;
 import ai.philterd.philter.model.OwnedName;
+import ai.philterd.philter.model.ManagedPolicySummary;
 import ai.philterd.philter.model.PolicyDetails;
 import ai.philterd.philter.model.PolicyRollbackResponse;
 import ai.philterd.philter.model.PolicyVersionSummary;
@@ -890,21 +891,37 @@ public class PhilterClientMockTest {
     }
 
     @Test
-    public void getManagedPolicies() throws Exception {
+    public void listManagedPoliciesParsesTheRecordedResponse() throws Exception {
 
-        respond(200, "[\"managed_common_pii\",\"managed_hipaa\"]");
+        respond(200, recorded("policies-managed.json"));
 
-        Assert.assertEquals(List.of("managed_common_pii", "managed_hipaa"), client().getManagedPolicies(25, 50));
+        final List<ManagedPolicySummary> managed = client().listManagedPolicies(25, 50);
 
         Assert.assertEquals("GET", method);
         Assert.assertEquals("/api/policies", path);
-        Assert.assertEquals("true", queryParameter("managed"));
-        Assert.assertEquals("25", queryParameter("offset"));
-        Assert.assertEquals("50", queryParameter("limit"));
-        Assert.assertFalse(queryParameters.containsKey("owner"));
+        Assert.assertEquals(Map.of("managed", "true", "offset", "25", "limit", "50"), queryParameters);
+
+        Assert.assertEquals(3, managed.size());
+        Assert.assertEquals("managed_common_pii", managed.get(0).getName());
+        Assert.assertEquals("Common PII including names, emails, phone numbers, and SSNs", managed.get(0).getDescription());
+        Assert.assertEquals("managed_healthcare_phi", managed.get(2).getName());
 
         respond(200, "[]");
-        client().getManagedPolicies();
+        Assert.assertTrue(client().listManagedPolicies().isEmpty());
+        Assert.assertEquals(Map.of("managed", "true"), queryParameters);
+    }
+
+    @Test
+    @SuppressWarnings("deprecation")
+    public void getManagedPoliciesStillReturnsTheNames() throws Exception {
+
+        respond(200, recorded("policies-managed.json"));
+
+        Assert.assertEquals(List.of("managed_common_pii", "managed_financial_pii", "managed_healthcare_phi"),
+                client().getManagedPolicies(25, 50));
+        Assert.assertEquals(Map.of("managed", "true", "offset", "25", "limit", "50"), queryParameters);
+
+        Assert.assertEquals(3, client().getManagedPolicies().size());
         Assert.assertEquals(Map.of("managed", "true"), queryParameters);
     }
 
