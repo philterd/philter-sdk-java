@@ -356,6 +356,69 @@ public class PhilterClientMockTest {
         Assert.assertEquals("notes.txt", queryParameter("filename"));
     }
 
+    /** The request the mock server last received, for comparing two calls. */
+    private String lastRequest() {
+        return method + " " + path + " " + new TreeMap<>(queryParameters) + " Content-Type=" + header("Content-Type")
+                + " Accept=" + header("Accept") + " body=" + java.util.Arrays.toString(requestBody);
+    }
+
+    @Test
+    public void synchronousPdfFromBytesSendsTheSameRequestAsFromAFile() throws Exception {
+
+        final byte[] pdf = {0x25, 0x50, 0x44, 0x46, 0x2d, 0x31};
+        final File file = File.createTempFile("philter-test", ".pdf");
+        Files.write(file.toPath(), pdf);
+        file.deleteOnExit();
+        final byte[] zip = {0x50, 0x4b, 0x03, 0x04};
+
+        respond(200, zip);
+        documentIdHeader = "doc-bytes";
+        client().filter("ctx", "default", "upload.pdf", file);
+        final String fromFile = lastRequest();
+
+        final BinaryFilterResponse response = client().filter("ctx", "default", "upload.pdf", pdf);
+        Assert.assertEquals(fromFile, lastRequest());
+        Assert.assertArrayEquals(pdf, requestBody);
+        Assert.assertEquals("application/pdf", header("Content-Type"));
+        Assert.assertEquals("false", queryParameter("async"));
+        Assert.assertEquals("upload.pdf", queryParameter("filename"));
+        Assert.assertArrayEquals(zip, response.getContent());
+        Assert.assertEquals("doc-bytes", response.getDocumentId());
+
+        respond(200, pdf);
+        client().filterToPdf("ctx", "default", "upload.pdf", file);
+        final String toPdfFromFile = lastRequest();
+        final BinaryFilterResponse toPdf = client().filterToPdf("ctx", "default", "upload.pdf", pdf);
+        Assert.assertEquals(toPdfFromFile, lastRequest());
+        Assert.assertEquals("application/pdf", header("Accept"));
+        Assert.assertArrayEquals(pdf, toPdf.getContent());
+    }
+
+    @Test
+    public void asynchronousPdfFromBytesSendsTheSameRequestAsFromAFile() throws Exception {
+
+        final byte[] pdf = {0x25, 0x50, 0x44, 0x46, 0x2d, 0x31};
+        final File file = File.createTempFile("philter-test", ".pdf");
+        Files.write(file.toPath(), pdf);
+        file.deleteOnExit();
+
+        respond(202, "{\"documentId\":\"doc-async-bytes\"}");
+        client().filterAsync("ctx", "default", "upload.pdf", file);
+        final String fromFile = lastRequest();
+
+        Assert.assertEquals("doc-async-bytes", client().filterAsync("ctx", "default", "upload.pdf", pdf));
+        Assert.assertEquals(fromFile, lastRequest());
+        Assert.assertArrayEquals(pdf, requestBody);
+        Assert.assertEquals("true", queryParameter("async"));
+        Assert.assertEquals("application/zip", header("Accept"));
+
+        client().filterToPdfAsync("ctx", "default", "upload.pdf", file);
+        final String toPdfFromFile = lastRequest();
+        Assert.assertEquals("doc-async-bytes", client().filterToPdfAsync("ctx", "default", "upload.pdf", pdf));
+        Assert.assertEquals(toPdfFromFile, lastRequest());
+        Assert.assertEquals("application/pdf", header("Accept"));
+    }
+
     private File pdfFile() throws Exception {
         final File file = File.createTempFile("philter-test", ".pdf");
         Files.write(file.toPath(), new byte[]{1, 2, 3});

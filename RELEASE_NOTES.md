@@ -31,7 +31,8 @@ The client implements every operation in Philter's OpenAPI specification, and ev
 can be supplied. Methods that gained parameters keep their signatures and gained overloads.
 
 * **Filtering:** `filterToPdf` returns a redacted PDF; `filterAsync` and `filterToPdfAsync` submit a PDF for
-  asynchronous redaction and return its document ID for `getDocumentStatus` and `getDocument`. `filter` and
+  asynchronous redaction and return its document ID for `getDocumentState` and `getDocument`. Each PDF method
+  takes the document as a `File` or as a `byte[]`, so an upload need not be written to disk first. `filter` and
   `explain` take an optional filename, and can ask for a signed response: `FilterResponse` and
   `ExplainResponse` return the `X-Philter-Signature` JWT, and `ExplainResponse` keeps the body it covers.
 * **Policies:** versions, diffs, rollback, and PhiSQL compilation; descriptions and notes (`getPolicyDetails`,

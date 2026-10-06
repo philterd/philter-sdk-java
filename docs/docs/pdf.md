@@ -24,6 +24,19 @@ BinaryFilterResponse response =
 Files.write(Path.of("report-redacted.pdf"), response.getContent());
 ```
 
+## Redacting a PDF held in memory
+
+Each PDF method also takes the document as a `byte[]`, so a PDF that arrives as an upload can be redacted without first writing an unredacted copy of it to disk. The request is the same as with a `File`.
+
+```java
+// For example, the bytes of an uploaded file.
+byte[] pdf = upload.getBytes();
+
+BinaryFilterResponse response = client.filterToPdf("my-context", "default", "upload.pdf", pdf);
+
+String documentId = client.filterAsync("my-context", "default", "upload.pdf", pdf);
+```
+
 ## Submitting a document asynchronously
 
 Both calls above wait for the redaction to finish, which ties up a connection for as long as the document takes. `filterAsync(...)` and `filterToPdfAsync(...)` submit the document and return the ID Philter assigned to it. Poll the document's status, then download the result.

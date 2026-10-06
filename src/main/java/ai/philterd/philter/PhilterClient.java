@@ -606,7 +606,24 @@ public class PhilterClient {
 	 * @throws IOException Thrown if the request can not be completed.
 	 */
 	public BinaryFilterResponse filter(String context, String policyName, String filename, File file) throws IOException {
-		return filterBinary(context, policyName, filename, file, "application/zip");
+		return filter(context, policyName, filename, Files.readAllBytes(file.toPath()));
+	}
+
+	/**
+	 * Send a PDF document to Philter to be filtered, waiting for the filtered document.
+	 *
+	 * <p>Takes the PDF in memory, so a caller holding an upload does not write an unredacted copy to
+	 * disk first. Sends the same request as the {@link File} overload.</p>
+	 *
+	 * @param context The context. Contexts can be used to group text based on some arbitrary property.
+	 * @param policyName The name of the policy to apply to the document.
+	 * @param filename The name of the file being filtered, recorded against the document. May be {@code null}.
+	 * @param content The PDF.
+	 * @return The filtered document as a ZIP archive.
+	 * @throws IOException Thrown if the request can not be completed.
+	 */
+	public BinaryFilterResponse filter(String context, String policyName, String filename, byte[] content) throws IOException {
+		return filterBinary(context, policyName, filename, content, "application/zip");
 	}
 
 	/**
@@ -620,13 +637,31 @@ public class PhilterClient {
 	 * @throws IOException Thrown if the request can not be completed.
 	 */
 	public BinaryFilterResponse filterToPdf(String context, String policyName, String filename, File file) throws IOException {
-		return filterBinary(context, policyName, filename, file, "application/pdf");
+		return filterToPdf(context, policyName, filename, Files.readAllBytes(file.toPath()));
 	}
 
-	private BinaryFilterResponse filterBinary(String context, String policyName, String filename, File file,
+	/**
+	 * Send a PDF document to Philter to be filtered, waiting for the filtered document and receiving it
+	 * as a PDF rather than as a ZIP archive.
+	 *
+	 * <p>Takes the PDF in memory, so a caller holding an upload does not write an unredacted copy to
+	 * disk first. Sends the same request as the {@link File} overload.</p>
+	 *
+	 * @param context The context. Contexts can be used to group text based on some arbitrary property.
+	 * @param policyName The name of the policy to apply to the document.
+	 * @param filename The name of the file being filtered, recorded against the document. May be {@code null}.
+	 * @param content The PDF.
+	 * @return The filtered document as a PDF.
+	 * @throws IOException Thrown if the request can not be completed.
+	 */
+	public BinaryFilterResponse filterToPdf(String context, String policyName, String filename, byte[] content) throws IOException {
+		return filterBinary(context, policyName, filename, content, "application/pdf");
+	}
+
+	private BinaryFilterResponse filterBinary(String context, String policyName, String filename, byte[] content,
 	                                          String accept) throws IOException {
 
-		final HttpRequest request = binaryFilterRequest(context, policyName, filename, file, accept, false);
+		final HttpRequest request = binaryFilterRequest(context, policyName, filename, content, accept, false);
 
 		final HttpResponse<byte[]> response = send(request, HttpResponse.BodyHandlers.ofByteArray());
 
@@ -643,7 +678,7 @@ public class PhilterClient {
 
 	/**
 	 * Submits a PDF document to Philter to be filtered asynchronously. Philter accepts the document and
-	 * returns immediately; poll {@link #getDocumentStatus(String)} with the returned document ID and
+	 * returns immediately; poll {@link #getDocumentState(String)} with the returned document ID and
 	 * retrieve the result with {@link #getDocument(String)}.
 	 * If the user has a webhook, Philter also notifies it when the redaction completes or fails; see
 	 * {@link #setWebhook(String, String)}.
@@ -655,13 +690,34 @@ public class PhilterClient {
 	 * @throws IOException Thrown if the request can not be completed.
 	 */
 	public String filterAsync(String context, String policyName, String filename, File file) throws IOException {
-		return filterBinaryAsync(context, policyName, filename, file, "application/zip");
+		return filterAsync(context, policyName, filename, Files.readAllBytes(file.toPath()));
+	}
+
+	/**
+	 * Submits a PDF document to Philter to be filtered asynchronously. Philter accepts the document and
+	 * returns immediately; poll {@link #getDocumentState(String)} with the returned document ID and
+	 * retrieve the result with {@link #getDocument(String)}.
+	 * If the user has a webhook, Philter also notifies it when the redaction completes or fails; see
+	 * {@link #setWebhook(String, String)}.
+	 *
+	 * <p>Takes the PDF in memory, so a caller holding an upload does not write an unredacted copy to
+	 * disk first. Sends the same request as the {@link File} overload.</p>
+	 *
+	 * @param context The context. Contexts can be used to group text based on some arbitrary property.
+	 * @param policyName The name of the policy to apply to the document.
+	 * @param filename The name of the file being filtered, recorded against the document. May be {@code null}.
+	 * @param content The PDF.
+	 * @return The ID Philter assigned to the document.
+	 * @throws IOException Thrown if the request can not be completed.
+	 */
+	public String filterAsync(String context, String policyName, String filename, byte[] content) throws IOException {
+		return filterBinaryAsync(context, policyName, filename, content, "application/zip");
 	}
 
 	/**
 	 * Submits a PDF document to Philter to be filtered asynchronously, with the result stored as a PDF
 	 * rather than as a ZIP archive. Philter accepts the document and returns immediately; poll
-	 * {@link #getDocumentStatus(String)} with the returned document ID and retrieve the result with
+	 * {@link #getDocumentState(String)} with the returned document ID and retrieve the result with
 	 * {@link #getDocument(String)}.
 	 * If the user has a webhook, Philter also notifies it when the redaction completes or fails; see
 	 * {@link #setWebhook(String, String)}.
@@ -673,13 +729,35 @@ public class PhilterClient {
 	 * @throws IOException Thrown if the request can not be completed.
 	 */
 	public String filterToPdfAsync(String context, String policyName, String filename, File file) throws IOException {
-		return filterBinaryAsync(context, policyName, filename, file, "application/pdf");
+		return filterToPdfAsync(context, policyName, filename, Files.readAllBytes(file.toPath()));
 	}
 
-	private String filterBinaryAsync(String context, String policyName, String filename, File file,
+	/**
+	 * Submits a PDF document to Philter to be filtered asynchronously, with the result stored as a PDF
+	 * rather than as a ZIP archive. Philter accepts the document and returns immediately; poll
+	 * {@link #getDocumentState(String)} with the returned document ID and retrieve the result with
+	 * {@link #getDocument(String)}.
+	 * If the user has a webhook, Philter also notifies it when the redaction completes or fails; see
+	 * {@link #setWebhook(String, String)}.
+	 *
+	 * <p>Takes the PDF in memory, so a caller holding an upload does not write an unredacted copy to
+	 * disk first. Sends the same request as the {@link File} overload.</p>
+	 *
+	 * @param context The context. Contexts can be used to group text based on some arbitrary property.
+	 * @param policyName The name of the policy to apply to the document.
+	 * @param filename The name of the file being filtered, recorded against the document. May be {@code null}.
+	 * @param content The PDF.
+	 * @return The ID Philter assigned to the document.
+	 * @throws IOException Thrown if the request can not be completed.
+	 */
+	public String filterToPdfAsync(String context, String policyName, String filename, byte[] content) throws IOException {
+		return filterBinaryAsync(context, policyName, filename, content, "application/pdf");
+	}
+
+	private String filterBinaryAsync(String context, String policyName, String filename, byte[] content,
 	                                 String accept) throws IOException {
 
-		final HttpRequest request = binaryFilterRequest(context, policyName, filename, file, accept, true);
+		final HttpRequest request = binaryFilterRequest(context, policyName, filename, content, accept, true);
 
 		// Philter answers an accepted submission with 202 and a JSON body carrying the document ID.
 		final AsyncFilterResponse response = sendExpectingJson(request, AsyncFilterResponse.class);
@@ -688,10 +766,8 @@ public class PhilterClient {
 
 	}
 
-	private HttpRequest binaryFilterRequest(String context, String policyName, String filename, File file,
-	                                        String accept, boolean async) throws IOException {
-
-		final byte[] content = Files.readAllBytes(file.toPath());
+	private HttpRequest binaryFilterRequest(String context, String policyName, String filename, byte[] content,
+	                                        String accept, boolean async) {
 
 		return request(uri("/api/filter", "c", context, "p", policyName, "filename", filename, "async", async))
 				.header("Accept", accept)
