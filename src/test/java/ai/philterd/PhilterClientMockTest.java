@@ -160,7 +160,8 @@ public class PhilterClientMockTest {
             requestHeaders = copyHeaders(exchange.getRequestHeaders());
             requestBody = exchange.getRequestBody().readAllBytes();
             requests.add(new RecordedRequest(method, path, rawQuery, queryParameters,
-                    new String(requestBody, StandardCharsets.UTF_8)));
+                    new String(requestBody, StandardCharsets.UTF_8),
+                    exchange.getRequestHeaders().getOrDefault("X-Forwarded-For", List.of())));
 
             if (holdResponse) {
                 try {
@@ -269,13 +270,17 @@ public class PhilterClientMockTest {
         final String rawQuery;
         final Map<String, String> queryParameters;
         final String body;
+        /** Every X-Forwarded-For header value, so a duplicate is visible. */
+        final List<String> forwardedFor;
 
-        RecordedRequest(String method, String path, String rawQuery, Map<String, String> queryParameters, String body) {
+        RecordedRequest(String method, String path, String rawQuery, Map<String, String> queryParameters, String body,
+                        List<String> forwardedFor) {
             this.method = method;
             this.path = path;
             this.rawQuery = rawQuery;
             this.queryParameters = queryParameters;
             this.body = body;
+            this.forwardedFor = List.copyOf(forwardedFor);
         }
 
     }
@@ -2406,6 +2411,149 @@ public class PhilterClientMockTest {
         }
 
         Assert.assertTrue("nothing reaches the server", requests.isEmpty());
+    }
+
+    // withClientAddress.
+
+    private PhilterClient clientFor(final java.util.function.Supplier<String> address) {
+        return clientBuilder().withApiKey("Bearer sk_AbCdEfGhIjKlMnOpQrStUvWxYz012345").withClientAddress(address).build();
+    }
+
+    private RecordedRequest lastRecorded() {
+        return requests.get(requests.size() - 1);
+    }
+
+    @Test
+    public void theClientAddressIsSentOnJsonAndBinaryRequests() throws Exception {
+
+        final PhilterClient c = clientFor(() -> "203.0.113.7");
+
+        respond(200, recorded("api-key-scopes.json"));
+        c.listApiKeyScopes();
+        Assert.assertEquals(List.of("203.0.113.7"), lastRecorded().forwardedFor);
+        Assert.assertEquals("Bearer sk_AbCdEfGhIjKlMnOpQrStUvWxYz012345", header("Authorization"));
+
+        respond(200, new byte[]{0x25, 0x50, 0x44, 0x46});
+        c.filterToPdf("ctx", "default", "in.pdf", new byte[]{1, 2, 3});
+        Assert.assertEquals("/api/filter", path);
+        Assert.assertEquals(List.of("203.0.113.7"), lastRecorded().forwardedFor);
+
+        respond(200, new byte[]{0x50, 0x4b, 0x03, 0x04});
+        c.getDocument("d1");
+        Assert.assertEquals(List.of("203.0.113.7"), lastRecorded().forwardedFor);
+
+        respond(200, CSV_HEADER);
+        responseHeaders.put("X-Philter-Export-Rows", "0");
+        responseHeaders.put("X-Philter-Export-Truncated", "false");
+        c.exportAuditLog(LocalDate.of(2026, 10, 1), LocalDate.of(2026, 10, 5));
+        Assert.assertEquals(List.of("203.0.113.7"), lastRecorded().forwardedFor);
+        responseHeaders.clear();
+
+        // Requests that need no API key carry it too.
+        respond(200, "{\"status\":\"Healthy\"}");
+        c.health();
+        Assert.assertEquals(List.of("203.0.113.7"), lastRecorded().forwardedFor);
+    }
+
+    @Test
+    public void theClientAddressIsReadForEachRequest() throws Exception {
+
+        final java.util.concurrent.atomic.AtomicReference<String> address =
+                new java.util.concurrent.atomic.AtomicReference<>("203.0.113.7");
+        final java.util.concurrent.atomic.AtomicInteger calls = new java.util.concurrent.atomic.AtomicInteger();
+        final PhilterClient c = clientFor(() -> {
+            calls.incrementAndGet();
+            return address.get();
+        });
+        Assert.assertEquals("not read when the client is built", 0, calls.get());
+
+        respond(200, recorded("api-key-scopes.json"));
+        c.listApiKeyScopes();
+        Assert.assertEquals(List.of("203.0.113.7"), lastRecorded().forwardedFor);
+
+        address.set("2001:db8::7");
+        c.listApiKeyScopes();
+        Assert.assertEquals(List.of("2001:db8::7"), lastRecorded().forwardedFor);
+        Assert.assertEquals(2, calls.get());
+
+        // A call that makes two requests reads it twice.
+        respondNext(201, "");
+        respond(200, POLICY_DETAILS);
+        c.savePolicy("court", "{\"identifiers\":{}}", "Federal court filings", null);
+        Assert.assertEquals(4, calls.get());
+        Assert.assertEquals(List.of("2001:db8::7"), requests.get(requests.size() - 2).forwardedFor);
+        Assert.assertEquals(List.of("2001:db8::7"), lastRecorded().forwardedFor);
+    }
+
+    @Test
+    public void noClientAddressSendsNoHeader() throws Exception {
+
+        final List<PhilterClient> clients = new ArrayList<>();
+        clients.add(client());
+        clients.add(clientFor(null));
+        clients.add(clientFor(() -> null));
+        clients.add(clientFor(() -> ""));
+        clients.add(clientFor(() -> "   "));
+
+        for (final PhilterClient c : clients) {
+            respond(200, recorded("api-key-scopes.json"));
+            c.listApiKeyScopes();
+            Assert.assertEquals(List.of(), lastRecorded().forwardedFor);
+        }
+    }
+
+    @Test
+    public void anInvalidClientAddressIsRefusedBeforeSending() {
+
+        respond(200, "{}");
+
+        for (final String invalid : new String[]{"203.0.113.7, 198.51.100.9", "203.0.113.7\r\nX-Injected: 1",
+                "203.0.113.7\n", "\r\n", "203.0.113.7 198.51.100.9", "caf\u00e9"}) {
+
+            final PhilterClient c = clientFor(() -> invalid);
+            Assert.assertThrows(invalid, IllegalArgumentException.class, c::listApiKeyScopes);
+            Assert.assertThrows(invalid, IllegalArgumentException.class, () -> c.getDocument("d1"));
+            Assert.assertThrows(invalid, IllegalArgumentException.class,
+                    () -> c.signIn("rec-user", "the-users-password"));
+        }
+
+        Assert.assertTrue("nothing reaches the server", requests.isEmpty());
+    }
+
+    @Test
+    public void anExplicitSignInAddressIsSentInsteadOfTheClientAddress() throws Exception {
+
+        final java.util.concurrent.atomic.AtomicInteger calls = new java.util.concurrent.atomic.AtomicInteger();
+        final PhilterClient c = clientFor(() -> {
+            calls.incrementAndGet();
+            return "198.51.100.1";
+        });
+
+        respond(200, recorded("sign-in.json"));
+        c.signIn("rec-user", "the-users-password", "203.0.113.7");
+        Assert.assertEquals(List.of("203.0.113.7"), lastRecorded().forwardedFor);
+
+        respond(200, recorded("sign-in-mfa.json"));
+        c.completeSignIn("CHiY2d02S9qSQdysevjYMT6VyMvzkQ-vIJqIHB_109Q", "123456", "203.0.113.7");
+        Assert.assertEquals(List.of("203.0.113.7"), lastRecorded().forwardedFor);
+        Assert.assertEquals("the supplier is not read when an address is given", 0, calls.get());
+
+        // Without one, or with a blank one, the client address is sent.
+        respond(200, recorded("sign-in.json"));
+        c.signIn("rec-user", "the-users-password");
+        Assert.assertEquals(List.of("198.51.100.1"), lastRecorded().forwardedFor);
+        c.signIn("rec-user", "the-users-password", "  ");
+        Assert.assertEquals(List.of("198.51.100.1"), lastRecorded().forwardedFor);
+
+        respond(200, recorded("sign-in-mfa.json"));
+        c.completeSignIn("CHiY2d02S9qSQdysevjYMT6VyMvzkQ-vIJqIHB_109Q", "123456");
+        Assert.assertEquals(List.of("198.51.100.1"), lastRecorded().forwardedFor);
+
+        // An explicit address replaces an invalid client address rather than tripping over it.
+        final PhilterClient invalid = clientFor(() -> "a, b");
+        respond(200, recorded("sign-in.json"));
+        invalid.signIn("rec-user", "the-users-password", "203.0.113.7");
+        Assert.assertEquals(List.of("203.0.113.7"), lastRecorded().forwardedFor);
     }
 
     @Test

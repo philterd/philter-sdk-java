@@ -68,7 +68,11 @@ can be supplied. Methods that gained parameters keep their signatures and gained
   `createUser` (optionally with a password), `setUserRole`, `deactivateUser`, and `reactivateUser`.
 * **Sign-in:** `signIn` returns a session key or an MFA challenge for `completeSignIn`, and `signOut` revokes
   the session key. Overloads of both take the person's address and send it as `X-Forwarded-For`, so an
-  application signing people in is rate-limited and audited per person. Passwords (`changePassword`, `setPassword`), MFA (`startMfaEnrollment`,
+  application signing people in is rate-limited and audited per person.
+* **Requests on behalf of a person:** `withClientAddress(Supplier<String>)` on the builder sends the
+  supplied address as `X-Forwarded-For` on every request, read at the time of each request, so Philter
+  records the person's address rather than the application's. An explicit address on `signIn` or
+  `completeSignIn` is sent instead. Passwords (`changePassword`, `setPassword`), MFA (`startMfaEnrollment`,
   `confirmMfaEnrollment`, `removeMfaEnrollment`, `removeUserMfa`, `unlockUserMfa`), and
   `revokeSessionKeys`.
 * **API keys:** `getApiKeys`, `createApiKey` for the caller or another user, `setApiKeyScopes`, and

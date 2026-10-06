@@ -100,6 +100,7 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Supplier;
 
 /**
  * Client class for Philter's API. Philter finds and manipulates sensitive information in text.
@@ -167,6 +168,7 @@ public class PhilterClient {
 	private final URI endpoint;
 	private final Duration timeout;
 	private final String apiKey;
+	private final Supplier<String> clientAddress;
 	private final Gson gson = new Gson();
 
 	/**
@@ -179,6 +181,7 @@ public class PhilterClient {
 		private HttpClient.Builder httpClientBuilder;
 		private long timeout = DEFAULT_TIMEOUT_SEC;
 		private String apiKey;
+		private Supplier<String> clientAddress;
 
 		/**
 		 * Sets the base URL of the Philter instance, for example {@code https://localhost:8080}. Required.
@@ -194,8 +197,8 @@ public class PhilterClient {
 		 * Supplies a pre-configured {@link HttpClient.Builder}, for cases such as proxies, a custom
 		 * executor, or a bespoke {@link javax.net.ssl.SSLContext}. When given, the connect timeout is
 		 * not applied to the client and should be configured on the supplied builder instead; the
-		 * per-request timeout from {@link #withTimeout(long)} and the {@code Authorization} header
-		 * still apply.
+		 * per-request timeout from {@link #withTimeout(long)}, the {@code Authorization} header, and the
+		 * address from {@link #withClientAddress(Supplier)} still apply.
 		 *
 		 * <p>This replaces the {@code withOkHttpClientBuilder} method of earlier releases.</p>
 		 *
@@ -253,20 +256,54 @@ public class PhilterClient {
 		}
 
 		/**
+		 * Supplies the address of the person on whose behalf the client makes requests, sent as
+		 * {@code X-Forwarded-For} on every request. Wherever Philter records a request's client address,
+		 * such as on audit events and for the sign-in rate limit, it then records the person's address
+		 * rather than the application's. For an application, such as a web front end, that keeps a client
+		 * per signed-in person.
+		 *
+		 * <p>The supplier is called each time a request is made, not when the client is built, so an
+		 * address that changes during a session is sent from the next request. A {@code null} result, an
+		 * empty string, or only spaces sends no header. A result containing a comma, a control character
+		 * such as a carriage return or line feed, a character outside ASCII, or a space other than at
+		 * either end is refused with an {@link IllegalArgumentException} before the request is sent. On
+		 * {@link PhilterClient#signIn(String, String, String)} and
+		 * {@link PhilterClient#completeSignIn(String, String, String)}, a {@code clientAddress} argument is
+		 * sent instead of the supplier's value.</p>
+		 *
+		 * <p>Philter believes the header only when the request reaches it from an address in its
+		 * {@code TRUSTED_PROXIES}, which by default are the loopback, private, link-local, and IPv6
+		 * unique-local ranges; from any other address, and for a value that is not an IP address (a port
+		 * is allowed and ignored), it uses the connection's own address. Return an address the application
+		 * determined itself, such as the remote address of the person's connection to it, not one the
+		 * person's browser supplied, which they can set to anything.</p>
+		 *
+		 * @param clientAddress Returns the person's IP address for each request. May be {@code null} to
+		 * send no header.
+		 * @return This builder.
+		 */
+		public PhilterClientBuilder withClientAddress(Supplier<String> clientAddress) {
+			this.clientAddress = clientAddress;
+			return this;
+		}
+
+		/**
 		 * Builds the configured {@link PhilterClient}.
 		 * @return A new {@link PhilterClient}.
 		 */
 		public PhilterClient build() {
-			return new PhilterClient(endpoint, httpClientBuilder, timeout, apiKey);
+			return new PhilterClient(endpoint, httpClientBuilder, timeout, apiKey, clientAddress);
 		}
 
 	}
 
-	private PhilterClient(String endpoint, HttpClient.Builder httpClientBuilder, long timeout, String apiKey) {
+	private PhilterClient(String endpoint, HttpClient.Builder httpClientBuilder, long timeout, String apiKey,
+						  Supplier<String> clientAddress) {
 
 		this.endpoint = URI.create(endpoint);
 		this.timeout = Duration.ofSeconds(timeout);
 		this.apiKey = apiKey;
+		this.clientAddress = clientAddress;
 
 		if(httpClientBuilder == null) {
 
@@ -463,16 +500,34 @@ public class PhilterClient {
 	}
 
 	/**
-	 * Starts a request, applying the per-request timeout and the {@code Authorization} header.
-	 * The JDK client has no interceptor mechanism, so the header is set per request rather than
+	 * Starts a request, applying the per-request timeout, the {@code Authorization} header, and the
+	 * {@code X-Forwarded-For} header from {@link PhilterClientBuilder#withClientAddress(Supplier)}.
+	 * The JDK client has no interceptor mechanism, so the headers are set per request rather than
 	 * on the client.
 	 */
 	private HttpRequest.Builder request(final URI uri) {
+		return request(uri, null);
+	}
+
+	/**
+	 * Starts a request as {@link #request(URI)} does, sending {@code clientAddress} as
+	 * {@code X-Forwarded-For} instead of the supplier's value when it is given. The supplier is not
+	 * called then.
+	 */
+	private HttpRequest.Builder request(final URI uri, final String clientAddress) {
 
 		final HttpRequest.Builder builder = HttpRequest.newBuilder(uri).timeout(timeout);
 
 		if(apiKey != null && !apiKey.isEmpty()) {
 			builder.header("Authorization", apiKey);
+		}
+
+		String forwardedFor = forwardedFor(clientAddress);
+		if(forwardedFor == null && this.clientAddress != null) {
+			forwardedFor = forwardedFor(this.clientAddress.get());
+		}
+		if(forwardedFor != null) {
+			builder.header("X-Forwarded-For", forwardedFor);
 		}
 
 		return builder;
@@ -3308,11 +3363,13 @@ public class PhilterClient {
 	 *
 	 * @param username The username.
 	 * @param password The password.
-	 * @param clientAddress The person's IP address. {@code null}, empty, or only spaces sends no header.
+	 * @param clientAddress The person's IP address, sent instead of the value from
+	 * {@link PhilterClientBuilder#withClientAddress(Supplier)}. {@code null}, empty, or only spaces sends
+	 * that value, or no header without one.
 	 * @return The session key, or an MFA challenge.
-	 * @throws IllegalArgumentException If {@code clientAddress} contains a comma, a control character such
-	 * as a carriage return or line feed, a character outside ASCII, or a space other than at either end.
-	 * Nothing is sent.
+	 * @throws IllegalArgumentException If {@code clientAddress}, or the client address sent in its place
+	 * when it is blank, contains a comma, a control character such as a carriage return or line feed, a
+	 * character outside ASCII, or a space other than at either end. Nothing is sent.
 	 * @throws IOException Thrown if the call can not be executed.
 	 */
 	public SignInResponse signIn(String username, String password, String clientAddress) throws IOException {
@@ -3348,11 +3405,13 @@ public class PhilterClient {
 	 *
 	 * @param challenge The challenge from {@link SignInResponse#getChallenge()}.
 	 * @param code The code from the person's authenticator app.
-	 * @param clientAddress The person's IP address. {@code null}, empty, or only spaces sends no header.
+	 * @param clientAddress The person's IP address, sent instead of the value from
+	 * {@link PhilterClientBuilder#withClientAddress(Supplier)}. {@code null}, empty, or only spaces sends
+	 * that value, or no header without one.
 	 * @return The session key.
-	 * @throws IllegalArgumentException If {@code clientAddress} contains a comma, a control character such
-	 * as a carriage return or line feed, a character outside ASCII, or a space other than at either end.
-	 * Nothing is sent.
+	 * @throws IllegalArgumentException If {@code clientAddress}, or the client address sent in its place
+	 * when it is blank, contains a comma, a control character such as a carriage return or line feed, a
+	 * character outside ASCII, or a space other than at either end. Nothing is sent.
 	 * @throws IOException Thrown if the call can not be executed.
 	 */
 	public SignInResponse completeSignIn(String challenge, String code, String clientAddress) throws IOException {
@@ -3362,17 +3421,11 @@ public class PhilterClient {
 	private SignInResponse sendSignIn(final String path, final Object body, final String clientAddress)
 			throws IOException {
 
-		final String forwardedFor = forwardedFor(clientAddress);
-
-		final HttpRequest.Builder builder = json(uri(path))
+		final HttpRequest request = request(uri(path), clientAddress)
+				.header("Accept", APPLICATION_JSON)
 				.header("Content-Type", APPLICATION_JSON)
-				.POST(text(gson.toJson(body)));
-
-		if (forwardedFor != null) {
-			builder.header("X-Forwarded-For", forwardedFor);
-		}
-
-		final HttpRequest request = builder.build();
+				.POST(text(gson.toJson(body)))
+				.build();
 
 		final HttpResponse<String> response = send(request, HttpResponse.BodyHandlers.ofString());
 
