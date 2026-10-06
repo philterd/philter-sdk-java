@@ -18,23 +18,16 @@ package ai.philterd.philter.model.exceptions;
 /**
  * A sign-in refused with an HTTP 429. Philter refuses a sign-in this way for a username locked after
  * repeated failures ({@link SignInLockedException}) or for a client address over the rate limit
- * ({@link SignInRateLimitedException}). Its status code is {@code 429}, and its message and error
- * message are both Philter's message.
+ * ({@link SignInRateLimitedException}). Its status code is {@code 429}, its message and error message
+ * are both Philter's message, and its {@link #getReason()} is {@code locked} or {@code rate_limited}.
  */
 public class SignInThrottledException extends ClientException {
 
-    private final String reason;
     private final Integer retryAfterSeconds;
 
     public SignInThrottledException(String message, String reason, Integer retryAfterSeconds) {
-        super(message, 429, message);
-        this.reason = reason;
+        super(message, 429, message, reason);
         this.retryAfterSeconds = retryAfterSeconds;
-    }
-
-    /** Philter's reason: {@code locked} or {@code rate_limited}. */
-    public String getReason() {
-        return reason;
     }
 
     /** The most seconds to wait before trying again, from {@code Retry-After}, or {@code null} if absent. */

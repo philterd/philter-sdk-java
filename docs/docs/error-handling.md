@@ -65,5 +65,27 @@ try {
 }
 ```
 
+Where refusals share a status, `getReason()` tells them apart with a stable, machine-readable value from the error body. Branch on it rather than on the error message. It is `null` when the body has no `reason`. Philter returns these reasons:
+
+| Call | Status | `getReason()` |
+|------|--------|---------------|
+| `createContext` | `409` | `context_exists`: the caller already has a context with that name, even at the limit. `context_limit_reached`: the caller already has the most contexts a user may have. |
+| `signIn` | `429` | `locked`: the username is locked after repeated failures. `rate_limited`: the client address is over the sign-in rate limit. These are raised as `SignInLockedException` and `SignInRateLimitedException`. |
+| `completeSignIn` | `429` | `rate_limited`, raised as `SignInRateLimitedException`. The MFA step has no username lockout. |
+
+```java
+try {
+    client.createContext("tenant-a", false, false);
+} catch (ClientException e) {
+    if ("context_limit_reached".equals(e.getReason())) {
+        // Offer to delete a context first.
+    } else if ("context_exists".equals(e.getReason())) {
+        // Choose another name.
+    } else {
+        throw e;
+    }
+}
+```
+
 `getStatusCode()` is `0` when the exception was not caused by a non-successful status, such as a response the client could not use. `SignInLockedException` and `SignInRateLimitedException` report `429`.
 

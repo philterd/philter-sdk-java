@@ -337,7 +337,7 @@ public class PhilterClient {
 		} else if(code == 503) {
 			return new ServiceUnavailableException(SERVICE_UNAVAILABLE);
 		} else {
-			return new ClientException(describe(code, body), code, messageOf(body));
+			return new ClientException(describe(code, body), code, messageOf(body), fieldOf(body, "reason"));
 		}
 
 	}
@@ -347,6 +347,14 @@ public class PhilterClient {
 	 * none.
 	 */
 	private static String messageOf(final String body) {
+		return fieldOf(body, "message");
+	}
+
+	/**
+	 * A string field of a JSON error body, such as {@code message} or {@code reason}, or {@code null}
+	 * when the body is empty, is not a JSON object, or has no such string field.
+	 */
+	private static String fieldOf(final String body, final String field) {
 
 		if(body == null || body.isBlank()) {
 			return null;
@@ -354,12 +362,12 @@ public class PhilterClient {
 
 		try {
 			final JsonElement element = JsonParser.parseString(body);
-			if(element.isJsonObject() && element.getAsJsonObject().has("message")
-					&& element.getAsJsonObject().get("message").isJsonPrimitive()) {
-				return element.getAsJsonObject().get("message").getAsString();
+			if(element.isJsonObject() && element.getAsJsonObject().has(field)
+					&& element.getAsJsonObject().get(field).isJsonPrimitive()) {
+				return element.getAsJsonObject().get(field).getAsString();
 			}
 		} catch (final JsonParseException ex) {
-			// Not JSON, so there is no message to carry.
+			// Not JSON, so there is no field to carry.
 		}
 
 		return null;
@@ -383,15 +391,7 @@ public class PhilterClient {
 				}
 			}).orElse(null);
 
-			String reason = null;
-			try {
-				final JsonElement element = JsonParser.parseString(response.body());
-				if(element.isJsonObject() && element.getAsJsonObject().has("reason")) {
-					reason = element.getAsJsonObject().get("reason").getAsString();
-				}
-			} catch (final RuntimeException ex) {
-				// Not JSON; handled below as an unknown reason.
-			}
+			final String reason = fieldOf(response.body(), "reason");
 
 			if("locked".equals(reason)) {
 				return new SignInLockedException(message, retryAfter);
@@ -1404,6 +1404,10 @@ public class PhilterClient {
 	 * @param owner The owner of the context. May be {@code null}.
 	 * @return A {@link GenericResponse}.
 	 * @throws IOException Thrown if the call can not be executed.
+	 * @throws ClientException With status {@code 409} when the context was not created, and a
+	 * {@link ClientException#getReason()} that says why: {@code context_exists} when the caller already has
+	 * a context with that name, even at the limit, or {@code context_limit_reached} when the caller already
+	 * has the most contexts a user may have (10, counting {@code default}).
 	 */
 	public GenericResponse createContext(String name, Boolean entityTypeDisambiguation, Boolean ledger, String owner)
 			throws IOException {

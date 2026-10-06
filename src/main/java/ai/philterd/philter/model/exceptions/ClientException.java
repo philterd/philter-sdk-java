@@ -17,13 +17,26 @@ package ai.philterd.philter.model.exceptions;
 
 /**
  * A request Philter refused with a non-successful HTTP status, or a response the client could not use.
- * Act on {@link #getStatusCode()} and {@link #getErrorMessage()} rather than parsing
- * {@link #getMessage()}, whose wording is for logs.
+ * Act on {@link #getStatusCode()}, {@link #getReason()}, and {@link #getErrorMessage()} rather than
+ * parsing {@link #getMessage()}, whose wording is for logs.
+ *
+ * <p>Where refusals share a status, Philter's error body carries a machine-readable {@code reason}:</p>
+ * <ul>
+ *   <li>{@code createContext}, {@code 409}: {@code context_exists} (the caller already has a context with
+ *   that name, even at the limit) or {@code context_limit_reached} (the caller already has the most
+ *   contexts a user may have).</li>
+ *   <li>{@code signIn}, {@code 429}: {@code locked} (the username is locked after repeated failures) or
+ *   {@code rate_limited} (the client address is over the sign-in rate limit), raised as
+ *   {@link SignInLockedException} and {@link SignInRateLimitedException}.</li>
+ *   <li>{@code completeSignIn}, {@code 429}: {@code rate_limited}, raised as
+ *   {@link SignInRateLimitedException}. The MFA step has no username lockout.</li>
+ * </ul>
  */
 public class ClientException extends RuntimeException {
 
     private final int statusCode;
     private final String errorMessage;
+    private final String reason;
 
     /**
      * An exception not caused by a non-successful HTTP status, such as a response missing a header the
@@ -41,9 +54,21 @@ public class ClientException extends RuntimeException {
      * @param errorMessage The {@code message} field of Philter's JSON error body, or {@code null}.
      */
     public ClientException(String message, int statusCode, String errorMessage) {
+        this(message, statusCode, errorMessage, null);
+    }
+
+    /**
+     * An exception caused by a non-successful HTTP status whose error body carries a reason.
+     * @param message The message.
+     * @param statusCode The HTTP status code.
+     * @param errorMessage The {@code message} field of Philter's JSON error body, or {@code null}.
+     * @param reason The {@code reason} field of Philter's JSON error body, or {@code null}.
+     */
+    public ClientException(String message, int statusCode, String errorMessage, String reason) {
         super(message);
         this.statusCode = statusCode;
         this.errorMessage = errorMessage;
+        this.reason = reason;
     }
 
     /**
@@ -61,6 +86,15 @@ public class ClientException extends RuntimeException {
      */
     public String getErrorMessage() {
         return errorMessage;
+    }
+
+    /**
+     * The {@code reason} field of Philter's JSON error body: a stable, machine-readable value that tells
+     * apart refusals sharing a status, such as {@code context_limit_reached}. {@code null} when the body
+     * has none, is not JSON, or is empty. Branch on this rather than on the error message.
+     */
+    public String getReason() {
+        return reason;
     }
 
 }

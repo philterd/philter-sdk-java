@@ -59,8 +59,9 @@ and `SignInResponse`. Older collection calls such as `getContexts` and `getLedge
 ### Errors
 
 * `ClientException` carries Philter's response body after the status code, truncated at 512 characters, and
-  exposes the status with `getStatusCode()` and the body's `message` field with `getErrorMessage()`, read
-  from the whole body, so callers can act on the status without parsing the message.
+  exposes the status with `getStatusCode()`, the body's `message` field with `getErrorMessage()`, read
+  from the whole body, and its machine-readable `reason` with `getReason()`, such as `context_limit_reached`
+  or `context_exists` from `createContext`, so callers can act on an error without parsing its message.
 * `UnauthorizedException` carries Philter's message.
 * A sign-in for a locked username raises `SignInLockedException`, and one over the rate limit
   `SignInRateLimitedException`. Both extend `ClientException` and carry the seconds to wait.

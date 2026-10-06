@@ -16,6 +16,8 @@ client.updateContext("tenant-a", false, true);
 client.deleteContext("tenant-a");
 ```
 
+A user can have at most 10 contexts, counting `default`. `createContext` is refused with a `409`, raised as a `ClientException`, whose `getReason()` is `context_limit_reached` at the limit and `context_exists` for a name the user already has. See [Error Handling](error-handling.md#acting-on-the-status).
+
 Both flags default to `false` on the server, so `updateContext` sets the context to exactly the values you pass: a flag you leave out (or pass as `null`) is turned off, not left as it was. Send the full pair every time.
 
 List the contexts, and inspect or clear the values a context has accumulated:

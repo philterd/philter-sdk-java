@@ -2507,6 +2507,61 @@ public class PhilterClientMockTest {
     }
 
     @Test
+    public void createContextConflictsCarryTheirReason() {
+
+        final String[][] cases = {
+                {"context_exists", "Context already exists."},
+                {"context_limit_reached", "Maximum number of contexts reached."}};
+
+        for (final String[] c : cases) {
+
+            respond(409, "{\"message\":\"" + c[1] + "\",\"reason\":\"" + c[0] + "\"}");
+
+            final ClientException ex = Assert.assertThrows(ClientException.class,
+                    () -> client().createContext("tenant-a", false, false));
+
+            Assert.assertEquals(409, ex.getStatusCode());
+            Assert.assertEquals(c[0], ex.getReason());
+            Assert.assertEquals(c[1], ex.getErrorMessage());
+        }
+    }
+
+    @Test
+    public void aBodyWithoutAReasonHasANullReason() {
+
+        respond(409, "{\"message\":\"Policy changed concurrently. Reload and retry.\"}");
+        final ClientException noReason = Assert.assertThrows(ClientException.class, () -> client().getPolicy("p1"));
+        Assert.assertNull(noReason.getReason());
+        Assert.assertEquals("Policy changed concurrently. Reload and retry.", noReason.getErrorMessage());
+
+        respond(409, "Conflict.");
+        Assert.assertNull("a non-JSON body has no reason",
+                Assert.assertThrows(ClientException.class, () -> client().getPolicy("p1")).getReason());
+
+        respond(409, "");
+        Assert.assertNull("an empty body has no reason",
+                Assert.assertThrows(ClientException.class, () -> client().getPolicy("p1")).getReason());
+
+        respond(409, "{\"message\":\"m\",\"reason\":{\"code\":1}}");
+        Assert.assertNull("a reason that is not a string is ignored",
+                Assert.assertThrows(ClientException.class, () -> client().getPolicy("p1")).getReason());
+    }
+
+    @Test
+    public void signInRefusalsExposeTheirReasonOnClientException() {
+
+        responseHeaders.put("Retry-After", "900");
+        respond(429, "{\"message\":\"Too many failed sign-ins for this username. Try again later.\",\"reason\":\"locked\"}");
+
+        // Caught as the base type: the reason is available without knowing the subclass.
+        final ClientException ex = Assert.assertThrows(ClientException.class,
+                () -> client().signIn("jordan", "the-users-password"));
+
+        Assert.assertEquals("locked", ex.getReason());
+        Assert.assertEquals(429, ex.getStatusCode());
+    }
+
+    @Test
     public void signInThrottledExceptionsCarryStatus429() {
 
         responseHeaders.put("Retry-After", "60");
