@@ -1395,7 +1395,8 @@ public class PhilterClient {
 	 * within another user's account with {@code owner}.</p>
 	 *
 	 * <p>A missing or invalid new name is an HTTP 400, a source that does not exist an HTTP 404, and a
-	 * new name already in use an HTTP 409. Each is thrown as a {@link ClientException}.</p>
+	 * new name already in use an HTTP 409 whose {@link ClientException#getReason()} is
+	 * {@code policy_exists}. Each is thrown as a {@link ClientException}.</p>
 	 *
 	 * @param policyName The name of the policy to copy, or of a managed policy.
 	 * @param name The name of the new policy.
@@ -1540,7 +1541,7 @@ public class PhilterClient {
 	}
 
 	/**
-	 * Rolls a policy back to a prior revision.
+	 * Rolls a policy back to a prior revision. See {@link #rollbackPolicy(String, int, String)}.
 	 * @param policyName The name of the policy.
 	 * @param revision The revision number to roll back to.
 	 * @return The {@link PolicyRollbackResponse}.
@@ -1552,6 +1553,14 @@ public class PhilterClient {
 
 	/**
 	 * Rolls a policy back to a prior revision.
+	 *
+	 * <p>A policy or revision that does not exist is an HTTP 404 whose
+	 * {@link ClientException#getErrorMessage()} says which, such as {@code Revision 99 does not exist.};
+	 * it is {@code null} when the {@code owner} does not exist or may not be reached. Only the owner's
+	 * own policies can be rolled back, so a managed policy is also an HTTP 404. A policy that changed
+	 * concurrently is an HTTP 409 whose {@link ClientException#getReason()} is {@code policy_changed}:
+	 * reload it and retry. Each is thrown as a {@link ClientException}.</p>
+	 *
 	 * @param policyName The name of the policy.
 	 * @param revision The revision number to roll back to.
 	 * @param owner The owner of the policy. May be {@code null}.

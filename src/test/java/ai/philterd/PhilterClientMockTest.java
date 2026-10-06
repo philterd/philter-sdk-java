@@ -1021,6 +1021,49 @@ public class PhilterClientMockTest {
         Assert.assertEquals("2", queryParameter("revision"));
     }
 
+    @Test
+    public void copyPolicyToANameInUseIsA409WithItsReason() {
+
+        respond(409, "{\"message\":\"A policy with this name already exists.\",\"reason\":\"policy_exists\"}");
+
+        final ClientException ex = Assert.assertThrows(ClientException.class,
+                () -> client().copyPolicy("court", "court-copy"));
+
+        Assert.assertEquals(409, ex.getStatusCode());
+        Assert.assertEquals("policy_exists", ex.getReason());
+        Assert.assertEquals("A policy with this name already exists.", ex.getErrorMessage());
+    }
+
+    @Test
+    public void rollbackPolicy404SaysWhatWasNotFound() {
+
+        respond(404, "{\"message\":\"Revision 99 does not exist.\"}");
+        ClientException ex = Assert.assertThrows(ClientException.class, () -> client().rollbackPolicy("court", 99));
+        Assert.assertEquals(404, ex.getStatusCode());
+        Assert.assertEquals("Revision 99 does not exist.", ex.getErrorMessage());
+
+        respond(404, "{\"message\":\"Policy does not exist.\"}");
+        ex = Assert.assertThrows(ClientException.class, () -> client().rollbackPolicy("nope", 1));
+        Assert.assertEquals("Policy does not exist.", ex.getErrorMessage());
+
+        // An owner that does not exist or may not be reached: a 404 with no body.
+        respond(404, "");
+        ex = Assert.assertThrows(ClientException.class, () -> client().rollbackPolicy("court", 1, OWNER));
+        Assert.assertEquals(404, ex.getStatusCode());
+        Assert.assertNull(ex.getErrorMessage());
+    }
+
+    @Test
+    public void rollbackPolicyThatChangedConcurrentlyIsA409WithItsReason() {
+
+        respond(409, "{\"message\":\"Policy changed concurrently. Reload and retry.\",\"reason\":\"policy_changed\"}");
+
+        final ClientException ex = Assert.assertThrows(ClientException.class, () -> client().rollbackPolicy("court", 1));
+
+        Assert.assertEquals(409, ex.getStatusCode());
+        Assert.assertEquals("policy_changed", ex.getReason());
+    }
+
     // Contexts.
 
     @Test

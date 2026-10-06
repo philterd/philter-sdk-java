@@ -64,7 +64,7 @@ PolicyDetails managedDetails = client.getPolicyDetails("managed_common_pii");
 PolicyDetails copy = client.copyPolicy("managed_common_pii", "my-pii");
 ```
 
-`copyPolicy` also duplicates one of your own policies. The copy has the source's policy and description; a copy of a managed policy has the note `Created from managed policy <name>`, and a copy of your own policy keeps its notes. A new name already in use is an HTTP 409, raised as a `ClientException`.
+`copyPolicy` also duplicates one of your own policies. The copy has the source's policy and description; a copy of a managed policy has the note `Created from managed policy <name>`, and a copy of your own policy keeps its notes. A new name already in use is an HTTP 409, raised as a `ClientException` whose `getReason()` is `policy_exists`.
 
 ## Revision history
 
@@ -84,6 +84,8 @@ String diff = client.getPolicyDiff("my-policy", 1, 2);            // diff betwee
 PolicyRollbackResponse rollback = client.rollbackPolicy("my-policy", 1);
 System.out.println("rolled back to revision " + rollback.getRevision());
 ```
+
+A rollback is refused with a `404` if the policy or the revision does not exist, and `getErrorMessage()` says which, for example `Revision 99 does not exist.` Only your own policies can be rolled back, so a managed policy is also a `404`. A rollback is refused with a `409` whose `getReason()` is `policy_changed` if the policy changed concurrently, in which case reload it and retry.
 
 ## Compiling PhiSQL
 
