@@ -1146,9 +1146,15 @@ public class PhilterClient {
 	 * <p>Requires the {@code policies:write} scope. Does not require an administrator, except to save
 	 * another user's policy with {@code owner}.</p>
 	 *
-	 * <p>Philter rejects a missing or invalid name (including one beginning with {@code managed_}), an
-	 * invalid policy, a description over 200 characters, and notes over 1000 characters with an HTTP
-	 * 400, thrown as a {@link ClientException}.</p>
+	 * <p>Philter rejects a missing or invalid name (including one beginning with {@code managed_}) and
+	 * an invalid policy with an HTTP 400, thrown as a {@link ClientException}.</p>
+	 *
+	 * <p>When {@code description} or {@code notes} is given, this is two requests: the policy is
+	 * created, then they are set with {@link #setPolicyDetails(String, String, String, String)}. They
+	 * are not atomic. If the second request fails, for example with an HTTP 400 for a description over
+	 * 200 characters or notes over 1000, its {@link ClientException} is thrown but the policy has
+	 * already been created, without the description or notes; call {@code setPolicyDetails} to set
+	 * them.</p>
 	 *
 	 * @param name The name of the policy.
 	 * @param json The body of the policy.
@@ -1163,13 +1169,17 @@ public class PhilterClient {
 	public void savePolicy(String name, String json, String description, String notes, String owner)
 			throws IOException {
 
-		final HttpRequest request = request(uri("/api/policies", "name", name, "owner", owner,
-				"description", description, "notes", notes))
+		final HttpRequest request = request(uri("/api/policies", "name", name, "owner", owner))
 				.header("Content-Type", APPLICATION_JSON)
 				.POST(text(json))
 				.build();
 
 		sendExpectingNoContent(request);
+
+		// Philter takes the description and notes only through the details endpoint, in a JSON body.
+		if (description != null || notes != null) {
+			setPolicyDetails(name, description, notes, owner);
+		}
 
 	}
 
@@ -1222,8 +1232,14 @@ public class PhilterClient {
 	 *
 	 * <p>A policy that does not exist is an HTTP 404. A policy that changed concurrently is an HTTP 409
 	 * whose {@link ClientException#getReason()} is {@code policy_changed}: reload it and retry. An
-	 * invalid policy, a description over 200 characters, or notes over 1000 are an HTTP 400. Each is
-	 * thrown as a {@link ClientException}.</p>
+	 * invalid policy is an HTTP 400. Each is thrown as a {@link ClientException}.</p>
+	 *
+	 * <p>When {@code description} or {@code notes} is given, this is two requests: the policy is
+	 * replaced, then they are set with {@link #setPolicyDetails(String, String, String, String)}. They
+	 * are not atomic. If the second request fails, for example with an HTTP 400 for a description over
+	 * 200 characters or notes over 1000, its {@link ClientException} is thrown but the new revision has
+	 * already been stored, with the previous description and notes; call {@code setPolicyDetails} to
+	 * set them.</p>
 	 *
 	 * @param name The name of the policy.
 	 * @param json The body of the policy.
@@ -1239,13 +1255,16 @@ public class PhilterClient {
 	public void replacePolicy(String name, String json, String description, String notes, String owner)
 			throws IOException {
 
-		final HttpRequest request = request(uri("/api/policies/" + encode(name), "owner", owner,
-				"description", description, "notes", notes))
+		final HttpRequest request = request(uri("/api/policies/" + encode(name), "owner", owner))
 				.header("Content-Type", APPLICATION_JSON)
 				.PUT(text(json))
 				.build();
 
 		sendExpectingNoContent(request);
+
+		if (description != null || notes != null) {
+			setPolicyDetails(name, description, notes, owner);
+		}
 
 	}
 

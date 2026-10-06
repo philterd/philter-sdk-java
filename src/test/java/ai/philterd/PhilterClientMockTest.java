@@ -92,8 +92,11 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Queue;
 import java.util.TreeMap;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -118,6 +121,9 @@ public class PhilterClientMockTest {
     private volatile Map<String, String> requestHeaders = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
     private volatile byte[] requestBody = new byte[0];
 
+    /** Every request the server received, in order, for a call that makes more than one. */
+    private final List<RecordedRequest> requests = new CopyOnWriteArrayList<>();
+
     /** The response the server will next return. */
     private volatile int status = 200;
     private volatile byte[] responseBody = new byte[0];
@@ -126,6 +132,9 @@ public class PhilterClientMockTest {
     private volatile String locationHeader;
     private volatile String contentTypeHeader;
     private final Map<String, String> responseHeaders = new HashMap<>();
+
+    /** Responses returned in order before falling back to {@link #status} and {@link #responseBody}. */
+    private final Queue<Map.Entry<Integer, byte[]>> queuedResponses = new ConcurrentLinkedQueue<>();
 
     /** Held closed by a test that wants the server to stall; opened in teardown. */
     private final CountDownLatch released = new CountDownLatch(1);
@@ -147,6 +156,8 @@ public class PhilterClientMockTest {
             queryParameters = parseQuery(exchange.getRequestURI().getRawQuery());
             requestHeaders = copyHeaders(exchange.getRequestHeaders());
             requestBody = exchange.getRequestBody().readAllBytes();
+            requests.add(new RecordedRequest(method, path, rawQuery, queryParameters,
+                    new String(requestBody, StandardCharsets.UTF_8)));
 
             if (holdResponse) {
                 try {
@@ -171,6 +182,10 @@ public class PhilterClientMockTest {
             }
 
             responseHeaders.forEach(exchange.getResponseHeaders()::add);
+
+            final Map.Entry<Integer, byte[]> queued = queuedResponses.poll();
+            final int status = queued != null ? queued.getKey() : this.status;
+            final byte[] responseBody = queued != null ? queued.getValue() : this.responseBody;
 
             // A response with no body must be sent with a length of -1.
             if (responseBody.length == 0) {
@@ -237,6 +252,29 @@ public class PhilterClientMockTest {
         // Deliberately no trailing slash: Retrofit rejected this, the JDK client does not.
         return new PhilterClient.PhilterClientBuilder()
                 .withEndpoint("http://localhost:" + server.getAddress().getPort());
+    }
+
+    /** Queues a response to be returned before those set with {@link #respond(int, String)}. */
+    private void respondNext(final int status, final String body) {
+        queuedResponses.add(Map.entry(status, body.getBytes(StandardCharsets.UTF_8)));
+    }
+
+    private static final class RecordedRequest {
+
+        final String method;
+        final String path;
+        final String rawQuery;
+        final Map<String, String> queryParameters;
+        final String body;
+
+        RecordedRequest(String method, String path, String rawQuery, Map<String, String> queryParameters, String body) {
+            this.method = method;
+            this.path = path;
+            this.rawQuery = rawQuery;
+            this.queryParameters = queryParameters;
+            this.body = body;
+        }
+
     }
 
     private void respond(final int status, final String body) {
@@ -760,24 +798,94 @@ public class PhilterClientMockTest {
     @Test
     public void savePolicyWithDescriptionAndNotes() throws Exception {
 
-        respond(201, "");
+        respondNext(201, "");
+        respond(200, POLICY_DETAILS);
 
         client().savePolicy("court", "{\"identifiers\":{}}", "Federal court filings", "Line one\nline two");
 
-        Assert.assertEquals("POST", method);
-        Assert.assertEquals("/api/policies", path);
-        Assert.assertEquals("court", queryParameter("name"));
-        Assert.assertEquals("Federal court filings", queryParameter("description"));
-        Assert.assertEquals("Line one\nline two", queryParameter("notes"));
-        Assert.assertFalse(queryParameters.containsKey("owner"));
-        Assert.assertEquals("application/json", header("Content-Type"));
-        Assert.assertEquals("{\"identifiers\":{}}", requestBodyAsString());
+        // Philter refuses description and notes on the create, so they follow in a details request.
+        Assert.assertEquals(2, requests.size());
+        final RecordedRequest create = requests.get(0);
+        Assert.assertEquals("POST", create.method);
+        Assert.assertEquals("/api/policies", create.path);
+        Assert.assertEquals(Map.of("name", "court"), create.queryParameters);
+        Assert.assertEquals("{\"identifiers\":{}}", create.body);
+        final RecordedRequest details = requests.get(1);
+        Assert.assertEquals("PUT", details.method);
+        Assert.assertEquals("/api/policies/court/details", details.path);
+        Assert.assertTrue(details.queryParameters.isEmpty());
+        Assert.assertEquals("{\"description\":\"Federal court filings\",\"notes\":\"Line one\\nline two\"}", details.body);
 
+        requests.clear();
+        respondNext(201, "");
         client().savePolicy("court", "{\"identifiers\":{}}", null, "Only the notes", OWNER);
 
-        Assert.assertFalse(queryParameters.containsKey("description"));
-        Assert.assertEquals("Only the notes", queryParameter("notes"));
-        Assert.assertEquals(OWNER, queryParameter("owner"));
+        Assert.assertEquals(Map.of("name", "court", "owner", OWNER), requests.get(0).queryParameters);
+        Assert.assertEquals(Map.of("owner", OWNER), requests.get(1).queryParameters);
+        // A null description is left out, so the stored one is kept.
+        Assert.assertEquals("{\"notes\":\"Only the notes\"}", requests.get(1).body);
+
+        // Neither given: only the create is sent.
+        requests.clear();
+        respond(201, "");
+        client().savePolicy("court", "{\"identifiers\":{}}", null, null);
+        Assert.assertEquals(1, requests.size());
+    }
+
+    /** 1000 three-byte characters: within the notes limit, but 9000 bytes once percent-encoded. */
+    private static final String LONG_NOTES = "\u8a18".repeat(1000);
+
+    private static final String POLICY_DETAILS = "{\"name\":\"court\",\"revision\":1,\"managed\":false}";
+
+    @Test
+    public void longNotesTravelInTheDetailsBodyWhenSavingOrReplacingAPolicy() throws Exception {
+
+        respondNext(201, "");
+        respond(200, POLICY_DETAILS);
+        client().savePolicy("court", "{\"identifiers\":{}}", null, LONG_NOTES);
+
+        respondNext(200, "");
+        client().replacePolicy("court", "{\"identifiers\":{}}", null, LONG_NOTES, OWNER);
+
+        Assert.assertEquals(4, requests.size());
+        for (final int i : new int[]{1, 3}) {
+            final RecordedRequest details = requests.get(i);
+            Assert.assertEquals("/api/policies/court/details", details.path);
+            Assert.assertEquals(LONG_NOTES, com.google.gson.JsonParser.parseString(details.body).getAsJsonObject()
+                    .get("notes").getAsString());
+        }
+        for (final RecordedRequest request : requests) {
+            Assert.assertFalse(request.queryParameters.containsKey("notes"));
+            Assert.assertFalse(request.queryParameters.containsKey("description"));
+            Assert.assertTrue(request.rawQuery == null || request.rawQuery.length() < 100);
+        }
+    }
+
+    @Test
+    public void aFailedDetailsRequestAfterSavingAPolicyIsAClientException() {
+
+        respondNext(201, "");
+        respond(400, "{\"message\":\"The notes cannot be longer than 1000 characters.\"}");
+
+        final ClientException ex = Assert.assertThrows(ClientException.class,
+                () -> client().savePolicy("court", "{\"identifiers\":{}}", null, "n"));
+
+        Assert.assertEquals(400, ex.getStatusCode());
+        Assert.assertEquals("The notes cannot be longer than 1000 characters.", ex.getErrorMessage());
+        // The create was sent and succeeded before the details request failed.
+        Assert.assertEquals("POST", requests.get(0).method);
+        Assert.assertEquals("/api/policies/court/details", requests.get(1).path);
+    }
+
+    @Test
+    public void aFailedReplaceDoesNotSendTheDetails() {
+
+        respond(409, "{\"message\":\"The policy changed.\",\"reason\":\"policy_changed\"}");
+
+        Assert.assertThrows(ClientException.class,
+                () -> client().replacePolicy("court", "{\"identifiers\":{}}", "d", "n"));
+
+        Assert.assertEquals(1, requests.size());
     }
 
     @Test
@@ -1770,7 +1878,16 @@ public class PhilterClientMockTest {
         // Policies.
         verifyOwner("/api/policies/p1", "{}", () -> c.getPolicy("p1", OWNER));
         verifyOwner("/api/policies", "", () -> c.savePolicy("p1", "{}", OWNER));
-        verifyOwner("/api/policies", "", () -> c.savePolicy("p1", "{}", "d", "n", OWNER));
+        // With a description or notes, both the create and the details request carry the owner.
+        requests.clear();
+        verifyOwner("/api/policies/p1/details", "{}", () -> c.savePolicy("p1", "{}", "d", "n", OWNER));
+        Assert.assertEquals("/api/policies", requests.get(0).path);
+        Assert.assertEquals(OWNER, requests.get(0).queryParameters.get("owner"));
+        requests.clear();
+        verifyOwner("/api/policies/p1/details", "{}", () -> c.replacePolicy("p1", "{}", "d", "n", OWNER));
+        Assert.assertEquals("/api/policies/p1", requests.get(0).path);
+        Assert.assertEquals(OWNER, requests.get(0).queryParameters.get("owner"));
+        verifyOwner("/api/policies/p1", "", () -> c.replacePolicy("p1", "{}", OWNER));
         verifyOwner("/api/policies/p1/details", "{}", () -> c.getPolicyDetails("p1", OWNER));
         verifyOwner("/api/policies/p1/details", "{}", () -> c.setPolicyDetails("p1", "d", "n", OWNER));
         verifyOwner("/api/policies/p1/copy", "{}", () -> c.copyPolicy("p1", "p2", OWNER));
@@ -2434,8 +2551,18 @@ public class PhilterClientMockTest {
         // Left out, so Philter keeps the current description and notes.
         Assert.assertTrue(queryParameters.isEmpty());
 
+        requests.clear();
+        respond(200, POLICY_DETAILS);
         client().replacePolicy("court", "{\"identifiers\":{}}", "Federal court filings", null, OWNER);
-        Assert.assertEquals(Map.of("description", "Federal court filings", "owner", OWNER), queryParameters);
+        Assert.assertEquals(2, requests.size());
+        Assert.assertEquals("PUT", requests.get(0).method);
+        Assert.assertEquals("/api/policies/court", requests.get(0).path);
+        Assert.assertEquals(Map.of("owner", OWNER), requests.get(0).queryParameters);
+        Assert.assertEquals("{\"identifiers\":{}}", requests.get(0).body);
+        Assert.assertEquals("PUT", requests.get(1).method);
+        Assert.assertEquals("/api/policies/court/details", requests.get(1).path);
+        Assert.assertEquals(Map.of("owner", OWNER), requests.get(1).queryParameters);
+        Assert.assertEquals("{\"description\":\"Federal court filings\"}", requests.get(1).body);
     }
 
     @Test

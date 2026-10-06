@@ -46,6 +46,8 @@ PolicyDetails details = client.getPolicyDetails("court");
 client.setPolicyDetails("court", null, "");
 ```
 
+Philter takes a description and notes only through `setPolicyDetails`, in a JSON body. When you pass them to `savePolicy` or `replacePolicy`, the client sends the policy first and then calls `setPolicyDetails` with the same `owner`; a `null` value is left out. The two requests are not atomic: if the second fails, its `ClientException` is thrown but the policy was already created or replaced, without the new description or notes. Call `setPolicyDetails` to set them; retrying it is safe.
+
 ## Managed policies
 
 Philter ships built-in managed policies, whose names begin with `managed_`. They can be read and copied, but not changed. Listing them requires `policies:read`; copying requires `policies:write`.

@@ -39,8 +39,15 @@ can be supplied. Methods that gained parameters keep their signatures and gained
   `ClientException` with status 409 and reason `policy_exists` or `list_exists`. Replace with
   `replacePolicy` and `replaceList`, which refuse a missing policy or list with a 404. `deletePolicy` refuses
   the `default` policy with a 409 and reason `policy_default`.
+* **Policy descriptions and notes travel in a request body.** Philter (after philterd/philter#144) refuses
+  `description` and `notes` as query parameters on `POST /api/policies` and `PUT /api/policies/{policyName}`
+  with a 400, so earlier clients that sent them now fail. `savePolicy` and `replacePolicy` keep their
+  signatures but, when either value is given, send it in a second request to
+  `PUT /api/policies/{policyName}/details`, so they need a Philter that has that endpoint. The two
+  requests are not atomic: if the second fails, the policy was already saved without the new values.
 * **Policies:** versions, diffs, rollback, and PhiSQL compilation; descriptions and notes (`getPolicyDetails`,
-  `setPolicyDetails`, and a `savePolicy` overload); managed policies (`getManagedPolicies`); and `copyPolicy`.
+  `setPolicyDetails`, and `savePolicy` and `replacePolicy` overloads); managed policies
+  (`getManagedPolicies`); and `copyPolicy`.
 * **Contexts, documents, legal holds, the redaction ledger, custom lists, redact lists, and
   re-identification**, including context entry export and import, `getContext`'s per-filter-type counts,
   and ledger deletion (`deleteLedgerEntry`, `purgeLedger`).
