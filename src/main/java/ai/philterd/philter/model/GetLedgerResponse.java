@@ -21,33 +21,34 @@ import com.google.gson.annotations.SerializedName;
 import java.util.List;
 
 /**
- * The response containing the values of a custom list.
+ * A page of redaction-ledger chains, most recent first, and the total number matching.
  */
-public class GetListsResponse {
+public class GetLedgerResponse {
 
     @Expose
-    @SerializedName("lists")
-    private List<String> lists;
+    @SerializedName("chains")
+    private List<LedgerEntry> chains;
 
     @Expose
-    @SerializedName("description")
-    private String description;
+    @SerializedName("total")
+    private int total;
 
-    public List<String> getLists() {
-        return lists;
+    /** The head of each chain in this page. */
+    public List<LedgerEntry> getChains() {
+        return chains;
     }
 
-    public void setLists(List<String> lists) {
-        this.lists = lists;
+    public void setChains(List<LedgerEntry> chains) {
+        this.chains = chains;
     }
 
-    /** The list's description, or {@code null}. */
-    public String getDescription() {
-        return description;
+    /** Every chain the request matched, across all pages. */
+    public int getTotal() {
+        return total;
     }
 
-    public void setDescription(String description) {
-        this.description = description;
+    public void setTotal(int total) {
+        this.total = total;
     }
 
 }

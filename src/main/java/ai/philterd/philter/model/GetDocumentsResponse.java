@@ -21,33 +21,21 @@ import com.google.gson.annotations.SerializedName;
 import java.util.List;
 
 /**
- * The response containing the values of a custom list.
+ * A page of documents submitted for asynchronous redaction.
  */
-public class GetListsResponse {
+public class GetDocumentsResponse {
 
     @Expose
-    @SerializedName("lists")
-    private List<String> lists;
+    @SerializedName("pendingRedactedDocuments")
+    private List<DocumentSummary> documents;
 
-    @Expose
-    @SerializedName("description")
-    private String description;
-
-    public List<String> getLists() {
-        return lists;
+    /** The documents in this page. */
+    public List<DocumentSummary> getDocuments() {
+        return documents;
     }
 
-    public void setLists(List<String> lists) {
-        this.lists = lists;
-    }
-
-    /** The list's description, or {@code null}. */
-    public String getDescription() {
-        return description;
-    }
-
-    public void setDescription(String description) {
-        this.description = description;
+    public void setDocuments(List<DocumentSummary> documents) {
+        this.documents = documents;
     }
 
 }

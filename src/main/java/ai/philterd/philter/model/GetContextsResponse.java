@@ -21,33 +21,21 @@ import com.google.gson.annotations.SerializedName;
 import java.util.List;
 
 /**
- * The response containing the values of a custom list.
+ * A page of the calling user's context names.
  */
-public class GetListsResponse {
+public class GetContextsResponse {
 
     @Expose
-    @SerializedName("lists")
-    private List<String> lists;
+    @SerializedName("contexts")
+    private List<String> contexts;
 
-    @Expose
-    @SerializedName("description")
-    private String description;
-
-    public List<String> getLists() {
-        return lists;
+    /** The context names. */
+    public List<String> getContexts() {
+        return contexts;
     }
 
-    public void setLists(List<String> lists) {
-        this.lists = lists;
-    }
-
-    /** The list's description, or {@code null}. */
-    public String getDescription() {
-        return description;
-    }
-
-    public void setDescription(String description) {
-        this.description = description;
+    public void setContexts(List<String> contexts) {
+        this.contexts = contexts;
     }
 
 }

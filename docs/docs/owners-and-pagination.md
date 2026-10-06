@@ -33,21 +33,21 @@ List<OwnedName> policies = client.getPoliciesAcrossUsers();
 // Typed: LegalHoldResponse plus getOwner().
 List<OwnedLegalHoldResponse> holds = client.getHoldsAcrossUsers(0, 100);
 
-// Raw JSON, as the per-user calls return. Each item carries an "owner" field.
-String contexts = client.getContextsAcrossUsers();
-String lists = client.getListsAcrossUsers();
-String chains = client.getLedgerAcrossUsers();
+// Each item names its owner.
+GetContextsAcrossUsersResponse contexts = client.listContextsAcrossUsers();
+List<CustomListSummary> lists = client.listCustomListsAcrossUsers();
+GetLedgerResponse chains = client.listLedgerChainsAcrossUsers();
 ```
 
-All five are paged with `offset` and `limit` (default 25, at most 100), including `getListsAcrossUsers`, although the per-user `getLists` is not. Managed policies are not included in `getPoliciesAcrossUsers`, and `getLedgerAcrossUsers` cannot filter by query.
+All five are paged with `offset` and `limit` (default 25, at most 100), including `listCustomListsAcrossUsers`, although the per-user `listCustomLists` is not. Managed policies are not included in `getPoliciesAcrossUsers`, and `listLedgerChainsAcrossUsers` cannot filter by query.
 
 ## Paging through results
 
-Seven per-user calls are paged, taking `offset` and `limit` alongside `owner`: `getPolicies`, `getPolicyVersions`, `getContexts`, `getContextEntries`, `getDocuments`, `getHolds`, and `getLedger`. Philter defaults to an offset of 0 and a limit of 25, so the short form of each returns only the first 25 results.
+Seven per-user calls are paged, taking `offset` and `limit` alongside `owner`: `getPolicies`, `getPolicyVersions`, `listContexts`, `listContextEntries`, `listDocuments`, `getHolds`, and `listLedgerChains`. Philter defaults to an offset of 0 and a limit of 25, so the short form of each returns only the first 25 results.
 
 ```java
 // The third page of 50 policies.
 List<String> policies = client.getPolicies(null, 100, 50);
 ```
 
-Pass `null` for either value to use the server's default. `getManagedPolicies(offset, limit)` is paged the same way, though it takes no `owner`. `getApiKeys(owner, offset, limit)` and `getAuditLog(event, from, to, owner, offset, limit)` are paged too. `exportAuditLog` is also paged with `offset` and `limit`, but with its own defaults and a truncation flag; see [Audit Log](audit-log.md). The other per-user collection calls, `getLists` and `getRedactLists`, are not paged and take only an `owner`.
+Pass `null` for either value to use the server's default. `getManagedPolicies(offset, limit)` is paged the same way, though it takes no `owner`. `getApiKeys(owner, offset, limit)` and `getAuditLog(event, from, to, owner, offset, limit)` are paged too. `exportAuditLog` is also paged with `offset` and `limit`, but with its own defaults and a truncation flag; see [Audit Log](audit-log.md). The other per-user collection calls, `listCustomLists` and `listRedactLists`, are not paged and take only an `owner`.

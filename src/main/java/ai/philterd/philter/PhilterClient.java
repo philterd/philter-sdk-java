@@ -16,6 +16,19 @@
 package ai.philterd.philter;
 
 import ai.philterd.philter.model.AdminSettings;
+import ai.philterd.philter.model.SigningKey;
+import ai.philterd.philter.model.RedactListsRequest;
+import ai.philterd.philter.model.RedactLists;
+import ai.philterd.philter.model.LedgerExport;
+import ai.philterd.philter.model.LedgerChain;
+import ai.philterd.philter.model.GetLedgerResponse;
+import ai.philterd.philter.model.GetDocumentsResponse;
+import ai.philterd.philter.model.GetContextsResponse;
+import ai.philterd.philter.model.GetContextsAcrossUsersResponse;
+import ai.philterd.philter.model.GetContextEntriesResponse;
+import ai.philterd.philter.model.DocumentStatus;
+import ai.philterd.philter.model.CustomListSummary;
+import ai.philterd.philter.model.ContextDetails;
 import ai.philterd.philter.model.SignInResponse;
 import ai.philterd.philter.model.SignInRequest;
 import ai.philterd.philter.model.SignInMfaRequest;
@@ -143,6 +156,7 @@ public class PhilterClient {
 	private static final Type LEGAL_HOLD_LIST = new TypeToken<List<LegalHoldResponse>>() {}.getType();
 	private static final Type OWNED_LEGAL_HOLD_LIST = new TypeToken<List<OwnedLegalHoldResponse>>() {}.getType();
 	private static final Type OWNED_NAME_LIST = new TypeToken<List<OwnedName>>() {}.getType();
+	private static final Type CUSTOM_LIST_SUMMARY_LIST = new TypeToken<List<CustomListSummary>>() {}.getType();
 
 	private final HttpClient httpClient;
 	private final URI endpoint;
@@ -817,7 +831,9 @@ public class PhilterClient {
 	 * recipient can verify a signature without credentials.
 	 * @return The signing key.
 	 * @throws IOException Thrown if the request can not be completed.
+	 * @deprecated Use {@link #getSigningKeyDetails(String)}, which returns a typed model.
 	 */
+	@Deprecated
 	public String getSigningKey() throws IOException {
 		return sendExpectingString(json(uri("/api/signing-key")).GET().build());
 	}
@@ -828,10 +844,34 @@ public class PhilterClient {
 	 * @param keyId The ID of the signing key.
 	 * @return The signing key.
 	 * @throws IOException Thrown if the request can not be completed.
+	 * @deprecated Use {@link #getSigningKeyDetails(String)}, which returns a typed model.
 	 */
+	@Deprecated
 	public String getSigningKey(String keyId) throws IOException {
 		return sendExpectingString(json(uri("/api/signing-key/" + encode(keyId))).GET().build());
 	}
+
+	/**
+	 * Gets the active public signing key, with its JWK and fingerprint. Requires no API key.
+	 * @return The active key.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public SigningKey getSigningKeyDetails() throws IOException {
+		return gson.fromJson(getSigningKey(), SigningKey.class);
+	}
+
+	/**
+	 * Gets a retained public signing key by ID, active or superseded, to verify output it signed.
+	 * Requires no API key. An ID Philter does not retain is an HTTP 404, thrown as a
+	 * {@link ClientException}.
+	 * @param keyId The key ID, such as a signature's {@code kid}.
+	 * @return The key, with whether it is the active one.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public SigningKey getSigningKeyDetails(String keyId) throws IOException {
+		return gson.fromJson(getSigningKey(keyId), SigningKey.class);
+	}
+
 
 	/**
 	 * Rotates the output signing key: Philter generates a new ES256 keypair and makes it the active
@@ -1328,7 +1368,9 @@ public class PhilterClient {
 	 * Gets the configured contexts.
 	 * @return The contexts.
 	 * @throws IOException Thrown if the call can not be executed.
+	 * @deprecated Use {@link #listContexts(String, Integer, Integer)}, which returns a typed model.
 	 */
+	@Deprecated
 	public String getContexts() throws IOException {
 		return getContexts(null, null, null);
 	}
@@ -1340,7 +1382,9 @@ public class PhilterClient {
 	 * @param limit The pagination limit. May be {@code null}.
 	 * @return The contexts.
 	 * @throws IOException Thrown if the call can not be executed.
+	 * @deprecated Use {@link #listContexts(String, Integer, Integer)}, which returns a typed model.
 	 */
+	@Deprecated
 	public String getContexts(String owner, Integer offset, Integer limit) throws IOException {
 
 		final HttpRequest request = request(uri("/api/contexts", "owner", owner, "offset", offset, "limit", limit))
@@ -1352,12 +1396,37 @@ public class PhilterClient {
 	}
 
 	/**
+	 * Lists the names of the caller's contexts, paged. See {@link #listContexts(String, Integer, Integer)}.
+	 * @return The context names.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public GetContextsResponse listContexts() throws IOException {
+		return listContexts(null, null, null);
+	}
+
+	/**
+	 * Lists the names of the caller's contexts, paged.
+	 * @param owner The owner. May be {@code null} for the caller's own. Another user's requires an
+	 * administrator and {@code ADMIN_CROSS_USER_ACCESS_ENABLED=true}; otherwise Philter answers HTTP 404.
+	 * @param offset The number of items to skip. May be {@code null} for {@code 0}.
+	 * @param limit The most items to return, up to 100. May be {@code null} for Philter's default of 25.
+	 * @return The context names.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public GetContextsResponse listContexts(String owner, Integer offset, Integer limit) throws IOException {
+		return gson.fromJson(getContexts(owner, offset, limit), GetContextsResponse.class);
+	}
+
+
+	/**
 	 * Gets the first page of every user's contexts, each naming its owner. See
 	 * {@link #getContextsAcrossUsers(Integer, Integer)}.
 	 * @return The contexts as JSON: a {@code contexts} array of objects, each with the context's {@code name}
 	 * and its {@code owner}.
 	 * @throws IOException Thrown if the call can not be executed.
+	 * @deprecated Use {@link #listContextsAcrossUsers(Integer, Integer)}, which returns a typed model.
 	 */
+	@Deprecated
 	public String getContextsAcrossUsers() throws IOException {
 		return getContextsAcrossUsers(null, null);
 	}
@@ -1374,11 +1443,36 @@ public class PhilterClient {
 	 * @return The contexts as JSON: a {@code contexts} array of objects, each with the context's {@code name}
 	 * and its {@code owner}.
 	 * @throws IOException Thrown if the call can not be executed.
+	 * @deprecated Use {@link #listContextsAcrossUsers(Integer, Integer)}, which returns a typed model.
 	 */
+	@Deprecated
 	public String getContextsAcrossUsers(Integer offset, Integer limit) throws IOException {
 		return sendExpectingString(request(uri("/api/contexts", "all_users", true, "offset", offset, "limit", limit))
 				.GET().build());
 	}
+
+	/**
+	 * Lists every user's contexts, paged, each naming its owner. Requires an administrator and
+	 * {@code ADMIN_CROSS_USER_ACCESS_ENABLED=true}; otherwise Philter answers HTTP 404. See {@link #listContextsAcrossUsers(Integer, Integer)}.
+	 * @return Each context's name and owner.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public GetContextsAcrossUsersResponse listContextsAcrossUsers() throws IOException {
+		return listContextsAcrossUsers(null, null);
+	}
+
+	/**
+	 * Lists every user's contexts, paged, each naming its owner. Requires an administrator and
+	 * {@code ADMIN_CROSS_USER_ACCESS_ENABLED=true}; otherwise Philter answers HTTP 404.
+	 * @param offset The number of items to skip. May be {@code null} for {@code 0}.
+	 * @param limit The most items to return, up to 100. May be {@code null} for Philter's default of 25.
+	 * @return Each context's name and owner.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public GetContextsAcrossUsersResponse listContextsAcrossUsers(Integer offset, Integer limit) throws IOException {
+		return gson.fromJson(getContextsAcrossUsers(offset, limit), GetContextsAcrossUsersResponse.class);
+	}
+
 
 	/**
 	 * Creates a context.
@@ -1428,7 +1522,9 @@ public class PhilterClient {
 	 * filter type to entry count; and {@code untyped}, the entries with no filter type. The counts sum
 	 * to {@code size}.
 	 * @throws IOException Thrown if the call can not be executed.
+	 * @deprecated Use {@link #getContextDetails(String, String)}, which returns a typed model.
 	 */
+	@Deprecated
 	public String getContext(String name) throws IOException {
 		return getContext(name, null);
 	}
@@ -1439,10 +1535,37 @@ public class PhilterClient {
 	 * @param owner The owner of the context. May be {@code null}.
 	 * @return The context as JSON, as described on {@link #getContext(String)}.
 	 * @throws IOException Thrown if the call can not be executed.
+	 * @deprecated Use {@link #getContextDetails(String, String)}, which returns a typed model.
 	 */
+	@Deprecated
 	public String getContext(String name, String owner) throws IOException {
 		return sendExpectingString(request(uri("/api/contexts/" + encode(name), "owner", owner)).GET().build());
 	}
+
+	/**
+	 * Gets a context's settings and its entries counted by filter type. A context that does not exist is an
+	 * HTTP 404, thrown as a {@link ClientException}. See {@link #getContextDetails(String, String)}.
+	 * @param name The name of the context.
+	 * @return The context's settings and entry counts.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public ContextDetails getContextDetails(String name) throws IOException {
+		return getContextDetails(name, null);
+	}
+
+	/**
+	 * Gets a context's settings and its entries counted by filter type. A context that does not exist is an
+	 * HTTP 404, thrown as a {@link ClientException}.
+	 * @param name The name of the context.
+	 * @param owner The owner. May be {@code null} for the caller's own. Another user's requires an
+	 * administrator and {@code ADMIN_CROSS_USER_ACCESS_ENABLED=true}; otherwise Philter answers HTTP 404.
+	 * @return The context's settings and entry counts.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public ContextDetails getContextDetails(String name, String owner) throws IOException {
+		return gson.fromJson(getContext(name, owner), ContextDetails.class);
+	}
+
 
 	/**
 	 * Updates a context.
@@ -1511,7 +1634,9 @@ public class PhilterClient {
 	 * @param name The name of the context.
 	 * @return The context entries.
 	 * @throws IOException Thrown if the call can not be executed.
+	 * @deprecated Use {@link #listContextEntries(String, String, Integer, Integer)}, which returns a typed model.
 	 */
+	@Deprecated
 	public String getContextEntries(String name) throws IOException {
 		return getContextEntries(name, null, null, null);
 	}
@@ -1524,7 +1649,9 @@ public class PhilterClient {
 	 * @param limit The pagination limit. May be {@code null}.
 	 * @return The context entries.
 	 * @throws IOException Thrown if the call can not be executed.
+	 * @deprecated Use {@link #listContextEntries(String, String, Integer, Integer)}, which returns a typed model.
 	 */
+	@Deprecated
 	public String getContextEntries(String name, String owner, Integer offset, Integer limit) throws IOException {
 
 		final HttpRequest request = request(uri("/api/contexts/" + encode(name) + "/entries",
@@ -1535,6 +1662,31 @@ public class PhilterClient {
 		return sendExpectingString(request);
 
 	}
+
+	/**
+	 * Lists a context's entries, paged, with the total. The original values are never returned. See {@link #listContextEntries(String, String, Integer, Integer)}.
+	 * @param name The name of the context.
+	 * @return The page of entries and the total.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public GetContextEntriesResponse listContextEntries(String name) throws IOException {
+		return listContextEntries(name, null, null, null);
+	}
+
+	/**
+	 * Lists a context's entries, paged, with the total. The original values are never returned.
+	 * @param name The name of the context.
+	 * @param owner The owner. May be {@code null} for the caller's own. Another user's requires an
+	 * administrator and {@code ADMIN_CROSS_USER_ACCESS_ENABLED=true}; otherwise Philter answers HTTP 404.
+	 * @param offset The number of items to skip. May be {@code null} for {@code 0}.
+	 * @param limit The most items to return, up to 100. May be {@code null} for Philter's default of 25.
+	 * @return The page of entries and the total.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public GetContextEntriesResponse listContextEntries(String name, String owner, Integer offset, Integer limit) throws IOException {
+		return gson.fromJson(getContextEntries(name, owner, offset, limit), GetContextEntriesResponse.class);
+	}
+
 
 	/**
 	 * Deletes all entries for a context.
@@ -1637,7 +1789,9 @@ public class PhilterClient {
 	 * Gets the stored documents.
 	 * @return The documents.
 	 * @throws IOException Thrown if the call can not be executed.
+	 * @deprecated Use {@link #listDocuments(String, Integer, Integer)}, which returns a typed model.
 	 */
+	@Deprecated
 	public String getDocuments() throws IOException {
 		return getDocuments(null, null, null);
 	}
@@ -1649,7 +1803,9 @@ public class PhilterClient {
 	 * @param limit The pagination limit. May be {@code null}.
 	 * @return The documents.
 	 * @throws IOException Thrown if the call can not be executed.
+	 * @deprecated Use {@link #listDocuments(String, Integer, Integer)}, which returns a typed model.
 	 */
+	@Deprecated
 	public String getDocuments(String owner, Integer offset, Integer limit) throws IOException {
 
 		final HttpRequest request = json(uri("/api/documents", "owner", owner, "offset", offset, "limit", limit))
@@ -1659,6 +1815,29 @@ public class PhilterClient {
 		return sendExpectingString(request);
 
 	}
+
+	/**
+	 * Lists the documents submitted for asynchronous redaction, paged. See {@link #listDocuments(String, Integer, Integer)}.
+	 * @return The page of documents.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public GetDocumentsResponse listDocuments() throws IOException {
+		return listDocuments(null, null, null);
+	}
+
+	/**
+	 * Lists the documents submitted for asynchronous redaction, paged.
+	 * @param owner The owner. May be {@code null} for the caller's own. Another user's requires an
+	 * administrator and {@code ADMIN_CROSS_USER_ACCESS_ENABLED=true}; otherwise Philter answers HTTP 404.
+	 * @param offset The number of items to skip. May be {@code null} for {@code 0}.
+	 * @param limit The most items to return, up to 100. May be {@code null} for Philter's default of 25.
+	 * @return The page of documents.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public GetDocumentsResponse listDocuments(String owner, Integer offset, Integer limit) throws IOException {
+		return gson.fromJson(getDocuments(owner, offset, limit), GetDocumentsResponse.class);
+	}
+
 
 	/**
 	 * Gets a stored document by ID.
@@ -1705,7 +1884,9 @@ public class PhilterClient {
 	 * @param documentId The document ID.
 	 * @return The document status.
 	 * @throws IOException Thrown if the call can not be executed.
+	 * @deprecated Use {@link #getDocumentState(String, String)}, which returns a typed model.
 	 */
+	@Deprecated
 	public String getDocumentStatus(String documentId) throws IOException {
 		return getDocumentStatus(documentId, null);
 	}
@@ -1716,7 +1897,9 @@ public class PhilterClient {
 	 * @param owner The owner of the document. May be {@code null}.
 	 * @return The document status.
 	 * @throws IOException Thrown if the call can not be executed.
+	 * @deprecated Use {@link #getDocumentState(String, String)}, which returns a typed model.
 	 */
+	@Deprecated
 	public String getDocumentStatus(String documentId, String owner) throws IOException {
 
 		final HttpRequest request = json(uri("/api/documents/" + encode(documentId) + "/status", "owner", owner))
@@ -1726,6 +1909,29 @@ public class PhilterClient {
 		return sendExpectingString(request);
 
 	}
+
+	/**
+	 * Gets the status of a document submitted for asynchronous redaction. See {@link #getDocumentState(String, String)}.
+	 * @param documentId The document ID.
+	 * @return The document's status.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public DocumentStatus getDocumentState(String documentId) throws IOException {
+		return getDocumentState(documentId, null);
+	}
+
+	/**
+	 * Gets the status of a document submitted for asynchronous redaction.
+	 * @param documentId The document ID.
+	 * @param owner The owner. May be {@code null} for the caller's own. Another user's requires an
+	 * administrator and {@code ADMIN_CROSS_USER_ACCESS_ENABLED=true}; otherwise Philter answers HTTP 404.
+	 * @return The document's status.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public DocumentStatus getDocumentState(String documentId, String owner) throws IOException {
+		return gson.fromJson(getDocumentStatus(documentId, owner), DocumentStatus.class);
+	}
+
 
 	// Legal holds.
 
@@ -1867,7 +2073,9 @@ public class PhilterClient {
 	 * @param query The query. May be {@code null}.
 	 * @return The matching ledger entries.
 	 * @throws IOException Thrown if the call can not be executed.
+	 * @deprecated Use {@link #listLedgerChains(String, String, Integer, Integer)}, which returns a typed model.
 	 */
+	@Deprecated
 	public String getLedger(String query) throws IOException {
 		return getLedger(query, null, null, null);
 	}
@@ -1880,7 +2088,9 @@ public class PhilterClient {
 	 * @param limit The pagination limit. May be {@code null}.
 	 * @return The matching ledger entries.
 	 * @throws IOException Thrown if the call can not be executed.
+	 * @deprecated Use {@link #listLedgerChains(String, String, Integer, Integer)}, which returns a typed model.
 	 */
+	@Deprecated
 	public String getLedger(String query, String owner, Integer offset, Integer limit) throws IOException {
 
 		final HttpRequest request = request(uri("/api/ledger", "q", query, "owner", owner,
@@ -1893,12 +2103,39 @@ public class PhilterClient {
 	}
 
 	/**
+	 * Lists redaction-ledger chains, most recent first, paged, with the total matching. See {@link #listLedgerChains(String, String, Integer, Integer)}.
+	 * @param query Matches a document ID or filename. May be {@code null} for every chain.
+	 * @return The head of each chain and the total.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public GetLedgerResponse listLedgerChains(String query) throws IOException {
+		return listLedgerChains(query, null, null, null);
+	}
+
+	/**
+	 * Lists redaction-ledger chains, most recent first, paged, with the total matching.
+	 * @param query Matches a document ID or filename. May be {@code null} for every chain.
+	 * @param owner The owner. May be {@code null} for the caller's own. Another user's requires an
+	 * administrator and {@code ADMIN_CROSS_USER_ACCESS_ENABLED=true}; otherwise Philter answers HTTP 404.
+	 * @param offset The number of items to skip. May be {@code null} for {@code 0}.
+	 * @param limit The most items to return, up to 100. May be {@code null} for Philter's default of 25.
+	 * @return The head of each chain and the total.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public GetLedgerResponse listLedgerChains(String query, String owner, Integer offset, Integer limit) throws IOException {
+		return gson.fromJson(getLedger(query, owner, offset, limit), GetLedgerResponse.class);
+	}
+
+
+	/**
 	 * Gets the first page of every user's redaction-ledger chains, each naming its owner. See
 	 * {@link #getLedgerAcrossUsers(Integer, Integer)}.
 	 * @return The chains as JSON: a {@code chains} array of chain heads, most recent first, each with an
 	 * {@code owner} field, and a {@code total} counting every user's chains.
 	 * @throws IOException Thrown if the call can not be executed.
+	 * @deprecated Use {@link #listLedgerChainsAcrossUsers(Integer, Integer)}, which returns a typed model.
 	 */
+	@Deprecated
 	public String getLedgerAcrossUsers() throws IOException {
 		return getLedgerAcrossUsers(null, null);
 	}
@@ -1917,18 +2154,45 @@ public class PhilterClient {
 	 * @return The chains as JSON: a {@code chains} array of chain heads, most recent first, each with an
 	 * {@code owner} field, and a {@code total} counting every user's chains.
 	 * @throws IOException Thrown if the call can not be executed.
+	 * @deprecated Use {@link #listLedgerChainsAcrossUsers(Integer, Integer)}, which returns a typed model.
 	 */
+	@Deprecated
 	public String getLedgerAcrossUsers(Integer offset, Integer limit) throws IOException {
 		return sendExpectingString(request(uri("/api/ledger", "all_users", true, "offset", offset, "limit", limit))
 				.GET().build());
 	}
 
 	/**
+	 * Lists every user's redaction-ledger chains, paged, each naming its owner. Requires an administrator and
+	 * {@code ADMIN_CROSS_USER_ACCESS_ENABLED=true}; otherwise Philter answers HTTP 404. See {@link #listLedgerChainsAcrossUsers(Integer, Integer)}.
+	 * @return The head of each chain, with its owner, and the total.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public GetLedgerResponse listLedgerChainsAcrossUsers() throws IOException {
+		return listLedgerChainsAcrossUsers(null, null);
+	}
+
+	/**
+	 * Lists every user's redaction-ledger chains, paged, each naming its owner. Requires an administrator and
+	 * {@code ADMIN_CROSS_USER_ACCESS_ENABLED=true}; otherwise Philter answers HTTP 404.
+	 * @param offset The number of items to skip. May be {@code null} for {@code 0}.
+	 * @param limit The most items to return, up to 100. May be {@code null} for Philter's default of 25.
+	 * @return The head of each chain, with its owner, and the total.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public GetLedgerResponse listLedgerChainsAcrossUsers(Integer offset, Integer limit) throws IOException {
+		return gson.fromJson(getLedgerAcrossUsers(offset, limit), GetLedgerResponse.class);
+	}
+
+
+	/**
 	 * Gets the ledger entry for a document.
 	 * @param documentId The document ID.
 	 * @return The ledger entry.
 	 * @throws IOException Thrown if the call can not be executed.
+	 * @deprecated Use {@link #getLedgerChain(String, String)}, which returns a typed model.
 	 */
+	@Deprecated
 	public String getLedgerEntry(String documentId) throws IOException {
 		return getLedgerEntry(documentId, null);
 	}
@@ -1939,17 +2203,46 @@ public class PhilterClient {
 	 * @param owner The owner of the entry. May be {@code null}.
 	 * @return The ledger entry.
 	 * @throws IOException Thrown if the call can not be executed.
+	 * @deprecated Use {@link #getLedgerChain(String, String)}, which returns a typed model.
 	 */
+	@Deprecated
 	public String getLedgerEntry(String documentId, String owner) throws IOException {
 		return sendExpectingString(request(uri("/api/ledger/" + encode(documentId), "owner", owner)).GET().build());
 	}
+
+	/**
+	 * Gets a document's redaction-ledger chain and whether it verifies. The original redacted values are not
+	 * returned; see {@link #getLedgerExport(String)}. See {@link #getLedgerChain(String, String)}.
+	 * @param documentId The document ID.
+	 * @return The chain.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public LedgerChain getLedgerChain(String documentId) throws IOException {
+		return getLedgerChain(documentId, null);
+	}
+
+	/**
+	 * Gets a document's redaction-ledger chain and whether it verifies. The original redacted values are not
+	 * returned; see {@link #getLedgerExport(String)}.
+	 * @param documentId The document ID.
+	 * @param owner The owner. May be {@code null} for the caller's own. Another user's requires an
+	 * administrator and {@code ADMIN_CROSS_USER_ACCESS_ENABLED=true}; otherwise Philter answers HTTP 404.
+	 * @return The chain.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public LedgerChain getLedgerChain(String documentId, String owner) throws IOException {
+		return gson.fromJson(getLedgerEntry(documentId, owner), LedgerChain.class);
+	}
+
 
 	/**
 	 * Exports the ledger entry for a document.
 	 * @param documentId The document ID.
 	 * @return The exported ledger entry.
 	 * @throws IOException Thrown if the call can not be executed.
+	 * @deprecated Use {@link #getLedgerExport(String, String)}, which returns a typed model.
 	 */
+	@Deprecated
 	public String exportLedger(String documentId) throws IOException {
 		return exportLedger(documentId, null);
 	}
@@ -1960,7 +2253,9 @@ public class PhilterClient {
 	 * @param owner The owner of the entry. May be {@code null}.
 	 * @return The exported ledger entry.
 	 * @throws IOException Thrown if the call can not be executed.
+	 * @deprecated Use {@link #getLedgerExport(String, String)}, which returns a typed model.
 	 */
+	@Deprecated
 	public String exportLedger(String documentId, String owner) throws IOException {
 
 		final HttpRequest request = request(uri("/api/ledger/" + encode(documentId) + "/export", "owner", owner))
@@ -1972,11 +2267,40 @@ public class PhilterClient {
 	}
 
 	/**
+	 * Exports a document's redaction-ledger chain with the public keys that verify it. Requires the
+	 * {@code ledger:export} scope. The export carries the original redacted values, so treat it as
+	 * sensitive. See {@link #getLedgerExport(String, String)}.
+	 * @param documentId The document ID.
+	 * @return The export.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public LedgerExport getLedgerExport(String documentId) throws IOException {
+		return getLedgerExport(documentId, null);
+	}
+
+	/**
+	 * Exports a document's redaction-ledger chain with the public keys that verify it. Requires the
+	 * {@code ledger:export} scope. The export carries the original redacted values, so treat it as
+	 * sensitive.
+	 * @param documentId The document ID.
+	 * @param owner The owner. May be {@code null} for the caller's own. Another user's requires an
+	 * administrator and {@code ADMIN_CROSS_USER_ACCESS_ENABLED=true}; otherwise Philter answers HTTP 404.
+	 * @return The export.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public LedgerExport getLedgerExport(String documentId, String owner) throws IOException {
+		return gson.fromJson(exportLedger(documentId, owner), LedgerExport.class);
+	}
+
+
+	/**
 	 * Checks whether the ledger for a document is valid.
 	 * @param documentId The document ID.
 	 * @return The validity result.
 	 * @throws IOException Thrown if the call can not be executed.
+	 * @deprecated Use {@link #verifyLedgerChain(String, String)}, which returns a typed model.
 	 */
+	@Deprecated
 	public String isLedgerValid(String documentId) throws IOException {
 		return isLedgerValid(documentId, null);
 	}
@@ -1987,7 +2311,9 @@ public class PhilterClient {
 	 * @param owner The owner of the entry. May be {@code null}.
 	 * @return The validity result.
 	 * @throws IOException Thrown if the call can not be executed.
+	 * @deprecated Use {@link #verifyLedgerChain(String, String)}, which returns a typed model.
 	 */
+	@Deprecated
 	public String isLedgerValid(String documentId, String owner) throws IOException {
 
 		final HttpRequest request = request(uri("/api/ledger/" + encode(documentId) + "/valid", "owner", owner))
@@ -1997,6 +2323,29 @@ public class PhilterClient {
 		return sendExpectingString(request);
 
 	}
+
+	/**
+	 * Checks whether a document's redaction-ledger chain verifies, without returning its entries. See {@link #verifyLedgerChain(String, String)}.
+	 * @param documentId The document ID.
+	 * @return Whether the chain verifies; {@link LedgerChain#getEntries()} is {@code null}.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public LedgerChain verifyLedgerChain(String documentId) throws IOException {
+		return verifyLedgerChain(documentId, null);
+	}
+
+	/**
+	 * Checks whether a document's redaction-ledger chain verifies, without returning its entries.
+	 * @param documentId The document ID.
+	 * @param owner The owner. May be {@code null} for the caller's own. Another user's requires an
+	 * administrator and {@code ADMIN_CROSS_USER_ACCESS_ENABLED=true}; otherwise Philter answers HTTP 404.
+	 * @return Whether the chain verifies; {@link LedgerChain#getEntries()} is {@code null}.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public LedgerChain verifyLedgerChain(String documentId, String owner) throws IOException {
+		return gson.fromJson(isLedgerValid(documentId, owner), LedgerChain.class);
+	}
+
 
 	/**
 	 * Deletes a document's ledger chain. Philter restricts this to administrators and to deployments
@@ -2060,7 +2409,9 @@ public class PhilterClient {
 	 * Gets the custom lists.
 	 * @return The custom lists.
 	 * @throws IOException Thrown if the call can not be executed.
+	 * @deprecated Use {@link #listCustomLists(String)}, which returns a typed model.
 	 */
+	@Deprecated
 	public String getLists() throws IOException {
 		return getLists(null);
 	}
@@ -2070,17 +2421,45 @@ public class PhilterClient {
 	 * @param owner The owner of the lists. May be {@code null}.
 	 * @return The custom lists.
 	 * @throws IOException Thrown if the call can not be executed.
+	 * @deprecated Use {@link #listCustomLists(String)}, which returns a typed model.
 	 */
+	@Deprecated
 	public String getLists(String owner) throws IOException {
 		return sendExpectingString(request(uri("/api/lists", "owner", owner)).GET().build());
 	}
 
 	/**
-	 * Gets the first page of every user's custom lists, each naming its owner. See
-	 * {@link #getListsAcrossUsers(Integer, Integer)}.
-	 * @return The lists as JSON: an array of objects, each with the list's {@code name} and its {@code owner}.
+	 * Lists the caller's custom lists with their descriptions and sizes. Get a list's terms with
+	 * {@link #getList(String)}. See {@link #listCustomLists(String)}.
+	 * @return Each list's name, description, and size.
 	 * @throws IOException Thrown if the call can not be executed.
 	 */
+	public List<CustomListSummary> listCustomLists() throws IOException {
+		return listCustomLists(null);
+	}
+
+	/**
+	 * Lists the caller's custom lists with their descriptions and sizes. Get a list's terms with
+	 * {@link #getList(String)}.
+	 * @param owner The owner. May be {@code null} for the caller's own. Another user's requires an
+	 * administrator and {@code ADMIN_CROSS_USER_ACCESS_ENABLED=true}; otherwise Philter answers HTTP 404.
+	 * @return Each list's name, description, and size.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public List<CustomListSummary> listCustomLists(String owner) throws IOException {
+		return gson.fromJson(getLists(owner), CUSTOM_LIST_SUMMARY_LIST);
+	}
+
+
+	/**
+	 * Gets the first page of every user's custom lists, each naming its owner. See
+	 * {@link #getListsAcrossUsers(Integer, Integer)}.
+	 * @return The lists as JSON: an array of objects, each with the list's {@code name}, {@code description},
+	 * {@code size}, and {@code owner}.
+	 * @throws IOException Thrown if the call can not be executed.
+	 * @deprecated Use {@link #listCustomListsAcrossUsers(Integer, Integer)}, which returns a typed model.
+	 */
+	@Deprecated
 	public String getListsAcrossUsers() throws IOException {
 		return getListsAcrossUsers(null, null);
 	}
@@ -2096,13 +2475,39 @@ public class PhilterClient {
 	 *
 	 * @param offset The number of items to skip. May be {@code null} for {@code 0}.
 	 * @param limit The most items to return, up to 100. May be {@code null} for Philter's default of 25.
-	 * @return The lists as JSON: an array of objects, each with the list's {@code name} and its {@code owner}.
+	 * @return The lists as JSON: an array of objects, each with the list's {@code name}, {@code description},
+	 * {@code size}, and {@code owner}.
 	 * @throws IOException Thrown if the call can not be executed.
+	 * @deprecated Use {@link #listCustomListsAcrossUsers(Integer, Integer)}, which returns a typed model.
 	 */
+	@Deprecated
 	public String getListsAcrossUsers(Integer offset, Integer limit) throws IOException {
 		return sendExpectingString(request(uri("/api/lists", "all_users", true, "offset", offset, "limit", limit))
 				.GET().build());
 	}
+
+	/**
+	 * Lists every user's custom lists, paged, each naming its owner. Requires an administrator and
+	 * {@code ADMIN_CROSS_USER_ACCESS_ENABLED=true}; otherwise Philter answers HTTP 404. See {@link #listCustomListsAcrossUsers(Integer, Integer)}.
+	 * @return Each list's name, description, size, and owner.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public List<CustomListSummary> listCustomListsAcrossUsers() throws IOException {
+		return listCustomListsAcrossUsers(null, null);
+	}
+
+	/**
+	 * Lists every user's custom lists, paged, each naming its owner. Requires an administrator and
+	 * {@code ADMIN_CROSS_USER_ACCESS_ENABLED=true}; otherwise Philter answers HTTP 404.
+	 * @param offset The number of items to skip. May be {@code null} for {@code 0}.
+	 * @param limit The most items to return, up to 100. May be {@code null} for Philter's default of 25.
+	 * @return Each list's name, description, size, and owner.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public List<CustomListSummary> listCustomListsAcrossUsers(Integer offset, Integer limit) throws IOException {
+		return gson.fromJson(getListsAcrossUsers(offset, limit), CUSTOM_LIST_SUMMARY_LIST);
+	}
+
 
 	/**
 	 * Saves (or overwrites) a custom list.
@@ -2186,7 +2591,9 @@ public class PhilterClient {
 	 * Gets the redact lists.
 	 * @return The redact lists.
 	 * @throws IOException Thrown if the call can not be executed.
+	 * @deprecated Use {@link #listRedactLists(String)}, which returns a typed model.
 	 */
+	@Deprecated
 	public String getRedactLists() throws IOException {
 		return getRedactLists(null);
 	}
@@ -2196,17 +2603,42 @@ public class PhilterClient {
 	 * @param owner The owner of the redact lists. May be {@code null}.
 	 * @return The redact lists.
 	 * @throws IOException Thrown if the call can not be executed.
+	 * @deprecated Use {@link #listRedactLists(String)}, which returns a typed model.
 	 */
+	@Deprecated
 	public String getRedactLists(String owner) throws IOException {
 		return sendExpectingString(json(uri("/api/redact-lists", "owner", owner)).GET().build());
 	}
+
+	/**
+	 * Gets the caller's always-redact and never-redact lists. See {@link #listRedactLists(String)}.
+	 * @return Both lists.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public RedactLists listRedactLists() throws IOException {
+		return listRedactLists(null);
+	}
+
+	/**
+	 * Gets the caller's always-redact and never-redact lists.
+	 * @param owner The owner. May be {@code null} for the caller's own. Another user's requires an
+	 * administrator and {@code ADMIN_CROSS_USER_ACCESS_ENABLED=true}; otherwise Philter answers HTTP 404.
+	 * @return Both lists.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public RedactLists listRedactLists(String owner) throws IOException {
+		return gson.fromJson(getRedactLists(owner), RedactLists.class);
+	}
+
 
 	/**
 	 * Creates a redact list.
 	 * @param json The redact list as JSON.
 	 * @return A {@link GenericResponse}.
 	 * @throws IOException Thrown if the call can not be executed.
+	 * @deprecated Use {@link #createRedactList(RedactListsRequest, String)}, which takes a typed request.
 	 */
+	@Deprecated
 	public GenericResponse createRedactList(String json) throws IOException {
 		return createRedactList(json, null);
 	}
@@ -2217,7 +2649,9 @@ public class PhilterClient {
 	 * @param owner The owner of the redact list. May be {@code null}.
 	 * @return A {@link GenericResponse}.
 	 * @throws IOException Thrown if the call can not be executed.
+	 * @deprecated Use {@link #createRedactList(RedactListsRequest, String)}, which takes a typed request.
 	 */
+	@Deprecated
 	public GenericResponse createRedactList(String json, String owner) throws IOException {
 
 		final HttpRequest request = request(uri("/api/redact-lists", "owner", owner))
@@ -2234,7 +2668,9 @@ public class PhilterClient {
 	 * @param json The redact list as JSON.
 	 * @return A {@link GenericResponse}.
 	 * @throws IOException Thrown if the call can not be executed.
+	 * @deprecated Use {@link #updateRedactList(RedactListsRequest, String)}, which takes a typed request.
 	 */
+	@Deprecated
 	public GenericResponse updateRedactList(String json) throws IOException {
 		return updateRedactList(json, null);
 	}
@@ -2245,7 +2681,9 @@ public class PhilterClient {
 	 * @param owner The owner of the redact list. May be {@code null}.
 	 * @return A {@link GenericResponse}.
 	 * @throws IOException Thrown if the call can not be executed.
+	 * @deprecated Use {@link #updateRedactList(RedactListsRequest, String)}, which takes a typed request.
 	 */
+	@Deprecated
 	public GenericResponse updateRedactList(String json, String owner) throws IOException {
 
 		final HttpRequest request = request(uri("/api/redact-lists", "owner", owner))
@@ -2256,6 +2694,56 @@ public class PhilterClient {
 		return sendExpectingJson(request, GenericResponse.class);
 
 	}
+
+	/**
+	 * Replaces the always-redact and never-redact lists in full. This is not a merge: each list in the
+	 * request is the complete contents of that list, and a list left {@code null} or empty is cleared. Use
+	 * {@link #updateRedactList(RedactListsRequest)} to add terms instead. Each list holds up to 1000 terms of
+	 * up to 100 characters; more is an HTTP 400, thrown as a {@link ClientException}.
+	 * @param request The lists.
+	 * @return A {@link GenericResponse}.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public GenericResponse createRedactList(RedactListsRequest request) throws IOException {
+		return createRedactList(request, null);
+	}
+
+	/**
+	 * Replaces the always-redact and never-redact lists in full. See {@link #createRedactList(RedactListsRequest)}.
+	 * @param request The lists.
+	 * @param owner The owner. May be {@code null} for the caller's own. Another user's requires an
+	 * administrator and {@code ADMIN_CROSS_USER_ACCESS_ENABLED=true}; otherwise Philter answers HTTP 404.
+	 * @return A {@link GenericResponse}.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public GenericResponse createRedactList(RedactListsRequest request, String owner) throws IOException {
+		return createRedactList(gson.toJson(request), owner);
+	}
+
+	/**
+	 * Appends terms to the always-redact and never-redact lists, keeping the terms already there. Use
+	 * {@link #createRedactList(RedactListsRequest)} to replace the lists instead. A resulting list over 1000
+	 * terms, or a term over 100 characters, is an HTTP 400, thrown as a {@link ClientException}.
+	 * @param request The terms to add.
+	 * @return A {@link GenericResponse}.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public GenericResponse updateRedactList(RedactListsRequest request) throws IOException {
+		return updateRedactList(request, null);
+	}
+
+	/**
+	 * Appends terms to the always-redact and never-redact lists. See {@link #updateRedactList(RedactListsRequest)}.
+	 * @param request The terms to add.
+	 * @param owner The owner. May be {@code null} for the caller's own. Another user's requires an
+	 * administrator and {@code ADMIN_CROSS_USER_ACCESS_ENABLED=true}; otherwise Philter answers HTTP 404.
+	 * @return A {@link GenericResponse}.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public GenericResponse updateRedactList(RedactListsRequest request, String owner) throws IOException {
+		return updateRedactList(gson.toJson(request), owner);
+	}
+
 
 	// Audit log.
 

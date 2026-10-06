@@ -18,36 +18,61 @@ package ai.philterd.philter.model;
 import com.google.gson.annotations.Expose;
 import com.google.gson.annotations.SerializedName;
 
-import java.util.List;
-
 /**
- * The response containing the values of a custom list.
+ * A custom list's name, description, and size. Get its terms with {@code getList}.
  */
-public class GetListsResponse {
+public class CustomListSummary {
 
     @Expose
-    @SerializedName("lists")
-    private List<String> lists;
+    @SerializedName("name")
+    private String name;
 
     @Expose
     @SerializedName("description")
     private String description;
 
-    public List<String> getLists() {
-        return lists;
+    @Expose
+    @SerializedName("size")
+    private int size;
+
+    @Expose
+    @SerializedName("owner")
+    private String owner;
+
+    /** The list name. */
+    public String getName() {
+        return name;
     }
 
-    public void setLists(List<String> lists) {
-        this.lists = lists;
+    public void setName(String name) {
+        this.name = name;
     }
 
-    /** The list's description, or {@code null}. */
+    /** The description, or {@code null}. */
     public String getDescription() {
         return description;
     }
 
     public void setDescription(String description) {
         this.description = description;
+    }
+
+    /** The number of terms in the list. */
+    public int getSize() {
+        return size;
+    }
+
+    public void setSize(int size) {
+        this.size = size;
+    }
+
+    /** The owner's username, set only in a listing across all users. */
+    public String getOwner() {
+        return owner;
+    }
+
+    public void setOwner(String owner) {
+        this.owner = owner;
     }
 
 }

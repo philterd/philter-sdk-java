@@ -38,7 +38,7 @@ String signature = response.getSignature();  // a compact ES256 JWT, or null if 
 
 A deployment with output signing enabled (the `signingEnabled` [admin setting](admin-settings.md)) signs every `filter` and `explain` response whether or not you ask, and passing `false` does not turn that off. PDF responses are not signed.
 
-The client does not verify signatures. To verify one, fetch the public key named by the JWT's `kid` with `getSigningKey(keyId)`, which needs no API key, check the ES256 signature, and check that the `bodyHash` claim is the SHA-256 of the response body. For `filter` the body is `getFilteredText()`; for `explain` it is `getResponseBody()`, the JSON exactly as Philter sent it.
+The client does not verify signatures. To verify one, fetch the public key named by the JWT's `kid` with `getSigningKeyDetails(keyId)`, which needs no API key, check the ES256 signature, and check that the `bodyHash` claim is the SHA-256 of the response body. For `filter` the body is `getFilteredText()`; for `explain` it is `getResponseBody()`, the JSON exactly as Philter sent it.
 
 ```java
 import com.google.gson.JsonObject;
@@ -56,8 +56,7 @@ Base64.Decoder base64url = Base64.getUrlDecoder();
 
 // The public key named by the JWT's kid.
 JsonObject header = JsonParser.parseString(new String(base64url.decode(parts[0]), StandardCharsets.UTF_8)).getAsJsonObject();
-String pem = JsonParser.parseString(client.getSigningKey(header.get("kid").getAsString()))
-        .getAsJsonObject().get("pem").getAsString()
+String pem = client.getSigningKeyDetails(header.get("kid").getAsString()).getPem()
         .replace("-----BEGIN PUBLIC KEY-----", "").replace("-----END PUBLIC KEY-----", "").replaceAll("\\s", "");
 PublicKey publicKey = KeyFactory.getInstance("EC").generatePublic(new X509EncodedKeySpec(Base64.getDecoder().decode(pem)));
 

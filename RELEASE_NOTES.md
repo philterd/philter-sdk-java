@@ -53,8 +53,13 @@ can be supplied. Methods that gained parameters keep their signatures and gained
 * `owner` overloads let an administrator act on another user's data, and paged calls take `offset` and
   `limit`.
 
-Responses for the new endpoints are typed models, such as `User`, `ApiKey`, `PolicyDetails`, `AuditEvent`,
-and `SignInResponse`. Older collection calls such as `getContexts` and `getLedger` still return raw JSON.
+Responses are typed models, such as `User`, `ApiKey`, `PolicyDetails`, `AuditEvent`, and `SignInResponse`.
+The calls that returned raw JSON have typed alternatives, and the `String` versions are deprecated:
+`listContexts`, `listContextsAcrossUsers`, `getContextDetails`, `listContextEntries`, `listCustomLists`,
+`listCustomListsAcrossUsers`, `listRedactLists`, `listLedgerChains`, `listLedgerChainsAcrossUsers`,
+`getLedgerChain`, `getLedgerExport`, `verifyLedgerChain`, `listDocuments`, `getDocumentState`, and
+`getSigningKeyDetails`. `createRedactList` and `updateRedactList` take a `RedactListsRequest`. Policy JSON,
+policy diffs, and context exports stay strings.
 
 ### Errors
 

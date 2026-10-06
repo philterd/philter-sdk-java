@@ -21,33 +21,34 @@ import com.google.gson.annotations.SerializedName;
 import java.util.List;
 
 /**
- * The response containing the values of a custom list.
+ * A page of a context's entries and the total number of them.
  */
-public class GetListsResponse {
+public class GetContextEntriesResponse {
 
     @Expose
-    @SerializedName("lists")
-    private List<String> lists;
+    @SerializedName("entries")
+    private List<ContextEntry> entries;
 
     @Expose
-    @SerializedName("description")
-    private String description;
+    @SerializedName("total")
+    private int total;
 
-    public List<String> getLists() {
-        return lists;
+    /** The entries in this page. */
+    public List<ContextEntry> getEntries() {
+        return entries;
     }
 
-    public void setLists(List<String> lists) {
-        this.lists = lists;
+    public void setEntries(List<ContextEntry> entries) {
+        this.entries = entries;
     }
 
-    /** The list's description, or {@code null}. */
-    public String getDescription() {
-        return description;
+    /** Every entry in the context, across all pages. */
+    public int getTotal() {
+        return total;
     }
 
-    public void setDescription(String description) {
-        this.description = description;
+    public void setTotal(int total) {
+        this.total = total;
     }
 
 }

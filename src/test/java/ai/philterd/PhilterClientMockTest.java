@@ -17,6 +17,21 @@ package ai.philterd;
 
 import ai.philterd.philter.PhilterClient;
 import ai.philterd.philter.model.AdminSettings;
+import ai.philterd.philter.model.SigningKey;
+import ai.philterd.philter.model.RedactListsRequest;
+import ai.philterd.philter.model.RedactLists;
+import ai.philterd.philter.model.LedgerExport;
+import ai.philterd.philter.model.LedgerEntry;
+import ai.philterd.philter.model.LedgerChain;
+import ai.philterd.philter.model.GetLedgerResponse;
+import ai.philterd.philter.model.GetDocumentsResponse;
+import ai.philterd.philter.model.GetContextsAcrossUsersResponse;
+import ai.philterd.philter.model.GetContextEntriesResponse;
+import ai.philterd.philter.model.DocumentSummary;
+import ai.philterd.philter.model.DocumentStatus;
+import ai.philterd.philter.model.CustomListSummary;
+import ai.philterd.philter.model.ContextEntry;
+import ai.philterd.philter.model.ContextDetails;
 import ai.philterd.philter.model.SignInResponse;
 import ai.philterd.philter.model.MfaEnrollment;
 import ai.philterd.philter.model.ApiKey;
@@ -451,8 +466,7 @@ public class PhilterClientMockTest {
 
         final com.google.gson.JsonObject header = com.google.gson.JsonParser.parseString(
                 new String(base64url.decode(parts[0]), StandardCharsets.UTF_8)).getAsJsonObject();
-        final String pem = com.google.gson.JsonParser.parseString(client.getSigningKey(header.get("kid").getAsString()))
-                .getAsJsonObject().get("pem").getAsString()
+        final String pem = client.getSigningKeyDetails(header.get("kid").getAsString()).getPem()
                 .replace("-----BEGIN PUBLIC KEY-----", "").replace("-----END PUBLIC KEY-----", "").replaceAll("\\s", "");
         final java.security.PublicKey publicKey = java.security.KeyFactory.getInstance("EC")
                 .generatePublic(new java.security.spec.X509EncodedKeySpec(java.util.Base64.getDecoder().decode(pem)));
@@ -2103,6 +2117,197 @@ public class PhilterClientMockTest {
 
         Assert.assertEquals("DELETE", method);
         Assert.assertEquals(OWNER, queryParameter("owner"));
+    }
+
+    // Typed models, parsed from responses recorded from a running Philter.
+
+    private static String recorded(final String name) throws IOException {
+        try (java.io.InputStream in = PhilterClientMockTest.class.getResourceAsStream("/recorded/" + name)) {
+            Assert.assertNotNull("missing recording " + name, in);
+            return new String(in.readAllBytes(), StandardCharsets.UTF_8);
+        }
+    }
+
+    @Test
+    public void listContextsParsesTheRecordedResponse() throws Exception {
+
+        respond(200, recorded("contexts.json"));
+        Assert.assertEquals(List.of("default", "ledgered"), client().listContexts(OWNER, 25, 50).getContexts());
+        Assert.assertEquals("/api/contexts", path);
+        Assert.assertEquals(Map.of("owner", OWNER, "offset", "25", "limit", "50"), queryParameters);
+
+        respond(200, recorded("contexts-all-users.json"));
+        final GetContextsAcrossUsersResponse all = client().listContextsAcrossUsers(0, 5);
+        Assert.assertEquals("true", queryParameter("all_users"));
+        Assert.assertEquals(3, all.getContexts().size());
+        Assert.assertEquals("ledgered", all.getContexts().get(2).getName());
+        Assert.assertTrue(all.getContexts().get(2).getOwner().endsWith("@example.com"));
+    }
+
+    @Test
+    public void getContextDetailsAndEntriesParseTheRecordedResponses() throws Exception {
+
+        respond(200, recorded("context.json"));
+        final ContextDetails details = client().getContextDetails("ledgered");
+        Assert.assertEquals("/api/contexts/ledgered", path);
+        Assert.assertEquals(1, details.getSize());
+        Assert.assertEquals(Map.of("PERSON", 1L), details.getFilterTypes());
+        Assert.assertEquals(0, details.getUntyped());
+        Assert.assertTrue(details.isLedger());
+        Assert.assertFalse(details.isEntityTypeDisambiguation());
+
+        respond(200, recorded("context-entries.json"));
+        final GetContextEntriesResponse entries = client().listContextEntries("ledgered", null, 0, 25);
+        Assert.assertEquals("/api/contexts/ledgered/entries", path);
+        Assert.assertEquals(1, entries.getTotal());
+        final ContextEntry entry = entries.getEntries().get(0);
+        Assert.assertEquals("52c4ba942abd91b9e64b9634", entry.getId());
+        Assert.assertEquals("{{{REDACTED-person}}}", entry.getReplacement());
+        Assert.assertEquals("PERSON", entry.getFilterType());
+        Assert.assertEquals(0, entry.getReads());
+        Assert.assertEquals("2026-10-06T09:31:01.591-04:00", entry.getTimestamp());
+    }
+
+    @Test
+    public void customListsParseTheRecordedResponses() throws Exception {
+
+        respond(200, recorded("lists.json"));
+        final List<CustomListSummary> lists = client().listCustomLists();
+        Assert.assertEquals("/api/lists", path);
+        Assert.assertEquals(1, lists.size());
+        Assert.assertEquals("customer-names", lists.get(0).getName());
+        Assert.assertEquals("Customer names", lists.get(0).getDescription());
+        Assert.assertEquals(2, lists.get(0).getSize());
+        Assert.assertNull(lists.get(0).getOwner());
+
+        respond(200, recorded("lists-all-users.json"));
+        final List<CustomListSummary> all = client().listCustomListsAcrossUsers(0, 5);
+        Assert.assertEquals("true", queryParameter("all_users"));
+        Assert.assertTrue(all.get(0).getOwner().endsWith("@example.com"));
+
+        respond(200, recorded("list.json"));
+        final GetListsResponse list = client().getList("customer-names");
+        Assert.assertEquals("Customer names", list.getDescription());
+        Assert.assertEquals(List.of("Jordan Example", "Avery Example"), list.getLists());
+    }
+
+    @Test
+    public void redactListsParseAndTakeATypedRequest() throws Exception {
+
+        respond(200, recorded("redact-lists.json"));
+        final RedactLists lists = client().listRedactLists();
+        Assert.assertEquals("/api/redact-lists", path);
+        Assert.assertEquals(List.of("Project Falcon"), lists.getAlwaysRedact());
+        Assert.assertEquals(List.of("Philter"), lists.getNeverRedact());
+
+        respond(200, "{\"message\":\"Saved.\"}");
+        client().createRedactList(new RedactListsRequest(List.of("Project Falcon"), List.of("Philter")));
+        Assert.assertEquals("POST", method);
+        Assert.assertEquals("{\"alwaysRedact\":[\"Project Falcon\"],\"neverRedact\":[\"Philter\"]}", requestBodyAsString());
+
+        client().updateRedactList(new RedactListsRequest(List.of("Project Osprey"), null), OWNER);
+        Assert.assertEquals("PUT", method);
+        Assert.assertEquals(OWNER, queryParameter("owner"));
+        // A null list is left out, so an append adds nothing to it.
+        Assert.assertEquals("{\"alwaysRedact\":[\"Project Osprey\"]}", requestBodyAsString());
+    }
+
+    @Test
+    public void ledgerResponsesParseTheRecordedResponses() throws Exception {
+
+        respond(200, recorded("ledger.json"));
+        final GetLedgerResponse ledger = client().listLedgerChains(null);
+        Assert.assertEquals("/api/ledger", path);
+        Assert.assertEquals(1, ledger.getTotal());
+        final LedgerEntry head = ledger.getChains().get(0);
+        Assert.assertEquals("note.txt", head.getFilename());
+        Assert.assertEquals("[genesis]", head.getPreviousHash());
+        Assert.assertEquals("ssn-only", head.getPolicyName());
+        Assert.assertEquals("221ec36b04081bcc", head.getSigningKeyId());
+        Assert.assertNotNull(head.getSignature());
+        Assert.assertNull("reading a chain does not return the original value", head.getToken());
+
+        respond(200, recorded("ledger-all-users.json"));
+        Assert.assertTrue(client().listLedgerChainsAcrossUsers(0, 5).getChains().get(0).getOwner().endsWith("@example.com"));
+        Assert.assertEquals("true", queryParameter("all_users"));
+
+        respond(200, recorded("ledger-chain.json"));
+        final LedgerChain chain = client().getLedgerChain("50f6010d-6f44-44a9-85a8-830b93d13c17");
+        Assert.assertEquals("/api/ledger/50f6010d-6f44-44a9-85a8-830b93d13c17", path);
+        Assert.assertTrue(chain.isValid());
+        Assert.assertTrue(chain.isHashChainValid());
+        Assert.assertTrue(chain.isSignaturesValid());
+        Assert.assertEquals(2, chain.getSignedEntries());
+        Assert.assertEquals(2, chain.getEntries().size());
+        Assert.assertEquals("ssn", chain.getEntries().get(1).getType());
+        Assert.assertNull(chain.getEntries().get(1).getToken());
+
+        respond(200, recorded("ledger-export.json"));
+        final LedgerExport export = client().getLedgerExport("50f6010d-6f44-44a9-85a8-830b93d13c17");
+        Assert.assertEquals("/api/ledger/50f6010d-6f44-44a9-85a8-830b93d13c17/export", path);
+        Assert.assertEquals(3, export.getVersion());
+        Assert.assertEquals(2, export.getCount());
+        Assert.assertTrue(export.getSigningKeys().get("221ec36b04081bcc").startsWith("-----BEGIN PUBLIC KEY-----"));
+        Assert.assertEquals("an export carries the original value", "123-45-6789", export.getEntries().get(1).getToken());
+
+        respond(200, recorded("ledger-valid.json"));
+        final LedgerChain verified = client().verifyLedgerChain("50f6010d-6f44-44a9-85a8-830b93d13c17");
+        Assert.assertEquals("/api/ledger/50f6010d-6f44-44a9-85a8-830b93d13c17/valid", path);
+        Assert.assertTrue(verified.isValid());
+        Assert.assertNull(verified.getEntries());
+    }
+
+    @Test
+    public void documentsParseTheRecordedResponses() throws Exception {
+
+        respond(200, recorded("documents.json"));
+        final GetDocumentsResponse documents = client().listDocuments();
+        Assert.assertEquals("/api/documents", path);
+        final DocumentSummary document = documents.getDocuments().get(0);
+        Assert.assertEquals("bb00a978-5ac9-4189-896a-bd1e281645ee", document.getDocumentId());
+        Assert.assertEquals("scan.pdf", document.getFileName());
+        Assert.assertEquals("PENDING", document.getStatus());
+        Assert.assertNotNull(document.getTimestamp());
+
+        respond(200, recorded("document-status.json"));
+        final DocumentStatus status = client().getDocumentState("bb00a978-5ac9-4189-896a-bd1e281645ee");
+        Assert.assertEquals("/api/documents/bb00a978-5ac9-4189-896a-bd1e281645ee/status", path);
+        Assert.assertEquals("PENDING", status.getStatus());
+        Assert.assertEquals(64, status.getEffectiveConfigurationHash().length());
+        Assert.assertNull(status.getError());
+    }
+
+    @Test
+    public void signingKeysParseTheRecordedResponses() throws Exception {
+
+        respond(200, recorded("signing-key.json"));
+        final SigningKey active = client().getSigningKeyDetails();
+        Assert.assertEquals("/api/signing-key", path);
+        Assert.assertEquals("221ec36b04081bcc", active.getKeyId());
+        Assert.assertTrue(active.getPem().startsWith("-----BEGIN PUBLIC KEY-----"));
+        Assert.assertEquals("EC", active.getJwk().get("kty"));
+        Assert.assertEquals("P-256", active.getJwk().get("crv"));
+        Assert.assertTrue(active.getFingerprint().startsWith("22:1e:"));
+        Assert.assertNull(active.getActive());
+
+        respond(200, recorded("signing-key-by-id.json"));
+        final SigningKey byId = client().getSigningKeyDetails("221ec36b04081bcc");
+        Assert.assertEquals("/api/signing-key/221ec36b04081bcc", path);
+        Assert.assertEquals(Boolean.TRUE, byId.getActive());
+        Assert.assertNull(byId.getJwk());
+    }
+
+    @Test
+    @SuppressWarnings("deprecation")
+    public void theDeprecatedStringMethodsStillReturnTheBodyUnchanged() throws Exception {
+
+        final String body = recorded("ledger-chain.json");
+        respond(200, body);
+        Assert.assertEquals(body, client().getLedgerEntry("50f6010d-6f44-44a9-85a8-830b93d13c17"));
+
+        final String lists = recorded("lists.json");
+        respond(200, lists);
+        Assert.assertEquals(lists, client().getLists());
     }
 
     // Listings across all users.

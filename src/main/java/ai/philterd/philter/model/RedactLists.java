@@ -21,33 +21,34 @@ import com.google.gson.annotations.SerializedName;
 import java.util.List;
 
 /**
- * The response containing the values of a custom list.
+ * An account's always-redact and never-redact term lists.
  */
-public class GetListsResponse {
+public class RedactLists {
 
     @Expose
-    @SerializedName("lists")
-    private List<String> lists;
+    @SerializedName("alwaysRedact")
+    private List<String> alwaysRedact;
 
     @Expose
-    @SerializedName("description")
-    private String description;
+    @SerializedName("neverRedact")
+    private List<String> neverRedact;
 
-    public List<String> getLists() {
-        return lists;
+    /** Terms always redacted. */
+    public List<String> getAlwaysRedact() {
+        return alwaysRedact;
     }
 
-    public void setLists(List<String> lists) {
-        this.lists = lists;
+    public void setAlwaysRedact(List<String> alwaysRedact) {
+        this.alwaysRedact = alwaysRedact;
     }
 
-    /** The list's description, or {@code null}. */
-    public String getDescription() {
-        return description;
+    /** Terms never redacted. */
+    public List<String> getNeverRedact() {
+        return neverRedact;
     }
 
-    public void setDescription(String description) {
-        this.description = description;
+    public void setNeverRedact(List<String> neverRedact) {
+        this.neverRedact = neverRedact;
     }
 
 }

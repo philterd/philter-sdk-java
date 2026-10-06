@@ -2,29 +2,42 @@
 
 The ledger records what Philter redacted, as a signed chain per document. Enable it on a context (see [Contexts](contexts.md)); it is off by default.
 
-Ledger responses are returned as raw JSON strings, so parse them with whichever JSON library your application already uses.
-
 ```java
-// The first page of entries, or of those matching a query.
-String entries = client.getLedger(null);
-String matching = client.getLedger("ssn");
+import ai.philterd.philter.model.GetLedgerResponse;
+import ai.philterd.philter.model.LedgerChain;
+import ai.philterd.philter.model.LedgerExport;
 
-// One document's chain, and an export that verifies standalone.
-String chain = client.getLedgerEntry(documentId);
-String export = client.exportLedger(documentId);
+// The head of each chain, most recent first, or of those whose document ID or filename matches.
+GetLedgerResponse chains = client.listLedgerChains(null);
+GetLedgerResponse matching = client.listLedgerChains("note.txt");
+int total = chains.getTotal();
 
-// Whether the chain's signatures still verify.
-String valid = client.isLedgerValid(documentId);
+// One document's chain, and whether its hash chain and signatures verify.
+LedgerChain chain = client.getLedgerChain(documentId);
+boolean valid = chain.isValid();
+
+// Just whether it verifies, without the entries.
+boolean stillValid = client.verifyLedgerChain(documentId).isValid();
+
+// An export that verifies standalone. It carries the original redacted values.
+LedgerExport export = client.getLedgerExport(documentId);
 ```
 
-`getLedger` returns one page at a time. See [Owners and Pagination](owners-and-pagination.md) to page through the rest, or to read another user's ledger as an administrator.
+Reading or listing a chain does not return the values that were redacted, only their replacements. An export does, in each entry's `getToken()`, which is why it needs the `ledger:export` scope; treat it as sensitive.
+
+`listLedgerChains` returns one page at a time. See [Owners and Pagination](owners-and-pagination.md) to page through the rest, or to read another user's ledger as an administrator.
 
 Verify an exported chain against the public signing key, which is served without authentication:
 
 ```java
-String currentKey = client.getSigningKey();
-String retiredKey = client.getSigningKey(keyId);  // a key an older entry was signed with
+import ai.philterd.philter.model.SigningKey;
+
+// The key an entry was signed with, by its getSigningKeyId(). Superseded keys stay retrievable.
+SigningKey key = client.getSigningKeyDetails(entry.getSigningKeyId());
+String pem = key.getPem();
 ```
+
+An export also embeds the public keys its entries were signed with, in `export.getSigningKeys()`.
 
 ## Deleting ledger entries
 

@@ -23,16 +23,30 @@ Both flags default to `false` on the server, so `updateContext` sets the context
 List the contexts, and inspect or clear the values a context has accumulated:
 
 ```java
-String contexts = client.getContexts();                   // JSON
-String context = client.getContext("tenant-a");           // JSON
-String entries = client.getContextEntries("tenant-a");    // JSON
+import ai.philterd.philter.model.ContextDetails;
+import ai.philterd.philter.model.ContextEntry;
+import ai.philterd.philter.model.GetContextEntriesResponse;
+
+List<String> contexts = client.listContexts().getContexts();
+
+// The context's settings and its entries counted by filter type.
+ContextDetails context = client.getContextDetails("tenant-a");
+long size = context.getSize();
+Map<String, Long> byFilterType = context.getFilterTypes();
+
+// Its entries, a page at a time. The original values are never returned.
+GetContextEntriesResponse page = client.listContextEntries("tenant-a", null, 0, 100);
+for (ContextEntry entry : page.getEntries()) {
+    System.out.println(entry.getFilterType() + " -> " + entry.getReplacement());
+}
+
 String export = client.exportContextEntries("tenant-a", null);
 
 client.deleteContextEntry("tenant-a", entryId);
 client.deleteContextEntries("tenant-a");
 ```
 
-`getContext` returns the context's size and its entries counted by filter type. The counts are computed by Philter in one query and sum to `size`; `untyped` counts entries with no filter type, which only an import creates.
+`getContextDetails` returns the context's size and its entries counted by filter type. The counts are computed by Philter in one query and sum to `size`; `untyped` counts entries with no filter type, which only an import creates.
 
 ```json
 {

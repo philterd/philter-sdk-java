@@ -21,33 +21,43 @@ import com.google.gson.annotations.SerializedName;
 import java.util.List;
 
 /**
- * The response containing the values of a custom list.
+ * The always-redact and never-redact terms to save. Each list holds up to 1000 terms of up to
+ * 100 characters.
  */
-public class GetListsResponse {
+public class RedactListsRequest {
 
     @Expose
-    @SerializedName("lists")
-    private List<String> lists;
+    @SerializedName("alwaysRedact")
+    private List<String> alwaysRedact;
 
     @Expose
-    @SerializedName("description")
-    private String description;
+    @SerializedName("neverRedact")
+    private List<String> neverRedact;
 
-    public List<String> getLists() {
-        return lists;
+    public RedactListsRequest() {
     }
 
-    public void setLists(List<String> lists) {
-        this.lists = lists;
+    public RedactListsRequest(List<String> alwaysRedact, List<String> neverRedact) {
+        this.alwaysRedact = alwaysRedact;
+        this.neverRedact = neverRedact;
     }
 
-    /** The list's description, or {@code null}. */
-    public String getDescription() {
-        return description;
+    /** Terms always redacted. */
+    public List<String> getAlwaysRedact() {
+        return alwaysRedact;
     }
 
-    public void setDescription(String description) {
-        this.description = description;
+    public void setAlwaysRedact(List<String> alwaysRedact) {
+        this.alwaysRedact = alwaysRedact;
+    }
+
+    /** Terms never redacted. */
+    public List<String> getNeverRedact() {
+        return neverRedact;
+    }
+
+    public void setNeverRedact(List<String> neverRedact) {
+        this.neverRedact = neverRedact;
     }
 
 }
