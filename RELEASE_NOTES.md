@@ -45,6 +45,11 @@ can be supplied. Methods that gained parameters keep their signatures and gained
   signatures but, when either value is given, send it in a second request to
   `PUT /api/policies/{policyName}/details`, so they need a Philter that has that endpoint. The two
   requests are not atomic: if the second fails, the policy was already saved without the new values.
+* **Names that cannot be used in a path.** Philter (after philterd/philter#140) refuses context names, custom
+  list names, and legal hold references containing `/`, `\`, `;`, `%`, or a control character, or that are
+  `.` or `..`. `deleteContext`, `deleteList`, and `deleteHold` send such a name in the query string instead of
+  the path, so items created before the check can still be removed. This needs a Philter that includes
+  philterd/philter#140.
 * **Policies:** versions, diffs, rollback, and PhiSQL compilation; descriptions and notes (`getPolicyDetails`,
   `setPolicyDetails`, and `savePolicy` and `replacePolicy` overloads); managed policies
   (`getManagedPolicies`); and `copyPolicy`.

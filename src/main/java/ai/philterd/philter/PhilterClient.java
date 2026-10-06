@@ -328,6 +328,28 @@ public class PhilterClient {
 	}
 
 	/**
+	 * Whether a context name, custom list name, or legal hold reference can be used in a request path.
+	 * The same rule as Philter's: Tomcat or Spring refuses a path containing any of these, even
+	 * percent-encoded, before Philter sees it. Philter refuses such names when they are created, but
+	 * older items can still have one, so the delete methods send it in the query instead.
+	 */
+	private static boolean isPathSafe(final String name) {
+		if (name == null) {
+			return true;
+		}
+		if (".".equals(name) || "..".equals(name)) {
+			return false;
+		}
+		for (int i = 0; i < name.length(); i++) {
+			final char c = name.charAt(i);
+			if (c == '/' || c == '\\' || c == ';' || c == '%' || Character.isISOControl(c)) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	/**
 	 * Determines whether a response carries a 2xx status code.
 	 */
 	private static boolean isSuccessful(final HttpResponse<?> response) {
@@ -1660,7 +1682,7 @@ public class PhilterClient {
 
 
 	/**
-	 * Creates a context.
+	 * Creates a context. See {@link #createContext(String, Boolean, Boolean, String)}.
 	 * @param name The name of the context.
 	 * @param entityTypeDisambiguation Whether entity type disambiguation is enabled. {@code null} omits
 	 * the parameter, which Philter reads as {@code false} rather than as "leave unchanged".
@@ -1675,6 +1697,11 @@ public class PhilterClient {
 
 	/**
 	 * Creates a context.
+	 *
+	 * <p>The name is used in request paths, so Philter refuses one containing {@code /}, {@code \},
+	 * {@code ;}, {@code %}, or a control character, or that is {@code .} or {@code ..}, with an HTTP 400,
+	 * thrown as a {@link ClientException}.</p>
+	 *
 	 * @param name The name of the context.
 	 * @param entityTypeDisambiguation Whether entity type disambiguation is enabled. {@code null} omits
 	 * the parameter, which Philter reads as {@code false} rather than as "leave unchanged".
@@ -1790,7 +1817,7 @@ public class PhilterClient {
 	}
 
 	/**
-	 * Deletes a context.
+	 * Deletes a context. See {@link #deleteContext(String, String)}.
 	 * @param name The name of the context.
 	 * @return A {@link GenericResponse}.
 	 * @throws IOException Thrown if the call can not be executed.
@@ -1801,6 +1828,11 @@ public class PhilterClient {
 
 	/**
 	 * Deletes a context.
+	 *
+	 * <p>A name created before Philter refused names that cannot be used in a request path (containing
+	 * {@code /}, {@code \}, {@code ;}, {@code %}, or a control character, or {@code .} or {@code ..}) is
+	 * sent in the query string instead, so it can still be removed.</p>
+	 *
 	 * @param name The name of the context.
 	 * @param owner The owner of the context. May be {@code null}.
 	 * @return A {@link GenericResponse}.
@@ -1808,7 +1840,10 @@ public class PhilterClient {
 	 */
 	public GenericResponse deleteContext(String name, String owner) throws IOException {
 
-		final HttpRequest request = request(uri("/api/contexts/" + encode(name), "owner", owner)).DELETE().build();
+		final URI uri = isPathSafe(name)
+				? uri("/api/contexts/" + encode(name), "owner", owner)
+				: uri("/api/contexts", "name", name, "owner", owner);
+		final HttpRequest request = request(uri).DELETE().build();
 
 		return sendExpectingJson(request, GenericResponse.class);
 
@@ -2180,7 +2215,7 @@ public class PhilterClient {
 	}
 
 	/**
-	 * Creates a legal hold.
+	 * Creates a legal hold. See {@link #createHold(LegalHoldRequest, String)}.
 	 * @param request The {@link LegalHoldRequest}.
 	 * @return The created {@link LegalHoldResponse}.
 	 * @throws IOException Thrown if the call can not be executed.
@@ -2191,6 +2226,11 @@ public class PhilterClient {
 
 	/**
 	 * Creates a legal hold.
+	 *
+	 * <p>The reference is used in request paths, so Philter refuses one containing {@code /}, {@code \},
+	 * {@code ;}, {@code %}, or a control character, or that is {@code .} or {@code ..}, with an HTTP 400,
+	 * thrown as a {@link ClientException}.</p>
+	 *
 	 * @param request The {@link LegalHoldRequest}.
 	 * @param owner The owner of the hold. May be {@code null}.
 	 * @return The created {@link LegalHoldResponse}.
@@ -2233,7 +2273,7 @@ public class PhilterClient {
 	}
 
 	/**
-	 * Deletes a legal hold.
+	 * Deletes a legal hold. See {@link #deleteHold(String, String)}.
 	 * @param reference The legal hold reference.
 	 * @throws IOException Thrown if the call can not be executed.
 	 */
@@ -2242,13 +2282,24 @@ public class PhilterClient {
 	}
 
 	/**
-	 * Deletes a legal hold.
+	 * Deletes (releases) a legal hold.
+	 *
+	 * <p>A reference created before Philter refused references that cannot be used in a request path (containing
+	 * {@code /}, {@code \}, {@code ;}, {@code %}, or a control character, or {@code .} or {@code ..}) is
+	 * sent in the query string instead, so it can still be removed.</p>
+	 *
 	 * @param reference The legal hold reference.
 	 * @param owner The owner of the hold. May be {@code null}.
 	 * @throws IOException Thrown if the call can not be executed.
 	 */
 	public void deleteHold(String reference, String owner) throws IOException {
-		sendExpectingNoContent(request(uri("/api/holds/" + encode(reference), "owner", owner)).DELETE().build());
+
+		final URI uri = isPathSafe(reference)
+				? uri("/api/holds/" + encode(reference), "owner", owner)
+				: uri("/api/holds", "reference", reference, "owner", owner);
+
+		sendExpectingNoContent(request(uri).DELETE().build());
+
 	}
 
 	// Redaction ledger.
@@ -2699,6 +2750,11 @@ public class PhilterClient {
 	 * with status {@code 409} and {@link ClientException#getReason()} {@code list_exists}. Replace an
 	 * existing list with {@link #replaceList(String, String, List)}. A list holds up to 100 items of up
 	 * to 50 characters; more is an HTTP 400, thrown as a {@link ClientException}.
+	 *
+	 * <p>The name is used in request paths, so one containing {@code /}, {@code \}, {@code ;},
+	 * {@code %}, or a control character, or that is {@code .} or {@code ..}, is refused with an HTTP
+	 * 400, thrown as a {@link ClientException}. Some of these are refused by the web server before the
+	 * request reaches Philter, so {@link ClientException#getErrorMessage()} may be {@code null}.</p>
 	 * @param list The name of the list.
 	 * @param description The description of the list. May be {@code null}.
 	 * @param values The values in the list.
@@ -2714,6 +2770,11 @@ public class PhilterClient {
 	 * with status {@code 409} and {@link ClientException#getReason()} {@code list_exists}. Replace an
 	 * existing list with {@link #replaceList(String, String, List)}. A list holds up to 100 items of up
 	 * to 50 characters; more is an HTTP 400, thrown as a {@link ClientException}.
+	 *
+	 * <p>The name is used in request paths, so one containing {@code /}, {@code \}, {@code ;},
+	 * {@code %}, or a control character, or that is {@code .} or {@code ..}, is refused with an HTTP
+	 * 400, thrown as a {@link ClientException}. Some of these are refused by the web server before the
+	 * request reaches Philter, so {@link ClientException#getErrorMessage()} may be {@code null}.</p>
 	 * @param list The name of the list.
 	 * @param description The description of the list. May be {@code null}.
 	 * @param values The values in the list.
@@ -2778,7 +2839,7 @@ public class PhilterClient {
 	}
 
 	/**
-	 * Deletes a custom list.
+	 * Deletes a custom list. See {@link #deleteList(String, String)}.
 	 * @param list The name of the list.
 	 * @throws IOException Thrown if the call can not be executed.
 	 */
@@ -2788,12 +2849,23 @@ public class PhilterClient {
 
 	/**
 	 * Deletes a custom list.
+	 *
+	 * <p>A name created before Philter refused names that cannot be used in a request path (containing
+	 * {@code /}, {@code \}, {@code ;}, {@code %}, or a control character, or {@code .} or {@code ..}) is
+	 * sent in the query string instead, so it can still be removed.</p>
+	 *
 	 * @param list The name of the list.
 	 * @param owner The owner of the list. May be {@code null}.
 	 * @throws IOException Thrown if the call can not be executed.
 	 */
 	public void deleteList(String list, String owner) throws IOException {
-		sendExpectingNoContent(request(uri("/api/lists/" + encode(list), "owner", owner)).DELETE().build());
+
+		final URI uri = isPathSafe(list)
+				? uri("/api/lists/" + encode(list), "owner", owner)
+				: uri("/api/lists", "name", list, "owner", owner);
+
+		sendExpectingNoContent(request(uri).DELETE().build());
+
 	}
 
 	/**

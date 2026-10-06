@@ -93,6 +93,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -1680,6 +1681,54 @@ public class PhilterClientMockTest {
         for (final Map.Entry<String, String> param : params.entrySet()) {
             Assert.assertEquals("query param '" + param.getKey() + "' on " + path,
                     param.getValue(), queryParameter(param.getKey()));
+        }
+
+    }
+
+    // Names that cannot be used in a request path. Philter refuses them now, but items created before
+    // that may still have one, and a path containing one is refused before it reaches Philter.
+    private static final List<String> PATH_UNSAFE_NAMES = List.of(
+            "a/b", "a\\b", "a;b", "a%b", "a\u0007b", "tab\there", "del\u007f", "c1\u0085", ".", "..");
+
+    // Allowed in a path once percent-encoded.
+    private static final List<String> PATH_SAFE_NAMES = List.of(
+            "c1", "tenant a", "v1.2", "...", "a..b", "café", "記録", "a+b&c=d?e#f");
+
+    @Test
+    public void deletesUseTheQueryRouteOnlyForNamesThatCannotBeUsedInAPath() throws Exception {
+
+        final PhilterClient c = client();
+
+        for (final String name : PATH_UNSAFE_NAMES) {
+
+            verify("DELETE", "/api/contexts", Map.of("name", name), "{}", () -> c.deleteContext(name));
+            Assert.assertEquals(Set.of("name"), queryParameters.keySet());
+            verify("DELETE", "/api/contexts", Map.of("name", name, "owner", OWNER), "{}", () -> c.deleteContext(name, OWNER));
+
+            verify("DELETE", "/api/lists", Map.of("name", name), "", () -> c.deleteList(name));
+            Assert.assertEquals(Set.of("name"), queryParameters.keySet());
+            verify("DELETE", "/api/lists", Map.of("name", name, "owner", OWNER), "", () -> c.deleteList(name, OWNER));
+
+            verify("DELETE", "/api/holds", Map.of("reference", name), "", () -> c.deleteHold(name));
+            Assert.assertEquals(Set.of("reference"), queryParameters.keySet());
+            verify("DELETE", "/api/holds", Map.of("reference", name, "owner", OWNER), "", () -> c.deleteHold(name, OWNER));
+
+        }
+
+        for (final String name : PATH_SAFE_NAMES) {
+
+            verify("DELETE", "/api/contexts/" + name, Map.of(), "{}", () -> c.deleteContext(name));
+            Assert.assertTrue(queryParameters.isEmpty());
+            verify("DELETE", "/api/contexts/" + name, Map.of("owner", OWNER), "{}", () -> c.deleteContext(name, OWNER));
+
+            verify("DELETE", "/api/lists/" + name, Map.of(), "", () -> c.deleteList(name));
+            Assert.assertTrue(queryParameters.isEmpty());
+            verify("DELETE", "/api/lists/" + name, Map.of("owner", OWNER), "", () -> c.deleteList(name, OWNER));
+
+            verify("DELETE", "/api/holds/" + name, Map.of(), "", () -> c.deleteHold(name));
+            Assert.assertTrue(queryParameters.isEmpty());
+            verify("DELETE", "/api/holds/" + name, Map.of("owner", OWNER), "", () -> c.deleteHold(name, OWNER));
+
         }
 
     }

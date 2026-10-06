@@ -28,3 +28,4 @@ client.deleteList("blocked-terms");
 
 `saveList` only creates. A name the owner already uses is refused with a `ClientException` whose `getStatusCode()` is `409` and `getReason()` is `list_exists`; replace the list with `replaceList` instead, which is refused with a `404` if there is no such list. A list holds up to 100 items of up to 50 characters each; more is an HTTP 400.
 
+A list name is used in request paths, so it cannot contain `/`, `\`, `;`, `%`, or a control character, and cannot be `.` or `..`. `saveList` with such a name gets an HTTP 400, sometimes from the web server before the request reaches Philter, in which case the `ClientException` has no error message. A list created before Philter checked names may still have one. `deleteList` sends such a name in the query string instead of the path, so it can still be deleted.
