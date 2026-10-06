@@ -22,6 +22,21 @@ import java.util.List;
 
 /**
  * A document's redaction-ledger chain and whether it verifies.
+ *
+ * <p>A chain has one of three outcomes:</p>
+ * <ul>
+ *   <li><b>Valid:</b> {@link #isValid()} is {@code true}.</li>
+ *   <li><b>Failed a check:</b> {@link #isValid()} is {@code false} and {@link #getValidationError()} is
+ *   {@code null}. A {@code false} {@link #getHashChainValid()} means the chain does not start with a genesis
+ *   entry, or an entry no longer matches its hash or its link to the previous one. A {@code false}
+ *   {@link #getSignaturesValid()} means an entry is unsigned or its signature does not verify;
+ *   {@link #getUnsignedEntries()} counts the unsigned ones.</li>
+ *   <li><b>Could not be checked:</b> {@link #isValid()} is {@code false} and {@link #getValidationError()}
+ *   says why, for example because an entry can no longer be decrypted. The checks did not complete, so
+ *   {@link #getHashChainValid()}, {@link #getSignaturesValid()}, {@link #getSignedEntries()},
+ *   {@link #getUnsignedEntries()}, and {@link #getEntries()} are {@code null}. This is not evidence of
+ *   tampering, and not evidence that the chain is intact.</li>
+ * </ul>
  */
 public class LedgerChain {
 
@@ -39,19 +54,23 @@ public class LedgerChain {
 
     @Expose
     @SerializedName("hashChainValid")
-    private boolean hashChainValid;
+    private Boolean hashChainValid;
 
     @Expose
     @SerializedName("signaturesValid")
-    private boolean signaturesValid;
+    private Boolean signaturesValid;
 
     @Expose
     @SerializedName("signedEntries")
-    private int signedEntries;
+    private Integer signedEntries;
 
     @Expose
     @SerializedName("unsignedEntries")
-    private int unsignedEntries;
+    private Integer unsignedEntries;
+
+    @Expose
+    @SerializedName("validationError")
+    private String validationError;
 
     /** The document ID. */
     public String getDocumentId() {
@@ -62,7 +81,10 @@ public class LedgerChain {
         this.documentId = documentId;
     }
 
-    /** The entries, in order, or {@code null} when the chain came from {@code verifyLedgerChain}. */
+    /**
+     * The entries, in order. {@code null} when the chain came from {@code verifyLedgerChain}, or when it
+     * could not be checked.
+     */
     public List<LedgerEntry> getEntries() {
         return entries;
     }
@@ -71,7 +93,11 @@ public class LedgerChain {
         this.entries = entries;
     }
 
-    /** Whether the hash chain and the signatures are both valid. */
+    /**
+     * Whether the hash chain verifies and every entry is signed with a signature that verifies. {@code false}
+     * both for a chain that failed a check and for one that could not be checked;
+     * {@link #getValidationError()} tells them apart.
+     */
     public boolean isValid() {
         return valid;
     }
@@ -80,40 +106,58 @@ public class LedgerChain {
         this.valid = valid;
     }
 
-    /** Whether each entry links to the previous one. */
-    public boolean isHashChainValid() {
+    /**
+     * Whether the chain starts with a genesis entry and each entry matches its hash and links to the
+     * previous one. {@code null} when the chain could not be checked.
+     */
+    public Boolean getHashChainValid() {
         return hashChainValid;
     }
 
-    public void setHashChainValid(boolean hashChainValid) {
+    public void setHashChainValid(Boolean hashChainValid) {
         this.hashChainValid = hashChainValid;
     }
 
-    /** Whether every signed entry verifies. */
-    public boolean isSignaturesValid() {
+    /**
+     * Whether every entry is signed and its signature verifies; an unsigned entry makes this {@code false}.
+     * {@code null} when the chain could not be checked.
+     */
+    public Boolean getSignaturesValid() {
         return signaturesValid;
     }
 
-    public void setSignaturesValid(boolean signaturesValid) {
+    public void setSignaturesValid(Boolean signaturesValid) {
         this.signaturesValid = signaturesValid;
     }
 
-    /** The number of signed entries. */
-    public int getSignedEntries() {
+    /** The number of signed entries. {@code null} when the chain could not be checked. */
+    public Integer getSignedEntries() {
         return signedEntries;
     }
 
-    public void setSignedEntries(int signedEntries) {
+    public void setSignedEntries(Integer signedEntries) {
         this.signedEntries = signedEntries;
     }
 
-    /** The number of unsigned entries. */
-    public int getUnsignedEntries() {
+    /** The number of unsigned entries. {@code null} when the chain could not be checked. */
+    public Integer getUnsignedEntries() {
         return unsignedEntries;
     }
 
-    public void setUnsignedEntries(int unsignedEntries) {
+    public void setUnsignedEntries(Integer unsignedEntries) {
         this.unsignedEntries = unsignedEntries;
+    }
+
+    /**
+     * Why the chain could not be checked, or {@code null} when the checks completed. When set,
+     * {@link #isValid()} is {@code false} and the check results are {@code null}.
+     */
+    public String getValidationError() {
+        return validationError;
+    }
+
+    public void setValidationError(String validationError) {
+        this.validationError = validationError;
     }
 
 }

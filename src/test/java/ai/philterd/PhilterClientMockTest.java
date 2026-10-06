@@ -2539,9 +2539,11 @@ public class PhilterClientMockTest {
         final LedgerChain chain = client().getLedgerChain("50f6010d-6f44-44a9-85a8-830b93d13c17");
         Assert.assertEquals("/api/ledger/50f6010d-6f44-44a9-85a8-830b93d13c17", path);
         Assert.assertTrue(chain.isValid());
-        Assert.assertTrue(chain.isHashChainValid());
-        Assert.assertTrue(chain.isSignaturesValid());
-        Assert.assertEquals(2, chain.getSignedEntries());
+        Assert.assertEquals(Boolean.TRUE, chain.getHashChainValid());
+        Assert.assertEquals(Boolean.TRUE, chain.getSignaturesValid());
+        Assert.assertEquals(Integer.valueOf(2), chain.getSignedEntries());
+        Assert.assertEquals(Integer.valueOf(0), chain.getUnsignedEntries());
+        Assert.assertNull(chain.getValidationError());
         Assert.assertEquals(2, chain.getEntries().size());
         Assert.assertEquals("ssn", chain.getEntries().get(1).getType());
         Assert.assertNull(chain.getEntries().get(1).getToken());
@@ -2559,6 +2561,55 @@ public class PhilterClientMockTest {
         Assert.assertEquals("/api/ledger/50f6010d-6f44-44a9-85a8-830b93d13c17/valid", path);
         Assert.assertTrue(verified.isValid());
         Assert.assertNull(verified.getEntries());
+        Assert.assertNull(verified.getValidationError());
+    }
+
+    // Recorded from Philter with a genesis entry's document hash rewritten in the database.
+    @Test
+    public void aTamperedLedgerChainFailsItsHashCheck() throws Exception {
+
+        for (final String recording : List.of("ledger-chain-tampered.json", "ledger-valid-tampered.json")) {
+
+            respond(200, recorded(recording));
+            final LedgerChain chain = recording.startsWith("ledger-chain")
+                    ? client().getLedgerChain("doc-tampered")
+                    : client().verifyLedgerChain("doc-tampered");
+
+            Assert.assertFalse(recording, chain.isValid());
+            Assert.assertNull(recording, chain.getValidationError());
+            Assert.assertEquals(recording, Boolean.FALSE, chain.getHashChainValid());
+            Assert.assertEquals(recording, Boolean.TRUE, chain.getSignaturesValid());
+            Assert.assertEquals(recording, Integer.valueOf(3), chain.getSignedEntries());
+            Assert.assertEquals(recording, Integer.valueOf(0), chain.getUnsignedEntries());
+        }
+
+        Assert.assertNull(client().verifyLedgerChain("doc-tampered").getEntries());
+        respond(200, recorded("ledger-chain-tampered.json"));
+        Assert.assertEquals(3, client().getLedgerChain("doc-tampered").getEntries().size());
+    }
+
+    // Recorded from Philter with an entry's encrypted token replaced, so it no longer decrypts.
+    @Test
+    public void aLedgerChainThatCouldNotBeCheckedHasAValidationErrorAndNoCheckResults() throws Exception {
+
+        for (final String recording : List.of("ledger-chain-unverifiable.json", "ledger-valid-unverifiable.json")) {
+
+            respond(200, recorded(recording));
+            final LedgerChain chain = recording.startsWith("ledger-chain")
+                    ? client().getLedgerChain("doc-unverifiable")
+                    : client().verifyLedgerChain("doc-unverifiable");
+
+            Assert.assertEquals(recording, "doc-unverifiable", chain.getDocumentId());
+            Assert.assertFalse(recording, chain.isValid());
+            Assert.assertEquals(recording, "The chain could not be validated, so it is not reported as valid. "
+                    + "An entry could not be read or checked.", chain.getValidationError());
+            // Not false: the checks did not complete, which is not evidence of tampering.
+            Assert.assertNull(recording, chain.getHashChainValid());
+            Assert.assertNull(recording, chain.getSignaturesValid());
+            Assert.assertNull(recording, chain.getSignedEntries());
+            Assert.assertNull(recording, chain.getUnsignedEntries());
+            Assert.assertNull(recording, chain.getEntries());
+        }
     }
 
     @Test

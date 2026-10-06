@@ -23,6 +23,25 @@ boolean stillValid = client.verifyLedgerChain(documentId).isValid();
 LedgerExport export = client.getLedgerExport(documentId);
 ```
 
+A chain that is not valid either failed a check or could not be checked at all:
+
+```java
+LedgerChain chain = client.verifyLedgerChain(documentId);
+if (chain.isValid()) {
+    // The hash chain and every signature verify.
+} else if (chain.getValidationError() != null) {
+    // Not checked, for example because an entry no longer decrypts. Not evidence of tampering.
+    System.out.println(chain.getValidationError());
+} else if (Boolean.FALSE.equals(chain.getHashChainValid())) {
+    // An entry no longer matches its hash or its link to the previous entry.
+} else {
+    // chain.getSignaturesValid() is false: an entry is unsigned (counted by getUnsignedEntries())
+    // or its signature does not verify.
+}
+```
+
+When the chain could not be checked, `getHashChainValid()`, `getSignaturesValid()`, `getSignedEntries()`, `getUnsignedEntries()`, and `getEntries()` are `null`.
+
 Reading or listing a chain does not return the values that were redacted, only their replacements. An export does, in each entry's `getToken()`, which is why it needs the `ledger:export` scope; treat it as sensitive.
 
 `listLedgerChains` returns one page at a time. See [Owners and Pagination](owners-and-pagination.md) to page through the rest, or to read another user's ledger as an administrator.

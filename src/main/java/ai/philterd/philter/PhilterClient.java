@@ -2469,6 +2469,13 @@ public class PhilterClient {
 	/**
 	 * Gets a document's redaction-ledger chain and whether it verifies. The original redacted values are not
 	 * returned; see {@link #getLedgerExport(String)}.
+	 *
+	 * <p>A chain that could not be checked, for example because an entry can no longer be decrypted, is
+	 * returned with {@link LedgerChain#isValid()} {@code false} and a {@link LedgerChain#getValidationError()};
+	 * that is not evidence of tampering. A chain that failed a check has no validation error, and
+	 * {@link LedgerChain#getHashChainValid()} and {@link LedgerChain#getSignaturesValid()} say which; an
+	 * unsigned entry fails the signature check. See {@link LedgerChain}. A document with no chain is an HTTP 404, thrown as a {@link ClientException}.</p>
+	 *
 	 * @param documentId The document ID.
 	 * @param owner The owner. May be {@code null} for the caller's own. Another user's requires an
 	 * administrator and {@code ADMIN_CROSS_USER_ACCESS_ENABLED=true}; otherwise Philter answers HTTP 404.
@@ -2581,6 +2588,13 @@ public class PhilterClient {
 
 	/**
 	 * Checks whether a document's redaction-ledger chain verifies, without returning its entries.
+	 *
+	 * <p>A chain that could not be checked, for example because an entry can no longer be decrypted, is
+	 * returned with {@link LedgerChain#isValid()} {@code false} and a {@link LedgerChain#getValidationError()};
+	 * that is not evidence of tampering. A chain that failed a check has no validation error, and
+	 * {@link LedgerChain#getHashChainValid()} and {@link LedgerChain#getSignaturesValid()} say which; an
+	 * unsigned entry fails the signature check. See {@link LedgerChain}. A document with no chain is an HTTP 404, thrown as a {@link ClientException}.</p>
+	 *
 	 * @param documentId The document ID.
 	 * @param owner The owner. May be {@code null} for the caller's own. Another user's requires an
 	 * administrator and {@code ADMIN_CROSS_USER_ACCESS_ENABLED=true}; otherwise Philter answers HTTP 404.

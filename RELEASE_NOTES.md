@@ -50,6 +50,12 @@ can be supplied. Methods that gained parameters keep their signatures and gained
   `.` or `..`. `deleteContext`, `deleteList`, and `deleteHold` send such a name in the query string instead of
   the path, so items created before the check can still be removed. This needs a Philter that includes
   philterd/philter#140.
+* **A ledger chain that could not be checked.** Philter (after philterd/philter#145) reports a chain it cannot
+  validate, for example because an entry no longer decrypts, with `valid` false and a `validationError`, and
+  leaves out the check results. `LedgerChain` adds `getValidationError()`. `isHashChainValid()` and
+  `isSignaturesValid()` are replaced by `getHashChainValid()` and `getSignaturesValid()`, which return
+  `Boolean`, and `getSignedEntries()` and `getUnsignedEntries()` now return `Integer`. Each is `null` for a
+  chain that could not be checked, so it is not mistaken for a failed check.
 * **Policies:** versions, diffs, rollback, and PhiSQL compilation; descriptions and notes (`getPolicyDetails`,
   `setPolicyDetails`, and `savePolicy` and `replacePolicy` overloads); managed policies
   (`getManagedPolicies`); and `copyPolicy`.
