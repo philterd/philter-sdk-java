@@ -2316,6 +2316,82 @@ public class PhilterClientMockTest {
         Assert.assertNull(longLived.getExpiresAt());
     }
 
+    // Recorded from Philter: sign-in, then the user's keys with each session filter. The key values are
+    // replaced with placeholders; the IDs are as recorded.
+    @Test
+    public void signInReturnsTheSessionKeyIdThatTheKeyListingUses() throws Exception {
+
+        respond(200, recorded("sign-in.json"));
+        final SignInResponse signedIn = client().signIn("rec-user", "the-users-password");
+        Assert.assertEquals("6ac536512d9abffc9918d17a", signedIn.getId());
+
+        respond(200, recorded("api-keys.json"));
+        final GetApiKeysResponse all = client().getApiKeys();
+        Assert.assertEquals(2, all.getTotal());
+        Assert.assertTrue(all.getApiKeys().stream()
+                .anyMatch(key -> key.getId().equals(signedIn.getId()) && key.isSession()));
+    }
+
+    @Test
+    public void completeSignInReturnsTheSessionKeyId() throws Exception {
+
+        respond(200, recorded("sign-in-mfa-challenge.json"));
+        final SignInResponse challenge = client().signIn("rec-user", "the-users-password");
+        Assert.assertTrue(challenge.isMfaRequired());
+        Assert.assertNull(challenge.getId());
+
+        respond(200, recorded("sign-in-mfa.json"));
+        final SignInResponse signedIn = client().completeSignIn(challenge.getChallenge(), "123456");
+        Assert.assertEquals("/api/sign-in/mfa", path);
+        Assert.assertEquals("6ac536522d9abffc9918d192", signedIn.getId());
+        Assert.assertNotNull(signedIn.getApiKey());
+    }
+
+    @Test
+    public void getApiKeysFiltersBySession() throws Exception {
+
+        respond(200, recorded("api-keys-session.json"));
+        GetApiKeysResponse response = client().getApiKeys(null, 25, 50, true);
+        Assert.assertEquals("/api/api-keys", path);
+        Assert.assertEquals(Map.of("offset", "25", "limit", "50", "session", "true"), queryParameters);
+        Assert.assertEquals(1, response.getTotal());
+        Assert.assertTrue(response.getApiKeys().get(0).isSession());
+        Assert.assertEquals("6ac536512d9abffc9918d17a", response.getApiKeys().get(0).getId());
+
+        respond(200, recorded("api-keys-long-lived.json"));
+        response = client().getApiKeys(null, null, null, false);
+        Assert.assertEquals(Map.of("session", "false"), queryParameters);
+        Assert.assertEquals(1, response.getTotal());
+        Assert.assertFalse(response.getApiKeys().get(0).isSession());
+        Assert.assertNull(response.getApiKeys().get(0).getExpiresAt());
+
+        respond(200, recorded("api-keys.json"));
+        response = client().getApiKeys(null, null, null, null);
+        Assert.assertTrue(queryParameters.isEmpty());
+        Assert.assertEquals(2, response.getTotal());
+
+        // An administrator listing another user's keys.
+        respond(200, "{\"apiKeys\":[],\"total\":0}");
+        client().getApiKeys("ci user", null, null, true);
+        Assert.assertEquals("/api/users/ci%20user/api-keys", rawPath);
+        Assert.assertEquals(Map.of("session", "true"), queryParameters);
+    }
+
+    @Test
+    public void changingTheCallingKeysOwnScopesIsA409() {
+
+        // Recorded from Philter.
+        respond(409, "{\"message\":\"This is the key making the request. Change its scopes with another key.\"}");
+
+        final ClientException ex = Assert.assertThrows(ClientException.class,
+                () -> client().setApiKeyScopes("6ac536512d9abffc9918d17a", List.of("redact")));
+
+        Assert.assertEquals(409, ex.getStatusCode());
+        Assert.assertEquals("This is the key making the request. Change its scopes with another key.",
+                ex.getErrorMessage());
+        Assert.assertNull(ex.getReason());
+    }
+
     @Test
     public void adminSettingsCarryTheMfaSettings() throws Exception {
 

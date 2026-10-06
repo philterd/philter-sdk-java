@@ -20,7 +20,7 @@ Naming your own username always works. Reaching another user's data requires bot
 
 Passing `null` for an owner is the same as omitting it: the call acts on your own data.
 
-`getApiKeys(owner, offset, limit)` is the exception: listing another user's API keys requires an administrator key, but not `ADMIN_CROSS_USER_ACCESS_ENABLED`. Changing and revoking keys take a key ID rather than an owner. See [Users and API Keys](provisioning.md).
+`getApiKeys(owner, offset, limit)` (and its overload with a `session` filter) is the exception: listing another user's API keys requires an administrator key, but not `ADMIN_CROSS_USER_ACCESS_ENABLED`. Changing and revoking keys take a key ID rather than an owner. See [Users and API Keys](provisioning.md).
 
 ## Listing across all users
 

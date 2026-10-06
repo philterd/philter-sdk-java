@@ -81,6 +81,9 @@ for (ApiKey k : mine.getApiKeys()) {
 
 // Another user's keys. Requires an administrator.
 GetApiKeysResponse theirs = client.getApiKeys("ci", 0, 100);
+
+// Only long-lived keys, leaving out session keys: false. Only session keys: true.
+GetApiKeysResponse longLived = client.getApiKeys(null, 0, 100, false);
 ```
 
 Each key has its ID, a prefix to tell keys apart, its scopes, when it was created, and whether it is the bootstrap key seeded from `PHILTER_BOOTSTRAP_API_KEY`. Session keys, issued when a person signs in, are listed too, with their expiry; see [Session keys](sign-in.md#session-keys). The key itself is never returned after it is created. Listing another user's keys requires an administrator, but not `ADMIN_CROSS_USER_ACCESS_ENABLED`; an unknown username is an HTTP 404.
@@ -134,7 +137,7 @@ ApiKey changed = client.setApiKeyScopes(keyId, List.of("redact"));
 client.revokeApiKey(keyId);
 ```
 
-The calling key cannot change or revoke a key holding a scope it does not hold (HTTP 403), and cannot revoke itself (HTTP 409). A key the caller may not manage, including another user's key for a non-administrator, is an HTTP 404.
+The calling key cannot change or revoke a key holding a scope it does not hold (HTTP 403), and cannot change its own scopes, even to narrow them, or revoke itself (HTTP 409); use another key. A key the caller may not manage, including another user's key for a non-administrator, is an HTTP 404.
 
 To rotate a key, create its replacement with `createApiKey(scopes)`, switch the integration to the new key, then revoke the old key using the new one.
 

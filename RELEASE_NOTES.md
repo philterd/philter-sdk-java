@@ -70,7 +70,9 @@ can be supplied. Methods that gained parameters keep their signatures and gained
   `revokeSessionKeys`.
 * **API keys:** `getApiKeys`, `createApiKey` for the caller or another user, `setApiKeyScopes`, and
   `revokeApiKey`. A key's value is returned only when it is created. `listApiKeyScopes` lists every scope a
-  key can carry, with what it allows.
+  key can carry, with what it allows. After philterd/philter#141, `SignInResponse.getId()` gives the session
+  key's ID as `getApiKeys` lists it, `getApiKeys(owner, offset, limit, session)` lists only session keys or
+  only long-lived keys, and `setApiKeyScopes` documents the 409 when a key tries to change its own scopes.
 * **Administration:** `getAdminSettings` and `updateAdminSettings`, with the read-only deployment flags
   `crossUserAccessEnabled`, `ledgerDeletionEnabled`, and `signingKeyExternallyManaged`; `getWebhook`,
   `setWebhook`, and `removeWebhook`; `getAuditLog` and `exportAuditLog` (CSV); `regenerateSigningKey`; and

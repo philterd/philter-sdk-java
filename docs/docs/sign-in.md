@@ -125,4 +125,21 @@ client.removeUserMfa("jordan");
 int revoked = client.revokeSessionKeys("jordan");
 ```
 
+Pass `session` to `getApiKeys` to list only one kind of key; the total then counts only those. `SignInResponse.getId()` is the session key's ID as the listing gives it, so a user interface can recognize its own key among the user's sessions:
+
+```java
+import ai.philterd.philter.model.ApiKey;
+import ai.philterd.philter.model.GetApiKeysResponse;
+
+// With the client built from the sign-in result above. true lists only session keys, false only
+// long-lived keys, and null both.
+GetApiKeysResponse sessions = session.getApiKeys(null, null, null, true);
+for (ApiKey key : sessions.getApiKeys()) {
+    boolean current = key.getId().equals(result.getId());
+    System.out.println(key.getPrefix() + (current ? " (this session)" : ""));
+}
+```
+
+`setApiKeyScopes` and `revokeApiKey` refuse the key making the request with an HTTP 409, so a session key cannot change its own scopes; it ends itself with `signOut()`.
+
 Session keys are checked against the database on every request, so a revoked or expired session key is refused on every Philter instance at once.

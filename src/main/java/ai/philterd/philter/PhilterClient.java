@@ -3899,10 +3899,29 @@ public class PhilterClient {
 	 * @throws IOException Thrown if the call can not be executed.
 	 */
 	public GetApiKeysResponse getApiKeys(String owner, Integer offset, Integer limit) throws IOException {
+		return getApiKeys(owner, offset, limit, null);
+	}
+
+	/**
+	 * Gets a page of a user's active API keys, oldest first, optionally only session keys or only
+	 * long-lived keys. See {@link #getApiKeys(String, Integer, Integer)} for the scope and administrator
+	 * rules. The calling session key's own ID is {@link SignInResponse#getId()}.
+	 *
+	 * @param owner The username whose keys to list. May be {@code null} for the calling key's user. A
+	 * username that does not exist is an HTTP 404, thrown as a {@link ClientException}.
+	 * @param offset The number of keys to skip. May be {@code null} for {@code 0}.
+	 * @param limit The most keys to return, up to 100. May be {@code null} for Philter's default of 25.
+	 * @param session {@code true} for only session keys, {@code false} for only long-lived keys, or
+	 * {@code null} for both.
+	 * @return The page of keys and the total, which counts only the keys the filter lists.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public GetApiKeysResponse getApiKeys(String owner, Integer offset, Integer limit, Boolean session)
+			throws IOException {
 
 		final String path = owner == null ? "/api/api-keys" : "/api/users/" + encode(owner) + "/api-keys";
 
-		final HttpRequest request = json(uri(path, "offset", offset, "limit", limit))
+		final HttpRequest request = json(uri(path, "offset", offset, "limit", limit, "session", session))
 				.GET()
 				.build();
 
@@ -4023,7 +4042,8 @@ public class PhilterClient {
 	 * must be a subset of those the calling key holds, and the calling key cannot change a key holding a
 	 * scope it does not hold; either is an HTTP 403. No scopes, or a name that is not a scope, is an
 	 * HTTP 400. A key the caller may not manage, including another user's key for a non-administrator,
-	 * is an HTTP 404. Each is thrown as a {@link ClientException}.</p>
+	 * is an HTTP 404. The key making the request cannot change its own scopes, even to narrow them,
+	 * which is an HTTP 409; change them with another key. Each is thrown as a {@link ClientException}.</p>
 	 *
 	 * <p>Other Philter instances that do not share a cache with the one handling the request can apply
 	 * the old scopes for up to {@code API_KEY_CACHE_TTL_SECONDS} (60 by default).</p>

@@ -27,6 +27,10 @@ import java.util.List;
 public class SignInResponse {
 
     @Expose
+    @SerializedName("id")
+    private String id;
+
+    @Expose
     @SerializedName("apiKey")
     private String apiKey;
 
@@ -65,6 +69,18 @@ public class SignInResponse {
     @Expose
     @SerializedName("challengeExpiresAt")
     private String challengeExpiresAt;
+
+    /**
+     * The session key's ID, as {@link ApiKey#getId()} gives it in {@code getApiKeys}, so a client can
+     * recognize its own key among the user's keys. {@code null} for an MFA challenge.
+     */
+    public String getId() {
+        return id;
+    }
+
+    public void setId(String id) {
+        this.id = id;
+    }
 
     /**
      * The session key, or {@code null} for an MFA challenge. Send it as the API key, with the
