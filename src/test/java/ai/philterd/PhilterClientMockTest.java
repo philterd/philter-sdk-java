@@ -2333,6 +2333,67 @@ public class PhilterClientMockTest {
     }
 
     @Test
+    public void signInSendsTheClientAddressAsXForwardedFor() throws Exception {
+
+        respond(200, recorded("sign-in.json"));
+        client().signIn("rec-user", "the-users-password", "203.0.113.7");
+        Assert.assertEquals("/api/sign-in", path);
+        Assert.assertEquals("203.0.113.7", header("X-Forwarded-For"));
+        Assert.assertEquals("{\"username\":\"rec-user\",\"password\":\"the-users-password\"}", requestBodyAsString());
+
+        respond(200, recorded("sign-in-mfa.json"));
+        client().completeSignIn("CHiY2d02S9qSQdysevjYMT6VyMvzkQ-vIJqIHB_109Q", "123456", "2001:db8::7");
+        Assert.assertEquals("/api/sign-in/mfa", path);
+        Assert.assertEquals("2001:db8::7", header("X-Forwarded-For"));
+
+        // Surrounding whitespace is trimmed.
+        respond(200, recorded("sign-in.json"));
+        client().signIn("rec-user", "the-users-password", " 203.0.113.7 ");
+        Assert.assertEquals("203.0.113.7", header("X-Forwarded-For"));
+    }
+
+    @Test
+    public void signInWithoutAClientAddressSendsNoXForwardedFor() throws Exception {
+
+        for (final String none : new String[]{null, "", "   "}) {
+
+            respond(200, recorded("sign-in.json"));
+            client().signIn("rec-user", "the-users-password", none);
+            Assert.assertNull(header("X-Forwarded-For"));
+
+            respond(200, recorded("sign-in-mfa.json"));
+            client().completeSignIn("CHiY2d02S9qSQdysevjYMT6VyMvzkQ-vIJqIHB_109Q", "123456", none);
+            Assert.assertNull(header("X-Forwarded-For"));
+        }
+
+        // The two-argument methods send none.
+        respond(200, recorded("sign-in.json"));
+        client().signIn("rec-user", "the-users-password");
+        Assert.assertNull(header("X-Forwarded-For"));
+        respond(200, recorded("sign-in-mfa.json"));
+        client().completeSignIn("CHiY2d02S9qSQdysevjYMT6VyMvzkQ-vIJqIHB_109Q", "123456");
+        Assert.assertNull(header("X-Forwarded-For"));
+    }
+
+    @Test
+    public void signInRefusesAClientAddressThatIsNotOneAddressBeforeSending() {
+
+        respond(200, "{}");
+
+        for (final String invalid : new String[]{"203.0.113.7, 198.51.100.9", "203.0.113.7\r\nX-Injected: 1",
+                "203.0.113.7\n", "203.0.113.7\r", "203.0.113.7\tx", "203.0.113.7\u0000", "203.0.113.7 198.51.100.9",
+                "caf\u00e9", "\u8a18", "203.0.113.7\u2028x", "\r\n", "\t"}) {
+
+            Assert.assertThrows(invalid, IllegalArgumentException.class,
+                    () -> client().signIn("rec-user", "the-users-password", invalid));
+            Assert.assertThrows(invalid, IllegalArgumentException.class,
+                    () -> client().completeSignIn("challenge", "123456", invalid));
+        }
+
+        Assert.assertTrue("nothing reaches the server", requests.isEmpty());
+    }
+
+    @Test
     public void completeSignInReturnsTheSessionKeyId() throws Exception {
 
         respond(200, recorded("sign-in-mfa-challenge.json"));

@@ -3275,13 +3275,41 @@ public class PhilterClient {
 	 * {@link ai.philterd.philter.model.exceptions.SignInRateLimitedException}. Both carry the seconds to
 	 * wait.</p>
 	 *
+	 * <p>An application signing people in should pass each person's address with
+	 * {@link #signIn(String, String, String)}, or they all share its rate limit.</p>
+	 *
 	 * @param username The username.
 	 * @param password The password.
 	 * @return The session key, or an MFA challenge.
 	 * @throws IOException Thrown if the call can not be executed.
 	 */
 	public SignInResponse signIn(String username, String password) throws IOException {
-		return sendSignIn("/api/sign-in", new SignInRequest(username, password));
+		return signIn(username, password, null);
+	}
+
+	/**
+	 * Signs a person in on behalf of an application, such as a web front end, passing the person's own
+	 * address so that Philter rate-limits and audits the sign-in by that address rather than by the
+	 * application's. Otherwise the same as {@link #signIn(String, String)}.
+	 *
+	 * <p>The address is sent as {@code X-Forwarded-For}. Philter believes the header only when the request
+	 * reaches it from an address in its {@code TRUSTED_PROXIES}, which by default are the loopback, private,
+	 * link-local, and IPv6 unique-local ranges; from any other address, and for a value that is not an IP
+	 * address (a port is allowed and ignored), Philter uses the connection's own address. Pass an address
+	 * the application determined itself, such as the remote address of the person's connection to it, not
+	 * one the person's browser supplied, which they can set to anything.</p>
+	 *
+	 * @param username The username.
+	 * @param password The password.
+	 * @param clientAddress The person's IP address. {@code null}, empty, or only spaces sends no header.
+	 * @return The session key, or an MFA challenge.
+	 * @throws IllegalArgumentException If {@code clientAddress} contains a comma, a control character such
+	 * as a carriage return or line feed, a character outside ASCII, or a space other than at either end.
+	 * Nothing is sent.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public SignInResponse signIn(String username, String password, String clientAddress) throws IOException {
+		return sendSignIn("/api/sign-in", new SignInRequest(username, password), clientAddress);
 	}
 
 	/**
@@ -3294,7 +3322,8 @@ public class PhilterClient {
 	 * say which. The fifth consecutive bad code locks the user's MFA, which is then refused with an HTTP
 	 * 403, thrown as a {@link ClientException}, until an administrator unlocks it. A client address over
 	 * the sign-in rate limit is refused with a
-	 * {@link ai.philterd.philter.model.exceptions.SignInRateLimitedException}.</p>
+	 * {@link ai.philterd.philter.model.exceptions.SignInRateLimitedException}. An application signing
+	 * people in passes each person's address with {@link #completeSignIn(String, String, String)}.</p>
 	 *
 	 * @param challenge The challenge from {@link SignInResponse#getChallenge()}.
 	 * @param code The code from the person's authenticator app.
@@ -3302,15 +3331,41 @@ public class PhilterClient {
 	 * @throws IOException Thrown if the call can not be executed.
 	 */
 	public SignInResponse completeSignIn(String challenge, String code) throws IOException {
-		return sendSignIn("/api/sign-in/mfa", new SignInMfaRequest(challenge, code));
+		return completeSignIn(challenge, code, null);
 	}
 
-	private SignInResponse sendSignIn(final String path, final Object body) throws IOException {
+	/**
+	 * Completes an MFA sign-in on behalf of an application, passing the person's own address as
+	 * {@code X-Forwarded-For}. Otherwise the same as {@link #completeSignIn(String, String)}. See
+	 * {@link #signIn(String, String, String)} for when Philter uses the address and which address to pass.
+	 *
+	 * @param challenge The challenge from {@link SignInResponse#getChallenge()}.
+	 * @param code The code from the person's authenticator app.
+	 * @param clientAddress The person's IP address. {@code null}, empty, or only spaces sends no header.
+	 * @return The session key.
+	 * @throws IllegalArgumentException If {@code clientAddress} contains a comma, a control character such
+	 * as a carriage return or line feed, a character outside ASCII, or a space other than at either end.
+	 * Nothing is sent.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public SignInResponse completeSignIn(String challenge, String code, String clientAddress) throws IOException {
+		return sendSignIn("/api/sign-in/mfa", new SignInMfaRequest(challenge, code), clientAddress);
+	}
 
-		final HttpRequest request = json(uri(path))
+	private SignInResponse sendSignIn(final String path, final Object body, final String clientAddress)
+			throws IOException {
+
+		final String forwardedFor = forwardedFor(clientAddress);
+
+		final HttpRequest.Builder builder = json(uri(path))
 				.header("Content-Type", APPLICATION_JSON)
-				.POST(text(gson.toJson(body)))
-				.build();
+				.POST(text(gson.toJson(body)));
+
+		if (forwardedFor != null) {
+			builder.header("X-Forwarded-For", forwardedFor);
+		}
+
+		final HttpRequest request = builder.build();
 
 		final HttpResponse<String> response = send(request, HttpResponse.BodyHandlers.ofString());
 
@@ -3320,6 +3375,42 @@ public class PhilterClient {
 
 		return gson.fromJson(response.body(), SignInResponse.class);
 
+	}
+
+	/**
+	 * The {@code X-Forwarded-For} value for a client address, or {@code null} to send none. One address
+	 * only, in printable ASCII as every IP address is: a comma would add entries, and a line break would
+	 * start another header.
+	 */
+	private static String forwardedFor(final String clientAddress) {
+
+		if (clientAddress == null) {
+			return null;
+		}
+
+		// Checked before trimming, which would quietly drop a trailing line break.
+		for (int i = 0; i < clientAddress.length(); i++) {
+			final char c = clientAddress.charAt(i);
+			if (c == ',' || c < 0x20 || c > 0x7e) {
+				throw invalidClientAddress();
+			}
+		}
+
+		final String address = clientAddress.strip();
+		if (address.isEmpty()) {
+			return null;
+		}
+		if (address.indexOf(' ') >= 0) {
+			throw invalidClientAddress();
+		}
+
+		return address;
+
+	}
+
+	private static IllegalArgumentException invalidClientAddress() {
+		return new IllegalArgumentException("The client address must be a single address, in printable ASCII "
+				+ "without commas or whitespace.");
 	}
 
 	/**

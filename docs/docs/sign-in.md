@@ -69,6 +69,23 @@ try {
 }
 ```
 
+### Signing in on behalf of a person
+
+Philter rate-limits sign-ins by client address (`SIGN_IN_RATE_LIMIT_PER_MINUTE`) and records that address on `sign_in_succeeded` and `sign_in_failed` audit events. When an application signs people in through one client, every sign-in comes from the application's address, so its users share one rate-limit budget and the audit log cannot tell them apart. Pass each person's address instead:
+
+```java
+// The address of the person's connection to the application. If the application is itself behind a
+// load balancer, use the client address it resolves from that balancer's header, not the balancer's.
+String personAddress = httpRequest.getRemoteAddr();
+
+SignInResponse result = client.signIn(username, password, personAddress);
+if (result.isMfaRequired()) {
+    result = client.completeSignIn(result.getChallenge(), code, personAddress);
+}
+```
+
+The address is sent as `X-Forwarded-For`. Philter uses it only when the request comes from an address in its `TRUSTED_PROXIES`, which by default are the loopback, private, link-local, and IPv6 unique-local ranges; otherwise, and for a value that is not an IP address, it uses the address of the connection. A port is allowed and ignored. Pass an address the application determined itself, not one the person's browser supplied, such as their own `X-Forwarded-For`, which they can set to anything. A `null` or empty address, or one of only spaces, sends no header. Surrounding spaces are trimmed, and an address containing a comma, a control character such as a line break, a character outside ASCII, or a space within it is refused with an `IllegalArgumentException` before anything is sent.
+
 ## Passwords
 
 A password is 16 characters to 72 bytes in UTF-8. Setting, changing, or resetting a password revokes the user's session keys; long-lived API keys are not affected.
