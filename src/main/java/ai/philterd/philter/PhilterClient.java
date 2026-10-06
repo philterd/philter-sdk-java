@@ -48,6 +48,7 @@ import ai.philterd.philter.model.CreatedUserResponse;
 import ai.philterd.philter.model.ExplainResponse;
 import ai.philterd.philter.model.FilterResponse;
 import ai.philterd.philter.model.GenericResponse;
+import ai.philterd.philter.model.GetApiKeyScopesResponse;
 import ai.philterd.philter.model.GetApiKeysResponse;
 import ai.philterd.philter.model.GetAuditLogResponse;
 import ai.philterd.philter.model.GetListsResponse;
@@ -3615,6 +3616,22 @@ public class PhilterClient {
 
 		return sendExpectingJson(request, GetApiKeysResponse.class);
 
+	}
+
+	/**
+	 * Lists every scope an API key can carry, with what each allows, in the order Philter declares them.
+	 * Offer these when creating or re-scoping a key with {@link #createApiKey(List)},
+	 * {@link #createApiKey(String, List)}, or {@link #setApiKeyScopes(String, List)}, rather than
+	 * hard-coding the names: a scope Philter adds later appears here.
+	 *
+	 * <p>Any valid API key can call this, whatever its scopes, and no administrator is needed. A request
+	 * without a valid key is refused with an {@link UnauthorizedException}.</p>
+	 *
+	 * @return The scopes.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public GetApiKeyScopesResponse listApiKeyScopes() throws IOException {
+		return sendExpectingJson(json(uri("/api/api-keys/scopes")).GET().build(), GetApiKeyScopesResponse.class);
 	}
 
 	/**

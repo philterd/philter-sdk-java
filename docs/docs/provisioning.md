@@ -85,7 +85,20 @@ Each key has its ID, a prefix to tell keys apart, its scopes, when it was create
 
 ## Creating an API key
 
-Requires the `api-keys:write` scope.
+List the scopes a key can carry before choosing them, rather than hard-coding the names. Any valid key can list them, whatever its scopes, and the list includes any scope Philter adds later.
+
+```java
+import ai.philterd.philter.model.ApiKeyScopeDescription;
+
+for (ApiKeyScopeDescription scope : client.listApiKeyScopes().getScopes()) {
+    System.out.println(scope.getName() + ": " + scope.getDescription());
+}
+// redact: Redact text and documents, and explain redactions.
+// contexts:read: List and read contexts and their entries, including exports.
+// ...
+```
+
+Creating a key requires the `api-keys:write` scope.
 
 ```java
 import ai.philterd.philter.model.CreatedApiKeyResponse;

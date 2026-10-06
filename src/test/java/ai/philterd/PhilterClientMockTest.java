@@ -17,6 +17,8 @@ package ai.philterd;
 
 import ai.philterd.philter.PhilterClient;
 import ai.philterd.philter.model.AdminSettings;
+import ai.philterd.philter.model.GetApiKeyScopesResponse;
+import ai.philterd.philter.model.ApiKeyScopeDescription;
 import ai.philterd.philter.model.SigningKey;
 import ai.philterd.philter.model.RedactListsRequest;
 import ai.philterd.philter.model.RedactLists;
@@ -1329,6 +1331,35 @@ public class PhilterClientMockTest {
         Assert.assertEquals("/api/users/ci/api-keys", path);
         Assert.assertEquals("application/json", header("Content-Type"));
         Assert.assertEquals("{\"scopes\":[\"redact\",\"policies:read\"]}", requestBodyAsString());
+    }
+
+    @Test
+    public void listApiKeyScopesParsesTheRecordedResponse() throws Exception {
+
+        respond(200, recorded("api-key-scopes.json"));
+
+        final GetApiKeyScopesResponse response = client().listApiKeyScopes();
+
+        Assert.assertEquals("GET", method);
+        Assert.assertEquals("/api/api-keys/scopes", path);
+        Assert.assertTrue(queryParameters.isEmpty());
+        Assert.assertEquals("application/json", header("Accept"));
+
+        final List<ApiKeyScopeDescription> scopes = response.getScopes();
+        Assert.assertEquals(25, scopes.size());
+        // In the order Philter declares them.
+        Assert.assertEquals("redact", scopes.get(0).getName());
+        Assert.assertEquals("Redact text and documents, and explain redactions.", scopes.get(0).getDescription());
+        Assert.assertEquals("reidentify", scopes.get(scopes.size() - 1).getName());
+        for (final ApiKeyScopeDescription scope : scopes) {
+            Assert.assertNotNull(scope.getName());
+            Assert.assertFalse(scope.getName(), scope.getDescription() == null || scope.getDescription().isEmpty());
+        }
+
+        // The names are the ones createApiKey takes.
+        final java.util.Set<String> names = new java.util.HashSet<>();
+        scopes.forEach(scope -> names.add(scope.getName()));
+        Assert.assertTrue(names.containsAll(List.of("redact", "policies:read", "api-keys:write", "ledger:export")));
     }
 
     @Test

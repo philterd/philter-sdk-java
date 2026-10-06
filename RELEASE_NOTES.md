@@ -47,7 +47,8 @@ can be supplied. Methods that gained parameters keep their signatures and gained
   `confirmMfaEnrollment`, `removeMfaEnrollment`, `removeUserMfa`, `unlockUserMfa`), and
   `revokeSessionKeys`.
 * **API keys:** `getApiKeys`, `createApiKey` for the caller or another user, `setApiKeyScopes`, and
-  `revokeApiKey`. A key's value is returned only when it is created.
+  `revokeApiKey`. A key's value is returned only when it is created. `listApiKeyScopes` lists every scope a
+  key can carry, with what it allows.
 * **Administration:** `getAdminSettings` and `updateAdminSettings`; `getWebhook`, `setWebhook`, and
   `removeWebhook`; `getAuditLog` and `exportAuditLog` (CSV); `regenerateSigningKey`; and listings of
   policies, contexts, lists, ledger chains, and holds across all users.
