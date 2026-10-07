@@ -44,6 +44,18 @@ When the chain could not be checked, `getHashChainValid()`, `getSignaturesValid(
 
 Reading or listing a chain does not return the values that were redacted, only their replacements. An export does, in each entry's `getToken()`, which is why it needs the `ledger:export` scope; treat it as sensitive.
 
+An entry Philter can no longer read, for example because it no longer decrypts after a key change, is reported rather than failing the request. A chain whose head entry cannot be read is still listed by `listLedgerChains` and `listLedgerChainsAcrossUsers`, with `LedgerEntry.getReadError()` set and `getReplacement()` `null`; the fields stored in the clear, such as the document ID, filename, hashes, timestamp, and policy fields, are still given. `getReadError()` is `null` for an entry that was read. A listing shows only each chain's head, so a chain whose later entry cannot be read lists with no read error. A chain with any unreadable entry, head or later, is reported by `getLedgerChain` and `verifyLedgerChain` as one that could not be checked, and `getLedgerExport` refuses it, even in part, with a `ClientException` whose `getStatusCode()` is `422` and `getReason()` is `entry_unreadable`.
+
+```java
+import ai.philterd.philter.model.LedgerEntry;
+
+for (LedgerEntry head : client.listLedgerChains(null).getChains()) {
+    if (head.getReadError() != null) {
+        // Listed, but its replacement cannot be shown and the chain cannot be exported.
+    }
+}
+```
+
 `listLedgerChains` returns one page at a time. See [Owners and Pagination](owners-and-pagination.md) to page through the rest, or to read another user's ledger as an administrator.
 
 Verify an exported chain against the public signing key, which is served without authentication:

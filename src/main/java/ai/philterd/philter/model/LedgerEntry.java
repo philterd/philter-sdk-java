@@ -92,6 +92,10 @@ public class LedgerEntry {
     @SerializedName("owner")
     private String owner;
 
+    @Expose
+    @SerializedName("readError")
+    private String readError;
+
     /** The redacted document ID. */
     public String getDocumentId() {
         return documentId;
@@ -131,7 +135,7 @@ public class LedgerEntry {
         this.token = token;
     }
 
-    /** The replacement. */
+    /** The replacement, or {@code null} when the entry could not be read ({@link #getReadError()}). */
     public String getReplacement() {
         return replacement;
     }
@@ -249,6 +253,23 @@ public class LedgerEntry {
 
     public void setOwner(String owner) {
         this.owner = owner;
+    }
+
+    /**
+     * Why Philter could not read this entry, for example because it no longer decrypts after a key change,
+     * or {@code null} when the entry was read. When set, {@link #getReplacement()} is {@code null}, while the
+     * fields stored in the clear are still given: the document ID, filename, type, start position, the
+     * hashes, the timestamp, the policy fields, and the signature. Philter logs the cause with the document
+     * ID. A chain with an unreadable entry cannot be exported, and reads as one that could not be validated.
+     * A listing shows only each chain's head, so a {@code null} here does not mean the chain's later entries
+     * can be read.
+     */
+    public String getReadError() {
+        return readError;
+    }
+
+    public void setReadError(String readError) {
+        this.readError = readError;
     }
 
 }

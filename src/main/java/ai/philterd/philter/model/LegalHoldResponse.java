@@ -67,6 +67,10 @@ public class LegalHoldResponse {
         this.scopeType = scopeType;
     }
 
+    /**
+     * For a {@code document_chain} hold, the document ID. For a {@code user} hold, the owner's username,
+     * which Philter stores for display whether or not the request gave it.
+     */
     public String getScopeValue() {
         return scopeValue;
     }

@@ -58,6 +58,15 @@ can be supplied. Methods that gained parameters keep their signatures and gained
   `isSignaturesValid()` are replaced by `getHashChainValid()` and `getSignaturesValid()`, which return
   `Boolean`, and `getSignedEntries()` and `getUnsignedEntries()` now return `Integer`. Each is `null` for a
   chain that could not be checked, so it is not mistaken for a failed check.
+* **User legal holds.** Philter (after philterd/philter#148) makes `scopeValue` optional for a `user` hold,
+  which covers its owner, the caller or the user named by `owner` on `createHold`. A `scopeValue` given for a
+  `user` hold must be the owner's username, or the hold is refused with a 400, and Philter returns the
+  owner's username as its `scopeValue`. A `document_chain` hold still needs the document ID.
+* **Ledger entries that cannot be read.** Philter (after philterd/philter#147) lists a chain whose head entry
+  it can no longer read, for example after a key change, instead of failing the request. `LedgerEntry` adds
+  `getReadError()`, set on such an entry, whose `getReplacement()` is then `null` while the fields stored in
+  the clear are still given. `getLedgerExport` on a chain with an unreadable entry is refused with a 422
+  whose `getReason()` is `entry_unreadable`.
 * **Policies:** versions, diffs, rollback, and PhiSQL compilation; descriptions and notes (`getPolicyDetails`,
   `setPolicyDetails`, and `savePolicy` and `replacePolicy` overloads); managed policies with their
   descriptions (`listManagedPolicies`); and `copyPolicy`.

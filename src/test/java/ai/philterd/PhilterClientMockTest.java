@@ -1144,6 +1144,50 @@ public class PhilterClientMockTest {
         Assert.assertTrue(requestBodyAsString().contains("\"reference\":\"ref-1\""));
     }
 
+    // Recorded from Philter: a user hold created with no scope value.
+    @Test
+    public void aUserHoldNeedsNoScopeValueAndReturnsTheOwnersUsername() throws Exception {
+
+        respond(201, recorded("hold-user.json"));
+
+        final LegalHoldRequest holdRequest = new LegalHoldRequest();
+        holdRequest.setReference("matter-1");
+        holdRequest.setScopeType("user");
+        holdRequest.setReason("pending litigation");
+
+        final LegalHoldResponse response = client().createHold(holdRequest);
+
+        // No scopeValue is sent, not even as null.
+        Assert.assertEquals("{\"reason\":\"pending litigation\",\"reference\":\"matter-1\",\"scopeType\":\"user\"}",
+                requestBodyAsString());
+        Assert.assertEquals("user", response.getScopeType());
+        Assert.assertEquals("rec-user", response.getScopeValue());
+
+        // An administrator's user hold for another user names that user with owner.
+        respond(201, recorded("hold-user.json"));
+        client().createHold(holdRequest, OWNER);
+        Assert.assertEquals(OWNER, queryParameter("owner"));
+    }
+
+    @Test
+    public void aUserHoldNamingAnotherUserIsA400() {
+
+        // Recorded from Philter.
+        respond(400, "{\"message\":\"For a user hold, scopeValue is optional; if given, it must be the username of the "
+                + "hold's owner, which is the caller or the user named by owner.\"}");
+
+        final LegalHoldRequest holdRequest = new LegalHoldRequest();
+        holdRequest.setReference("matter-3");
+        holdRequest.setScopeType("user");
+        holdRequest.setScopeValue("rec-admin");
+
+        final ClientException ex = Assert.assertThrows(ClientException.class, () -> client().createHold(holdRequest));
+
+        Assert.assertEquals(400, ex.getStatusCode());
+        Assert.assertTrue(ex.getErrorMessage(), ex.getErrorMessage().startsWith("For a user hold, scopeValue is optional"));
+        Assert.assertTrue(requestBodyAsString().contains("\"scopeValue\":\"rec-admin\""));
+    }
+
     // Custom lists.
 
     @Test
@@ -2903,6 +2947,58 @@ public class PhilterClientMockTest {
         Assert.assertNull(client().verifyLedgerChain("doc-tampered").getEntries());
         respond(200, recorded("ledger-chain-tampered.json"));
         Assert.assertEquals(3, client().getLedgerChain("doc-tampered").getEntries().size());
+    }
+
+    // Recorded from Philter with one chain's genesis entry made unreadable (its encrypted key replaced).
+    @Test
+    public void aListedChainWhoseHeadCannotBeReadCarriesItsReadError() throws Exception {
+
+        respond(200, recorded("ledger-unreadable.json"));
+        GetLedgerResponse listed = client().listLedgerChains(null);
+        assertUnreadableAndReadableHeads(listed.getChains());
+        Assert.assertEquals(2, listed.getTotal());
+
+        respond(200, recorded("ledger-all-users-unreadable.json"));
+        listed = client().listLedgerChainsAcrossUsers(null, 100);
+        assertUnreadableAndReadableHeads(listed.getChains());
+        Assert.assertEquals("rec-user", listed.getChains().get(0).getOwner());
+    }
+
+    private static void assertUnreadableAndReadableHeads(final List<LedgerEntry> chains) {
+
+        final LedgerEntry unreadable = chains.get(0);
+        Assert.assertEquals("doc-unreadable", unreadable.getDocumentId());
+        Assert.assertEquals("This entry could not be read, so its replacement is not shown.", unreadable.getReadError());
+        Assert.assertNull(unreadable.getReplacement());
+        // The fields stored in the clear are still given.
+        Assert.assertEquals("note.txt", unreadable.getFilename());
+        Assert.assertEquals("3e4ac9f58857d820c873f966482490388c4196926f39aa58be8f498d9319fff3", unreadable.getHash());
+        Assert.assertEquals("[genesis]", unreadable.getPreviousHash());
+        Assert.assertEquals("default", unreadable.getPolicyName());
+        Assert.assertNotNull(unreadable.getTimestamp());
+
+        // A readable genesis head has an empty replacement, not a missing one, and no read error.
+        final LedgerEntry readable = chains.get(1);
+        Assert.assertEquals("doc-readable", readable.getDocumentId());
+        Assert.assertNull(readable.getReadError());
+        Assert.assertEquals("", readable.getReplacement());
+    }
+
+    @Test
+    public void exportingAChainWithAnUnreadableEntryIsA422WithItsReason() {
+
+        // Recorded from Philter.
+        respond(422, "{\"message\":\"An entry in this chain could not be read, so the chain cannot be exported.\","
+                + "\"reason\":\"entry_unreadable\"}");
+
+        final ClientException ex = Assert.assertThrows(ClientException.class,
+                () -> client().getLedgerExport("doc-unreadable"));
+
+        Assert.assertEquals("/api/ledger/doc-unreadable/export", path);
+        Assert.assertEquals(422, ex.getStatusCode());
+        Assert.assertEquals("entry_unreadable", ex.getReason());
+        Assert.assertEquals("An entry in this chain could not be read, so the chain cannot be exported.",
+                ex.getErrorMessage());
     }
 
     // Recorded from Philter with an entry's encrypted token replaced, so it no longer decrypts.

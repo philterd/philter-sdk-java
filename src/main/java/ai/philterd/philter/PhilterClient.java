@@ -2334,12 +2334,24 @@ public class PhilterClient {
 	/**
 	 * Creates a legal hold.
 	 *
+	 * <p>A {@code document_chain} hold protects one document's ledger chain and needs the document ID as
+	 * its scope value. A {@code user} hold protects all of its owner's ledger evidence, where the owner is
+	 * the caller, or the user named by {@code owner}; it needs no scope value, and one that is given must be
+	 * the owner's username. Philter returns the owner's username as a {@code user} hold's scope value.</p>
+	 *
+	 * <p>A missing reference or scope type, a scope type other than {@code document_chain} or {@code user}, a
+	 * {@code document_chain} hold without a scope value, and a {@code user} hold whose scope value is not the
+	 * owner's username are each an HTTP 400, thrown as a {@link ClientException}.</p>
+	 *
 	 * <p>The reference is used in request paths, so Philter refuses one containing {@code /}, {@code \},
 	 * {@code ;}, {@code %}, or a control character, or that is {@code .} or {@code ..}, with an HTTP 400,
 	 * thrown as a {@link ClientException}.</p>
 	 *
 	 * @param request The {@link LegalHoldRequest}.
-	 * @param owner The owner of the hold. May be {@code null}.
+	 * @param owner The owner of the hold, and for a {@code user} hold the user whose evidence it protects.
+	 * May be {@code null} for the caller. Another user's requires an administrator and
+	 * {@code ADMIN_CROSS_USER_ACCESS_ENABLED=true} on the Philter deployment; otherwise, or for an owner that
+	 * does not exist, Philter answers HTTP 404, thrown as a {@link ClientException}.
 	 * @return The created {@link LegalHoldResponse}.
 	 * @throws IOException Thrown if the call can not be executed.
 	 */
@@ -2456,7 +2468,9 @@ public class PhilterClient {
 	}
 
 	/**
-	 * Lists redaction-ledger chains, most recent first, paged, with the total matching.
+	 * Lists redaction-ledger chains, most recent first, paged, with the total matching. A chain whose head
+	 * entry Philter cannot read is still listed, with
+	 * {@link ai.philterd.philter.model.LedgerEntry#getReadError()} set and no replacement.
 	 * @param query Matches a document ID or filename. May be {@code null} for every chain.
 	 * @param owner The owner. May be {@code null} for the caller's own. Another user's requires an
 	 * administrator and {@code ADMIN_CROSS_USER_ACCESS_ENABLED=true}; otherwise Philter answers HTTP 404.
@@ -2517,7 +2531,9 @@ public class PhilterClient {
 
 	/**
 	 * Lists every user's redaction-ledger chains, paged, each naming its owner. Requires an administrator and
-	 * {@code ADMIN_CROSS_USER_ACCESS_ENABLED=true}; otherwise Philter answers HTTP 404.
+	 * {@code ADMIN_CROSS_USER_ACCESS_ENABLED=true}; otherwise Philter answers HTTP 404. A chain whose head
+	 * entry Philter cannot read is still listed, with
+	 * {@link ai.philterd.philter.model.LedgerEntry#getReadError()} set and no replacement.
 	 * @param offset The number of items to skip. May be {@code null} for {@code 0}.
 	 * @param limit The most items to return, up to 100. May be {@code null} for Philter's default of 25.
 	 * @return The head of each chain, with its owner, and the total.
@@ -2632,6 +2648,12 @@ public class PhilterClient {
 	 * Exports a document's redaction-ledger chain with the public keys that verify it. Requires the
 	 * {@code ledger:export} scope. The export carries the original redacted values, so treat it as
 	 * sensitive.
+	 *
+	 * <p>A chain with any entry Philter cannot read, for example because it no longer decrypts, is not
+	 * exported, even in part, since an export missing an entry would not verify while looking complete.
+	 * That is an HTTP 422 whose {@link ClientException#getReason()} is {@code entry_unreadable}, thrown as
+	 * a {@link ClientException}. Philter audits the refused attempt.</p>
+	 *
 	 * @param documentId The document ID.
 	 * @param owner The owner. May be {@code null} for the caller's own. Another user's requires an
 	 * administrator and {@code ADMIN_CROSS_USER_ACCESS_ENABLED=true}; otherwise Philter answers HTTP 404.

@@ -79,6 +79,7 @@ Where refusals share a status, `getReason()` tells them apart with a stable, mac
 | `saveList` | `409` | `list_exists`: the owner already has a list with that name. Replace it with `replaceList`. |
 | `createHold` | `409` | `hold_exists`: a hold with that reference exists. `operation_in_progress`: an evidence or hold operation for the owner is active or needs recovery. |
 | `deleteHold` | `409` | `operation_in_progress`, as for `createHold`. |
+| `getLedgerExport` | `422` | `entry_unreadable`: an entry in the chain could not be read, so the chain is not exported. |
 | `signIn` | `429` | `locked`: the username is locked after repeated failures. `rate_limited`: the client address is over the sign-in rate limit. These are raised as `SignInLockedException` and `SignInRateLimitedException`. |
 | `completeSignIn` | `429` | `rate_limited`, raised as `SignInRateLimitedException`. The MFA step has no username lockout. |
 

@@ -55,6 +55,11 @@ public class LegalHoldRequest {
         this.reference = reference;
     }
 
+    /**
+     * {@code document_chain} to protect one document's ledger chain, or {@code user} to protect all of the
+     * hold owner's ledger evidence. The owner is the caller, or the user an administrator names with
+     * {@code owner} on {@code createHold}.
+     */
     public String getScopeType() {
         return scopeType;
     }
@@ -63,6 +68,11 @@ public class LegalHoldRequest {
         this.scopeType = scopeType;
     }
 
+    /**
+     * For a {@code document_chain} hold, the document ID, which is required. For a {@code user} hold,
+     * optional: the hold covers its owner, not a user named here. If given, it must be the owner's username,
+     * or Philter refuses the hold with an HTTP 400.
+     */
     public String getScopeValue() {
         return scopeValue;
     }
