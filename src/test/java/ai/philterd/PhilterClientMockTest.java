@@ -34,6 +34,7 @@ import ai.philterd.philter.model.DocumentStatus;
 import ai.philterd.philter.model.CustomListSummary;
 import ai.philterd.philter.model.ContextEntry;
 import ai.philterd.philter.model.ContextDetails;
+import ai.philterd.philter.model.DisambiguationScope;
 import ai.philterd.philter.model.SignInResponse;
 import ai.philterd.philter.model.MfaEnrollment;
 import ai.philterd.philter.model.ApiKey;
@@ -1117,6 +1118,80 @@ public class PhilterClientMockTest {
         Assert.assertEquals("ctx", queryParameter("name"));
         Assert.assertEquals("true", queryParameter("entity_type_disambiguation"));
         Assert.assertEquals("false", queryParameter("ledger"));
+    }
+
+    @Test
+    public void createContextSendsTheDisambiguationScopeOnlyWhenGiven() throws Exception {
+
+        // The overloads without a scope leave it out, so Philter applies document.
+        respond(200, "{\"message\":\"created\"}");
+        client().createContext("ctx", true, false);
+        Assert.assertFalse(queryParameters.containsKey("disambiguation_scope"));
+
+        client().createContext("ctx", true, false, OWNER);
+        Assert.assertFalse(queryParameters.containsKey("disambiguation_scope"));
+        Assert.assertEquals(OWNER, queryParameter("owner"));
+
+        client().createContext("ctx", true, null, false, null);
+        Assert.assertFalse(queryParameters.containsKey("disambiguation_scope"));
+
+        client().createContext("ctx", true, DisambiguationScope.CONTEXT, false, OWNER);
+        Assert.assertEquals("POST", method);
+        Assert.assertEquals("/api/contexts", path);
+        Assert.assertEquals(Map.of("name", "ctx", "entity_type_disambiguation", "true",
+                "disambiguation_scope", "context", "ledger", "false", "owner", OWNER), queryParameters);
+    }
+
+    @Test
+    public void updateContextSendsTheDisambiguationScopeOnlyWhenGiven() throws Exception {
+
+        // The overloads without a scope leave it out, so Philter keeps the current one.
+        respond(200, "{\"message\":\"Context updated.\"}");
+        client().updateContext("ctx", true, false);
+        Assert.assertFalse(queryParameters.containsKey("disambiguation_scope"));
+
+        client().updateContext("ctx", true, false, OWNER);
+        Assert.assertFalse(queryParameters.containsKey("disambiguation_scope"));
+        Assert.assertEquals(OWNER, queryParameter("owner"));
+
+        client().updateContext("ctx", true, null, false, null);
+        Assert.assertFalse(queryParameters.containsKey("disambiguation_scope"));
+
+        // A null setting is left out, so only the scope changes.
+        client().updateContext("ctx", null, DisambiguationScope.CONTEXT, null, null);
+        Assert.assertEquals("PUT", method);
+        Assert.assertEquals("/api/contexts/ctx", path);
+        Assert.assertEquals(Map.of("disambiguation_scope", "context"), queryParameters);
+    }
+
+    @Test
+    public void anUnknownDisambiguationScopeIsA400() {
+
+        // Philter's message for any value other than document or context.
+        final String message = "disambiguation_scope must be document or context.";
+        final Map<String, ThrowingRunnable> calls = Map.of(
+                "createContext", () -> client().createContext("ctx", true, "global", false, null),
+                "updateContext", () -> client().updateContext("ctx", null, "global", null, null));
+
+        for (final Map.Entry<String, ThrowingRunnable> call : calls.entrySet()) {
+
+            respond(400, "{\"message\":\"" + message + "\"}");
+
+            final ClientException ex = Assert.assertThrows(call.getKey(), ClientException.class, call.getValue());
+
+            Assert.assertEquals(call.getKey(), "global", queryParameter("disambiguation_scope"));
+            Assert.assertEquals(call.getKey(), 400, ex.getStatusCode());
+            Assert.assertEquals(call.getKey(), message, ex.getErrorMessage());
+        }
+    }
+
+    @Test
+    public void getContextDetailsParsesTheContextDisambiguationScope() throws Exception {
+
+        respond(200, "{\"size\":0,\"filterTypes\":{},\"untyped\":0,\"entityTypeDisambiguation\":true,"
+                + "\"disambiguationScope\":\"context\",\"ledger\":false}");
+
+        Assert.assertEquals(DisambiguationScope.CONTEXT, client().getContextDetails("ctx").getDisambiguationScope());
     }
 
     // Legal holds.
@@ -2820,6 +2895,7 @@ public class PhilterClientMockTest {
         Assert.assertEquals(0, details.getUntyped());
         Assert.assertTrue(details.isLedger());
         Assert.assertFalse(details.isEntityTypeDisambiguation());
+        Assert.assertEquals(DisambiguationScope.DOCUMENT, details.getDisambiguationScope());
 
         respond(200, recorded("context-entries.json"));
         final GetContextEntriesResponse entries = client().listContextEntries("ledgered", null, 0, 25);

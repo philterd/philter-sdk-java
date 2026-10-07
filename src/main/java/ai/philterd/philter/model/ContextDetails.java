@@ -42,6 +42,10 @@ public class ContextDetails {
     private boolean entityTypeDisambiguation;
 
     @Expose
+    @SerializedName("disambiguationScope")
+    private String disambiguationScope;
+
+    @Expose
     @SerializedName("ledger")
     private boolean ledger;
 
@@ -79,6 +83,18 @@ public class ContextDetails {
 
     public void setEntityTypeDisambiguation(boolean entityTypeDisambiguation) {
         this.entityTypeDisambiguation = entityTypeDisambiguation;
+    }
+
+    /**
+     * What span disambiguation learns from: {@link DisambiguationScope#DOCUMENT} or
+     * {@link DisambiguationScope#CONTEXT}. {@code null} from a Philter that does not return it.
+     */
+    public String getDisambiguationScope() {
+        return disambiguationScope;
+    }
+
+    public void setDisambiguationScope(String disambiguationScope) {
+        this.disambiguationScope = disambiguationScope;
     }
 
     /** Whether the redaction ledger is enabled. */

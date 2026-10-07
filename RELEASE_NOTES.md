@@ -67,6 +67,11 @@ can be supplied. Methods that gained parameters keep their signatures and gained
   `getReadError()`, set on such an entry, whose `getReplacement()` is then `null` while the fields stored in
   the clear are still given. `getLedgerExport` on a chain with an unreadable entry is refused with a 422
   whose `getReason()` is `entry_unreadable`.
+* **Context disambiguation scope.** Philter (after philterd/philter#150) lets a context's disambiguation scope
+  be set, `document` (the default) or `context`. `createContext` and `updateContext` gain overloads that take
+  it (values in `DisambiguationScope`), and `ContextDetails` adds `getDisambiguationScope()`, which is `null`
+  from an earlier Philter. Any other value is refused with a 400. On update, a `null` setting keeps its current value, as Philter has done since
+  philterd/philter#128; the earlier Javadoc said it turned the setting off.
 * **Policies:** versions, diffs, rollback, and PhiSQL compilation; descriptions and notes (`getPolicyDetails`,
   `setPolicyDetails`, and `savePolicy` and `replacePolicy` overloads); managed policies with their
   descriptions (`listManagedPolicies`); and `copyPolicy`.

@@ -27,6 +27,7 @@ import ai.philterd.philter.model.GetContextsResponse;
 import ai.philterd.philter.model.GetContextsAcrossUsersResponse;
 import ai.philterd.philter.model.GetContextEntriesResponse;
 import ai.philterd.philter.model.DocumentStatus;
+import ai.philterd.philter.model.DisambiguationScope;
 import ai.philterd.philter.model.CustomListSummary;
 import ai.philterd.philter.model.ContextDetails;
 import ai.philterd.philter.model.SignInResponse;
@@ -1789,17 +1790,35 @@ public class PhilterClient {
 
 
 	/**
-	 * Creates a context. See {@link #createContext(String, Boolean, Boolean, String)}.
+	 * Creates a context with the {@link DisambiguationScope#DOCUMENT} disambiguation scope. See
+	 * {@link #createContext(String, Boolean, String, Boolean, String)}.
 	 * @param name The name of the context.
 	 * @param entityTypeDisambiguation Whether entity type disambiguation is enabled. {@code null} omits
-	 * the parameter, which Philter reads as {@code false} rather than as "leave unchanged".
+	 * the parameter, which Philter reads as {@code false}.
 	 * @param ledger Whether the redaction ledger is enabled. {@code null} omits the parameter, which
-	 * Philter reads as {@code false} rather than as "leave unchanged".
+	 * Philter reads as {@code false}.
 	 * @return A {@link GenericResponse}.
 	 * @throws IOException Thrown if the call can not be executed.
 	 */
 	public GenericResponse createContext(String name, Boolean entityTypeDisambiguation, Boolean ledger) throws IOException {
 		return createContext(name, entityTypeDisambiguation, ledger, null);
+	}
+
+	/**
+	 * Creates a context with the {@link DisambiguationScope#DOCUMENT} disambiguation scope. See
+	 * {@link #createContext(String, Boolean, String, Boolean, String)}.
+	 * @param name The name of the context.
+	 * @param entityTypeDisambiguation Whether entity type disambiguation is enabled. {@code null} omits
+	 * the parameter, which Philter reads as {@code false}.
+	 * @param ledger Whether the redaction ledger is enabled. {@code null} omits the parameter, which
+	 * Philter reads as {@code false}.
+	 * @param owner The owner of the context. May be {@code null}.
+	 * @return A {@link GenericResponse}.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public GenericResponse createContext(String name, Boolean entityTypeDisambiguation, Boolean ledger, String owner)
+			throws IOException {
+		return createContext(name, entityTypeDisambiguation, null, ledger, owner);
 	}
 
 	/**
@@ -1811,9 +1830,14 @@ public class PhilterClient {
 	 *
 	 * @param name The name of the context.
 	 * @param entityTypeDisambiguation Whether entity type disambiguation is enabled. {@code null} omits
-	 * the parameter, which Philter reads as {@code false} rather than as "leave unchanged".
+	 * the parameter, which Philter reads as {@code false}.
+	 * @param disambiguationScope What span disambiguation learns from when entity type disambiguation is
+	 * enabled: {@link DisambiguationScope#DOCUMENT} to learn within each document only, or
+	 * {@link DisambiguationScope#CONTEXT} to store what it learns and use it for every later document
+	 * redacted in the context. Case does not matter. {@code null} omits the parameter, which Philter reads
+	 * as {@code document}. Any other value is an HTTP 400, thrown as a {@link ClientException}.
 	 * @param ledger Whether the redaction ledger is enabled. {@code null} omits the parameter, which
-	 * Philter reads as {@code false} rather than as "leave unchanged".
+	 * Philter reads as {@code false}.
 	 * @param owner The owner of the context. May be {@code null}.
 	 * @return A {@link GenericResponse}.
 	 * @throws IOException Thrown if the call can not be executed.
@@ -1822,11 +1846,12 @@ public class PhilterClient {
 	 * a context with that name, even at the limit, or {@code context_limit_reached} when the caller already
 	 * has the most contexts a user may have (10, counting {@code default}).
 	 */
-	public GenericResponse createContext(String name, Boolean entityTypeDisambiguation, Boolean ledger, String owner)
-			throws IOException {
+	public GenericResponse createContext(String name, Boolean entityTypeDisambiguation, String disambiguationScope,
+			Boolean ledger, String owner) throws IOException {
 
 		final HttpRequest request = request(uri("/api/contexts", "name", name,
-				"entity_type_disambiguation", entityTypeDisambiguation, "ledger", ledger, "owner", owner))
+				"entity_type_disambiguation", entityTypeDisambiguation, "disambiguation_scope", disambiguationScope,
+				"ledger", ledger, "owner", owner))
 				.POST(HttpRequest.BodyPublishers.noBody())
 				.build();
 
@@ -1887,35 +1912,57 @@ public class PhilterClient {
 
 
 	/**
-	 * Updates a context.
+	 * Updates a context's settings, keeping its disambiguation scope. See
+	 * {@link #updateContext(String, Boolean, String, Boolean, String)}.
 	 * @param name The name of the context.
-	 * @param entityTypeDisambiguation Whether entity type disambiguation is enabled. {@code null} omits
-	 * the parameter, which Philter reads as {@code false} rather than as "leave unchanged".
-	 * @param ledger Whether the redaction ledger is enabled. {@code null} omits the parameter, which
-	 * Philter reads as {@code false} rather than as "leave unchanged".
+	 * @param entityTypeDisambiguation Whether entity type disambiguation is enabled. {@code null} keeps
+	 * the current value.
+	 * @param ledger Whether the redaction ledger is enabled. {@code null} keeps the current value.
 	 * @return A {@link GenericResponse}.
 	 * @throws IOException Thrown if the call can not be executed.
 	 */
 	public GenericResponse updateContext(String name, Boolean entityTypeDisambiguation, Boolean ledger) throws IOException {
-		return updateContext(name, entityTypeDisambiguation, ledger, null);
+		return updateContext(name, entityTypeDisambiguation, null, ledger, null);
 	}
 
 	/**
-	 * Updates a context.
+	 * Updates a context's settings, keeping its disambiguation scope. See
+	 * {@link #updateContext(String, Boolean, String, Boolean, String)}.
 	 * @param name The name of the context.
-	 * @param entityTypeDisambiguation Whether entity type disambiguation is enabled. {@code null} omits
-	 * the parameter, which Philter reads as {@code false} rather than as "leave unchanged".
-	 * @param ledger Whether the redaction ledger is enabled. {@code null} omits the parameter, which
-	 * Philter reads as {@code false} rather than as "leave unchanged".
+	 * @param entityTypeDisambiguation Whether entity type disambiguation is enabled. {@code null} keeps
+	 * the current value.
+	 * @param ledger Whether the redaction ledger is enabled. {@code null} keeps the current value.
 	 * @param owner The owner of the context. May be {@code null}.
 	 * @return A {@link GenericResponse}.
 	 * @throws IOException Thrown if the call can not be executed.
 	 */
 	public GenericResponse updateContext(String name, Boolean entityTypeDisambiguation, Boolean ledger, String owner)
 			throws IOException {
+		return updateContext(name, entityTypeDisambiguation, null, ledger, owner);
+	}
+
+	/**
+	 * Updates a context's settings. Only the settings given change: a {@code null} setting is left out of
+	 * the request and keeps its current value. Giving none is an HTTP 400, and a context that does not
+	 * exist an HTTP 404, each thrown as a {@link ClientException}.
+	 * @param name The name of the context.
+	 * @param entityTypeDisambiguation Whether entity type disambiguation is enabled. {@code null} keeps
+	 * the current value.
+	 * @param disambiguationScope What span disambiguation learns from: {@link DisambiguationScope#DOCUMENT}
+	 * or {@link DisambiguationScope#CONTEXT}, in any case. {@code null} keeps the current value. Any other
+	 * value is an HTTP 400, thrown as a {@link ClientException}, and changes nothing. What the context
+	 * scope has stored is kept when the scope changes, and deleted when the context is emptied or deleted.
+	 * @param ledger Whether the redaction ledger is enabled. {@code null} keeps the current value.
+	 * @param owner The owner of the context. May be {@code null}.
+	 * @return A {@link GenericResponse}.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public GenericResponse updateContext(String name, Boolean entityTypeDisambiguation, String disambiguationScope,
+			Boolean ledger, String owner) throws IOException {
 
 		final HttpRequest request = request(uri("/api/contexts/" + encode(name),
-				"entity_type_disambiguation", entityTypeDisambiguation, "ledger", ledger, "owner", owner))
+				"entity_type_disambiguation", entityTypeDisambiguation, "disambiguation_scope", disambiguationScope,
+				"ledger", ledger, "owner", owner))
 				.PUT(HttpRequest.BodyPublishers.noBody())
 				.build();
 
