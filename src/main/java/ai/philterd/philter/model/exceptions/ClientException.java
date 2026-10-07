@@ -27,10 +27,15 @@ package ai.philterd.philter.model.exceptions;
  *   contexts a user may have).</li>
  *   <li>{@code savePolicy}, {@code 409}: {@code policy_exists} (the owner already has a policy with that
  *   name; replace it with {@code replacePolicy}).</li>
- *   <li>{@code replacePolicy}, {@code 409}: {@code policy_changed} (the policy changed concurrently;
- *   reload it and retry).</li>
+ *   <li>{@code replacePolicy}, {@code 409}: {@code policy_managed} (a managed policy, whose name begins
+ *   with {@code managed_}, cannot be replaced; copy it with {@code copyPolicy} and change the copy) or
+ *   {@code policy_changed} (the policy changed concurrently; reload it and retry).</li>
  *   <li>{@code deletePolicy}, {@code 409}: {@code policy_default} (the {@code default} policy cannot be
- *   deleted).</li>
+ *   deleted) or {@code policy_managed} (a managed policy cannot be deleted).</li>
+ *   <li>{@code rollbackPolicy}, {@code 409}: {@code policy_managed} (a managed policy cannot be rolled
+ *   back) or {@code policy_changed} (the policy changed concurrently; reload it and retry).</li>
+ *   <li>{@code setPolicyDetails}, {@code 409}: {@code policy_managed} (a managed policy's description and
+ *   notes cannot be changed).</li>
  *   <li>{@code saveList}, {@code 409}: {@code list_exists} (the owner already has a list with that name;
  *   replace it with {@code replaceList}).</li>
  *   <li>{@code createHold}, {@code 409}: {@code hold_exists} (a hold with that reference exists) or
