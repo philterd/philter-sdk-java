@@ -10,128 +10,72 @@ are relative to 1.5.0.
 
 ### Breaking changes
 
-* Authenticate with `withApiKey(...)`, which sends its value verbatim in the `Authorization` header, so include
-  any scheme prefix such as `"Bearer "`.
-* `filter` and `explain` no longer take a document ID. Philter assigns it and returns it in the
-  `x-document-id` header.
-* Removed `status()`, since Philter 4.0.0 removed `/api/status`. Use `health()`, which returns a
-  `StatusResponse`.
-* Removed mTLS client-certificate support (`withSslConfiguration(...)`) and alerts, which Philter no longer
-  has.
-* Replaced Retrofit and OkHttp with the JDK's `java.net.http.HttpClient`. `withOkHttpClientBuilder(...)` is
-  replaced by `withHttpClientBuilder(HttpClient.Builder)`, which still gets the per-request timeout and the
-  `Authorization` header but not the connect timeout. `withMaxIdleConnections(...)` and
-  `withKeepAliveDurationMs(...)` are deprecated no-ops; use the `jdk.httpclient.connectionPoolSize` and
-  `jdk.httpclient.keepalive.timeout` system properties. `AbstractClient` is removed, and the `UNAUTHORIZED`
-  and `SERVICE_UNAVAILABLE` constants moved to `PhilterClient`.
+* `withApiKey(...)` sends its value verbatim in the `Authorization` header, so include any scheme prefix such
+  as `"Bearer "`.
+* `filter` and `explain` no longer take a document ID. Philter returns it in the `x-document-id` header.
+* `savePolicy(json)` is replaced by `savePolicy(name, json)`, which only creates: a name in use is a 409
+  `policy_exists`. Overwrite with `replacePolicy`. `Policy(policyName)` is renamed `getPolicy(policyName)`.
+* Removed `status()` (use `health()`), mTLS client certificates (`withSslConfiguration(...)`), and alerts.
+* The JDK's `java.net.http.HttpClient` replaces Retrofit and OkHttp. `withHttpClientBuilder(HttpClient.Builder)`
+  replaces `withOkHttpClientBuilder(...)` and does not get the connect timeout. `withMaxIdleConnections(...)`
+  and `withKeepAliveDurationMs(...)` are no-ops; use the `jdk.httpclient.connectionPoolSize` and
+  `jdk.httpclient.keepalive.timeout` system properties. `AbstractClient` is removed, and `UNAUTHORIZED` and
+  `SERVICE_UNAVAILABLE` moved to `PhilterClient`.
 
 ### Philter 4.0.0 API coverage
 
-The client implements every operation in Philter's OpenAPI specification, and every optional query parameter
-can be supplied. Methods that gained parameters keep their signatures and gained overloads.
+The client implements every operation in Philter's OpenAPI specification and every optional query parameter.
+New parameters arrive as overloads, so existing signatures are kept. `owner` overloads let an administrator
+act on another user's data, and paged calls take `offset` and `limit`.
 
-* **Filtering:** `filterToPdf` returns a redacted PDF; `filterAsync` and `filterToPdfAsync` submit a PDF for
-  asynchronous redaction and return its document ID for `getDocumentState` and `getDocument`. Each PDF method
-  takes the document as a `File` or as a `byte[]`, so an upload need not be written to disk first. `filter` and
-  `explain` take an optional filename, and can ask for a signed response: `FilterResponse` and
-  `ExplainResponse` return the `X-Philter-Signature` JWT, and `ExplainResponse` keeps the body it covers.
-* **Creating and replacing:** `savePolicy` and `saveList` only create; a name already in use is a
-  `ClientException` with status 409 and reason `policy_exists` or `list_exists`. Replace with
-  `replacePolicy` and `replaceList`, which refuse a missing policy or list with a 404. `deletePolicy` refuses
-  the `default` policy with a 409 and reason `policy_default`. After philterd/philter#146, `replacePolicy`,
-  `deletePolicy`, `rollbackPolicy`, and `setPolicyDetails` refuse a managed policy with a 409 and reason
-  `policy_managed`.
-* **Policy descriptions and notes travel in a request body.** Philter (after philterd/philter#144) refuses
-  `description` and `notes` as query parameters on `POST /api/policies` and `PUT /api/policies/{policyName}`
-  with a 400, so earlier clients that sent them now fail. `savePolicy` and `replacePolicy` keep their
-  signatures but, when either value is given, send it in a second request to
-  `PUT /api/policies/{policyName}/details`, so they need a Philter that has that endpoint. The two
-  requests are not atomic: if the second fails, the policy was already saved without the new values.
-* **Names that cannot be used in a path.** Philter (after philterd/philter#140) refuses context names, custom
-  list names, and legal hold references containing `/`, `\`, `;`, `%`, or a control character, or that are
-  `.` or `..`. `deleteContext`, `deleteList`, and `deleteHold` send such a name in the query string instead of
-  the path, so items created before the check can still be removed. This needs a Philter that includes
-  philterd/philter#140.
-* **A ledger chain that could not be checked.** Philter (after philterd/philter#145) reports a chain it cannot
-  validate, for example because an entry no longer decrypts, with `valid` false and a `validationError`, and
-  leaves out the check results. `LedgerChain` adds `getValidationError()`. `isHashChainValid()` and
-  `isSignaturesValid()` are replaced by `getHashChainValid()` and `getSignaturesValid()`, which return
-  `Boolean`, and `getSignedEntries()` and `getUnsignedEntries()` now return `Integer`. Each is `null` for a
-  chain that could not be checked, so it is not mistaken for a failed check.
-* **User legal holds.** Philter (after philterd/philter#148) makes `scopeValue` optional for a `user` hold,
-  which covers its owner, the caller or the user named by `owner` on `createHold`. A `scopeValue` given for a
-  `user` hold must be the owner's username, or the hold is refused with a 400, and Philter returns the
-  owner's username as its `scopeValue`. A `document_chain` hold still needs the document ID.
-* **Ledger entries that cannot be read.** Philter (after philterd/philter#147) lists a chain whose head entry
-  it can no longer read, for example after a key change, instead of failing the request. `LedgerEntry` adds
-  `getReadError()`, set on such an entry, whose `getReplacement()` is then `null` while the fields stored in
-  the clear are still given. `getLedgerExport` on a chain with an unreadable entry is refused with a 422
-  whose `getReason()` is `entry_unreadable`.
-* **Context disambiguation scope.** Philter (after philterd/philter#150) lets a context's disambiguation scope
-  be set, `document` (the default) or `context`. `createContext` and `updateContext` gain overloads that take
-  it (values in `DisambiguationScope`), and `ContextDetails` adds `getDisambiguationScope()`, which is `null`
-  from an earlier Philter. Any other value is refused with a 400. On update, a `null` setting keeps its current value, as Philter has done since
-  philterd/philter#128; the earlier Javadoc said it turned the setting off.
-* **Policies:** versions, diffs, rollback, and PhiSQL compilation; descriptions and notes (`getPolicyDetails`,
-  `setPolicyDetails`, and `savePolicy` and `replacePolicy` overloads); managed policies with their
-  descriptions (`listManagedPolicies`); and `copyPolicy`.
-* **Contexts, documents, legal holds, the redaction ledger, custom lists, redact lists, and
-  re-identification**, including context entry export and import, `getContext`'s per-filter-type counts,
-  and ledger deletion (`deleteLedgerEntry`, `purgeLedger`).
-* **Users:** `getUsers`, `getUser`, `getCurrentUser` (a `CurrentUser`, with the deployment's MFA settings),
-  `createUser` (optionally with a password), `setUserRole`, `deactivateUser`, and `reactivateUser`.
-* **Sign-in:** `signIn` returns a session key or an MFA challenge for `completeSignIn`, and `signOut` revokes
-  the session key. Overloads of both take the person's address and send it as `X-Forwarded-For`, so an
-  application signing people in is rate-limited and audited per person.
-* **Requests on behalf of a person:** `withClientAddress(Supplier<String>)` on the builder sends the
-  supplied address as `X-Forwarded-For` on every request, read at the time of each request, so Philter
-  records the person's address rather than the application's. An explicit address on `signIn` or
-  `completeSignIn` is sent instead. Passwords (`changePassword`, `setPassword`), MFA (`startMfaEnrollment`,
-  `confirmMfaEnrollment`, `removeMfaEnrollment`, `removeUserMfa`, `unlockUserMfa`), and
-  `revokeSessionKeys`.
-* **API keys:** `getApiKeys`, `createApiKey` for the caller or another user, `setApiKeyScopes`, and
-  `revokeApiKey`. A key's value is returned only when it is created. `listApiKeyScopes` lists every scope a
-  key can carry, with what it allows. After philterd/philter#141, `SignInResponse.getId()` gives the session
-  key's ID as `getApiKeys` lists it, `getApiKeys(owner, offset, limit, session)` lists only session keys or
-  only long-lived keys, and `setApiKeyScopes` documents the 409 when a key tries to change its own scopes.
-* **Administration:** `getAdminSettings` and `updateAdminSettings`, with the read-only deployment flags
-  `crossUserAccessEnabled`, `ledgerDeletionEnabled`, and `signingKeyExternallyManaged`; `getWebhook`,
-  `setWebhook`, and `removeWebhook`; `getAuditLog` and `exportAuditLog` (CSV); `regenerateSigningKey`; and
-  listings of policies, contexts, lists, ledger chains, and holds across all users.
-* `owner` overloads let an administrator act on another user's data, and paged calls take `offset` and
-  `limit`.
+* **Filtering:** redact PDFs with `filterToPdf`, or asynchronously with `filterAsync` and `filterToPdfAsync`
+  and then `getDocumentState` and `getDocument`, from a `File` or a `byte[]`. `filter` and `explain` take an
+  optional filename and can return a signed response (`X-Philter-Signature`).
+* **Policies:** versions, diffs, rollback, PhiSQL compilation, descriptions and notes, managed policies
+  (`listManagedPolicies`), and `copyPolicy`. Writes to a managed policy are a 409 `policy_managed`, and
+  deleting `default` a 409 `policy_default`. A description or notes given to `savePolicy` or `replacePolicy`
+  are sent in a second, non-atomic request.
+* **Contexts:** settings, including the disambiguation scope (`DisambiguationScope`); per-filter-type counts;
+  and entry listing, export, and import. On `updateContext`, a `null` setting keeps its current value.
+* **Documents, custom lists, redact lists, and re-identification.** `saveList` only creates (a name in use is
+  a 409 `list_exists`); `replaceList` replaces.
+* **Redaction ledger and legal holds:** list, verify, export, and delete ledger chains (`deleteLedgerEntry`,
+  `purgeLedger`). A chain Philter cannot check has a `getValidationError()` and `null` check results. An
+  unreadable entry has a `getReadError()`, and exporting its chain is a 422 `entry_unreadable`. A `user` hold
+  needs no `scopeValue`.
+* **Users and sign-in:** user management; `signIn`, `completeSignIn` (MFA), and `signOut`; passwords, MFA
+  enrollment, and `revokeSessionKeys`. `withClientAddress(Supplier<String>)` sends the end user's address as
+  `X-Forwarded-For` on every request, so Philter rate-limits and audits per person.
+* **API keys:** list, create, scope, and revoke keys, including session keys. `listApiKeyScopes` describes
+  each scope.
+* **Administration:** admin settings, the webhook, the audit log and its CSV export, signing-key rotation, and
+  listings across all users.
 
-Responses are typed models, such as `User`, `ApiKey`, `PolicyDetails`, `AuditEvent`, and `SignInResponse`.
-The calls that returned raw JSON have typed alternatives, and the `String` versions are deprecated:
-`listContexts`, `listContextsAcrossUsers`, `getContextDetails`, `listContextEntries`, `listCustomLists`,
-`listCustomListsAcrossUsers`, `listRedactLists`, `listLedgerChains`, `listLedgerChainsAcrossUsers`,
-`getLedgerChain`, `getLedgerExport`, `verifyLedgerChain`, `listDocuments`, `getDocumentState`, and
-`getSigningKeyDetails`. `listManagedPolicies` returns each managed policy's name and description, after
-philterd/philter#142, and replaces `getManagedPolicies`, which still returns the names and is deprecated.
-`createRedactList` and `updateRedactList` take a `RedactListsRequest`. Policy JSON,
-policy diffs, and context exports stay strings.
+Responses are typed models. Calls that returned raw JSON have typed alternatives, such as `listContexts`,
+`getContextDetails`, `listLedgerChains`, and `getLedgerExport`, and the `String` versions are deprecated, as
+is `getManagedPolicies`. Policy JSON, policy diffs, and
+context exports stay strings.
+
+Some of this needs a Philter that includes the matching change: path-unsafe names, which `deleteContext`,
+`deleteList`, and `deleteHold` can still remove (philterd/philter#140); session key listing (#141); managed
+policy descriptions (#142); policy descriptions and notes in a request body, without which earlier clients
+fail (#144); unverifiable ledger chains (#145); the `policy_managed` reason (#146); unreadable ledger entries
+(#147); `user` holds without a `scopeValue` (#148); and the disambiguation scope (#150).
 
 ### Errors
 
-* `ClientException` carries Philter's response body after the status code, truncated at 512 characters, and
-  exposes the status with `getStatusCode()`, the body's `message` field with `getErrorMessage()`, read
-  from the whole body, and its machine-readable `reason` with `getReason()`, such as `context_limit_reached`
-  or `context_exists` from `createContext`, so callers can act on an error without parsing its message.
-* `UnauthorizedException` carries Philter's message.
-* A sign-in for a locked username raises `SignInLockedException`, and one over the rate limit
-  `SignInRateLimitedException`. Both extend `ClientException` and carry the seconds to wait.
+* `ClientException` exposes `getStatusCode()`, `getErrorMessage()` (the body's `message`), and `getReason()`,
+  a machine-readable value such as `context_exists`, so callers need not parse messages.
+* `SignInLockedException` and `SignInRateLimitedException` extend it and carry the seconds to wait.
+  `UnauthorizedException` carries Philter's message.
 
 ### Build and tooling
 
-* Targets Java 11 bytecode. The only runtime dependencies are Gson and `commons-lang3`.
-* Publishes to Maven Central; snapshots are published from `main`.
-* The default HTTP client uses HTTP/1.1, follows redirects, and honors the `http.proxyHost` and
-  `https.proxyHost` system properties; a builder passed to `withHttpClientBuilder` is used as given. An
-  endpoint URL without a trailing slash is accepted.
-* Updated `commons-lang3` (#11) and `log4j-core` (#14, #15), now used only by the tests.
-* Mocked unit tests cover the whole client, and live integration tests run against a real Philter when
-  `PHILTER_ENDPOINT` is set.
-* The documentation covers every public method, and every code sample compiles against the SDK.
+* Targets Java 11 bytecode. The only runtime dependencies are Gson and `commons-lang3`. Published to Maven
+  Central, with snapshots from `main`.
+* The default HTTP client uses HTTP/1.1, follows redirects, and honors the proxy system properties.
+* Mocked tests cover the whole client; integration tests run against a live Philter when `PHILTER_ENDPOINT`
+  is set.
 
 ## 1.5.0 (2025-03-19)
 
