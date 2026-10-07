@@ -2602,7 +2602,7 @@ public class PhilterClient {
 
 
 	/**
-	 * Exports the ledger entry for a document.
+	 * Exports the ledger entry for a document. See {@link #exportLedger(String, String)}.
 	 * @param documentId The document ID.
 	 * @return The exported ledger entry.
 	 * @throws IOException Thrown if the call can not be executed.
@@ -2615,6 +2615,11 @@ public class PhilterClient {
 
 	/**
 	 * Exports the ledger entry for a document.
+	 *
+	 * <p>A chain with any entry Philter cannot read is not exported, even in part: Philter answers an
+	 * HTTP 422 whose {@link ClientException#getReason()} is {@code entry_unreadable}, thrown as a
+	 * {@link ClientException}. See {@link #getLedgerExport(String, String)}.</p>
+	 *
 	 * @param documentId The document ID.
 	 * @param owner The owner of the entry. May be {@code null}.
 	 * @return The exported ledger entry.
