@@ -32,6 +32,8 @@ package ai.philterd.philter.model.exceptions;
  *   {@code policy_changed} (the policy changed concurrently; reload it and retry).</li>
  *   <li>{@code deletePolicy}, {@code 409}: {@code policy_default} (the {@code default} policy cannot be
  *   deleted) or {@code policy_managed} (a managed policy cannot be deleted).</li>
+ *   <li>{@code copyPolicy}, {@code 409}: {@code policy_exists} (the owner already has a policy with the
+ *   new name).</li>
  *   <li>{@code rollbackPolicy}, {@code 409}: {@code policy_managed} (a managed policy cannot be rolled
  *   back) or {@code policy_changed} (the policy changed concurrently; reload it and retry).</li>
  *   <li>{@code setPolicyDetails}, {@code 409}: {@code policy_managed} (a managed policy's description and
@@ -41,6 +43,8 @@ package ai.philterd.philter.model.exceptions;
  *   <li>{@code createHold}, {@code 409}: {@code hold_exists} (a hold with that reference exists) or
  *   {@code operation_in_progress} (an evidence or hold operation for the owner is active or needs
  *   recovery). {@code deleteHold}, {@code 409}: {@code operation_in_progress}.</li>
+ *   <li>{@code getLedgerExport}, {@code 422}: {@code entry_unreadable} (an entry in the chain could not
+ *   be read, so the chain is not exported).</li>
  *   <li>{@code signIn}, {@code 429}: {@code locked} (the username is locked after repeated failures) or
  *   {@code rate_limited} (the client address is over the sign-in rate limit), raised as
  *   {@link SignInLockedException} and {@link SignInRateLimitedException}.</li>
