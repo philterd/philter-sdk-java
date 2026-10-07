@@ -49,6 +49,10 @@ public class AuditEvent {
     private String clientIpAddress;
 
     @Expose
+    @SerializedName("source")
+    private String source;
+
+    @Expose
     @SerializedName("details")
     private String details;
 
@@ -97,13 +101,32 @@ public class AuditEvent {
         this.associatedObject = associatedObject;
     }
 
-    /** The client IP address the request came from. */
+    /**
+     * The address of the client whose request caused the event: the connection's address or, for a request
+     * from a trusted proxy, the address its {@code X-Forwarded-For} names. {@code null} for an event with no
+     * request behind it. An event recorded before
+     * Philter separated {@link #getSource()} from the address may hold {@code api} or {@code system} here.
+     */
     public String getClientIpAddress() {
         return clientIpAddress;
     }
 
     public void setClientIpAddress(String clientIpAddress) {
         this.clientIpAddress = clientIpAddress;
+    }
+
+    /**
+     * Where the event came from: {@code api} for an event a request caused, including a redaction the
+     * asynchronous worker completes later, or {@code system} for one Philter recorded on its own, such as at
+     * startup or when a session key expires in the background. {@code null} for an event recorded before
+     * Philter recorded it.
+     */
+    public String getSource() {
+        return source;
+    }
+
+    public void setSource(String source) {
+        this.source = source;
     }
 
     /** A short, non-sensitive description. */

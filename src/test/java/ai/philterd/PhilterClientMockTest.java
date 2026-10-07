@@ -2002,6 +2002,27 @@ public class PhilterClientMockTest {
     }
 
     @Test
+    public void auditEventsCarryTheirSourceAndOnlyARequestsAddress() throws Exception {
+
+        // Recorded from Philter (philterd/philter#149): two events from requests, and one from startup.
+        respond(200, recorded("audit-sources.json"));
+
+        final List<AuditEvent> events = client().getAuditLog().getEvents();
+        Assert.assertEquals(3, events.size());
+
+        // Caused by a request: the caller's address, and the source api.
+        Assert.assertEquals("audit_log_exported", events.get(0).getEvent());
+        Assert.assertEquals("0:0:0:0:0:0:0:1", events.get(0).getClientIpAddress());
+        Assert.assertEquals("api", events.get(0).getSource());
+        Assert.assertEquals("api", events.get(1).getSource());
+
+        // Recorded by Philter at startup: no request, so no address.
+        Assert.assertEquals("api_key_created", events.get(2).getEvent());
+        Assert.assertNull(events.get(2).getClientIpAddress());
+        Assert.assertEquals("system", events.get(2).getSource());
+    }
+
+    @Test
     public void getAuditLogShortFormSendsNoFilters() throws Exception {
 
         respond(200, "{\"events\":[],\"total\":0}");
@@ -2028,7 +2049,7 @@ public class PhilterClientMockTest {
 
     /** The column row Philter writes at the top of every export page. */
     private static final String CSV_HEADER =
-            "timestamp,event,request_id,api_key_id,associated_object,client_ip_address,details\n";
+            "timestamp,event,request_id,api_key_id,associated_object,client_ip_address,source,details\n";
 
     @Test
     public void exportAuditLogSendsTheRangeAndReportsTruncation() throws Exception {
@@ -2038,8 +2059,8 @@ public class PhilterClientMockTest {
         responseHeaders.put("X-Philter-Export-Next-Offset", "52");
         responseHeaders.put("X-Philter-Export-Time-Zone", "America/New_York");
         respond(200, CSV_HEADER
-                + "2026-10-05T12:00:00Z,policy_saved,r2,,p1,,\n"
-                + "2026-10-05T11:00:00Z,policy_saved,r1,,p1,,\n");
+                + "2026-10-05T12:00:00Z,policy_saved,r2,,p1,,api,\n"
+                + "2026-10-05T11:00:00Z,policy_saved,r1,,p1,,api,\n");
 
         final AuditLogExport export = client().exportAuditLog(LocalDate.of(2026, 10, 1), LocalDate.of(2026, 10, 5),
                 ZoneId.of("America/New_York"), 50, 2);

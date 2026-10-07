@@ -49,7 +49,8 @@ act on another user's data, and paged calls take `offset` and `limit`.
 * **API keys:** list, create, scope, and revoke keys, including session keys. `listApiKeyScopes` describes
   each scope.
 * **Administration:** admin settings, the webhook, the audit log and its CSV export, signing-key rotation, and
-  listings across all users.
+  listings across all users. `AuditEvent.getSource()` is `api` for an event a request caused or `system` for
+  one Philter recorded on its own, and `getClientIpAddress()` is only ever the requesting client's address.
 
 Responses are typed models. Calls that returned raw JSON have typed alternatives, such as `listContexts`,
 `getContextDetails`, `listLedgerChains`, and `getLedgerExport`, and the `String` versions are deprecated, as
@@ -60,7 +61,8 @@ Some of this needs a Philter that includes the matching change: path-unsafe name
 `deleteList`, and `deleteHold` can still remove (philterd/philter#140); session key listing (#141); managed
 policy descriptions (#142); policy descriptions and notes in a request body, without which earlier clients
 fail (#144); unverifiable ledger chains (#145); the `policy_managed` reason (#146); unreadable ledger entries
-(#147); `user` holds without a `scopeValue` (#148); and the disambiguation scope (#150).
+(#147); `user` holds without a `scopeValue` (#148); an audit event's source (#149); and the disambiguation
+scope (#150).
 
 ### Errors
 
