@@ -24,7 +24,7 @@ client.filter("my-context", "my-policy", "Some sensitive text...");
 client.deletePolicy("my-policy");
 ```
 
-`savePolicy` only creates. A name the owner already uses is refused with a `ClientException` whose `getStatusCode()` is `409` and `getReason()` is `policy_exists`; replace the policy with `replacePolicy` instead. `replacePolicy` is refused with a `404` if there is no such policy, and with a `409` whose reason is `policy_changed` if the policy changed concurrently, in which case reload it and retry. `deletePolicy` is refused with a `404` if there is no such policy, and with a `409` whose reason is `policy_default` for the `default` policy, which cannot be deleted. Both refuse a [managed policy](#managed-policies) with a `409` whose reason is `policy_managed`.
+`savePolicy` only creates. A name the owner already uses is refused with a `ClientException` whose `getStatusCode()` is `409` and `getReason()` is `policy_exists`; replace the policy with `replacePolicy` instead. `replacePolicy` is refused with a `404` if there is no such policy, and with a `409` whose reason is `policy_changed` if the policy changed while the request was writing, or since the read whose entity tag you passed (see [Preventing lost updates](#preventing-lost-updates)), in which case read it again and retry. `deletePolicy` is refused with a `404` if there is no such policy, and with a `409` whose reason is `policy_default` for the `default` policy, which cannot be deleted. Both refuse a [managed policy](#managed-policies) with a `409` whose reason is `policy_managed`.
 
 ## Starting from a template
 
@@ -57,7 +57,34 @@ PolicyDetails details = client.getPolicyDetails("court");
 client.setPolicyDetails("court", null, "");
 ```
 
-Philter takes a description and notes only through `setPolicyDetails`, in a JSON body. When you pass them to `savePolicy` or `replacePolicy`, the client sends the policy first and then calls `setPolicyDetails` with the same `owner`; a `null` value is left out. The two requests are not atomic: if the second fails, its `ClientException` is thrown but the policy was already created or replaced, without the new description or notes. Call `setPolicyDetails` to set them; retrying it is safe.
+When you pass a description or notes to `savePolicy` or `replacePolicy`, the client sends them with the policy in one request, and Philter writes all three together: if the request is refused, for example for notes over 1000 characters, nothing is created or changed. A `null` value is left out, which keeps the current one; an empty string clears it. With a description or notes, the policy must be a JSON object, or the call throws an `IllegalArgumentException` before sending anything.
+
+## Preventing lost updates
+
+Two people, or two clients, editing the same policy could otherwise overwrite each other: each reads the policy, changes it, and saves, and the second save replaces the first without anyone noticing. To prevent that, make your change conditional on what you read:
+
+```java
+import ai.philterd.philter.model.PolicyWithETag;
+import ai.philterd.philter.model.exceptions.ClientException;
+import ai.philterd.philter.model.exceptions.ErrorReasons;
+
+PolicyWithETag read = client.getPolicyWithETag("claims");
+String edited = edit(read.getJson());
+try {
+    // Returns the policy's new entity tag, for the next change.
+    String tag = client.replacePolicy("claims", edited, null, null, read.getETag(), null);
+} catch (ClientException e) {
+    if (ErrorReasons.POLICY_CHANGED.equals(e.getReason())) {
+        // Someone else changed the policy: read it again, reapply the edit, and retry.
+    } else {
+        throw e;
+    }
+}
+```
+
+An entity tag identifies the policy together with its description and notes, and changes when any of them does; the revision changes only when the policy's content does. Read it with `getPolicyWithETag`, or from `getPolicyDetails(...).getEtag()`. Pass it as the expected tag to `replacePolicy(name, json, description, notes, expectedETag, owner)`, `setPolicyDetails(name, description, notes, expectedETag, owner)`, or `rollbackPolicy(name, revision, expectedETag, owner)`. If the policy, its description, or its notes changed since, nothing is written and the call throws a `ClientException` with status `409` and `getReason()` `ErrorReasons.POLICY_CHANGED`. A tag that is not one Philter gave is a `400` whose `getField()` is `If-Match`.
+
+Each write returns the new tag, so you can keep editing without reading the policy again: `savePolicy` and `replacePolicy` return it, `setPolicyDetails` and `copyPolicy` return details whose `getEtag()` has it, and `rollbackPolicy` returns it in `getETag()`. The overloads without an expected tag change the policy whatever its state, as before.
 
 ## Managed policies
 
@@ -107,7 +134,7 @@ PolicyRollbackResponse rollback = client.rollbackPolicy("my-policy", 1);
 System.out.println("rolled back to revision " + rollback.getRevision());
 ```
 
-A rollback is refused with a `404` if the policy or the revision does not exist, and `getErrorMessage()` says which, for example `Revision 99 does not exist.` It is refused with a `409` whose `getReason()` is `policy_managed` for a managed policy, and `policy_changed` if the policy changed concurrently, in which case reload it and retry.
+A rollback is refused with a `404` if the policy or the revision does not exist, and `getErrorMessage()` says which, for example `Revision 99 does not exist.` It is refused with a `409` whose `getReason()` is `policy_managed` for a managed policy, and `policy_changed` if the policy changed while the request was writing, or since the read whose entity tag you passed, in which case read it again and retry.
 
 A `PolicyDiff` has the `from` and `to` revisions and the RFC 6902 changes that turn one into the other. Each change has its `op` (`add`, `remove`, or `replace`), the JSON Pointer `path` that changed, the new `value` (`null` for a removal), and the `oldValue` before it (`null` for an addition), both as Gson `JsonElement`s. Without revision numbers, `diffPolicy` compares the two most recent retained revisions, and `from` and `to` say which they were. It reads the retained history, so it works for a [deleted policy](#deleted-policies) too. A policy with fewer than two retained revisions, including a name with no history at all, is a `400`. `getPolicyDiff`, which returns the diff as a JSON string, is deprecated.
 

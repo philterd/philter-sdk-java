@@ -30,6 +30,8 @@ are relative to 1.5.0.
   `listCustomLists(owner)`, and `listCustomListsAcrossUsers(offset, limit)`) read the new shape and still return
   one page's items, and are deprecated; `listCustomLists(owner)` still returns every list, reading each page.
   The deprecated `String` methods, such as `getLists` and `getContexts`, return Philter's new body as it is.
+* `savePolicy` and `replacePolicy` return the policy's new entity tag instead of `void`. Calls that ignore the
+  result still compile, but code compiled against an earlier 2.0.0 snapshot must be recompiled.
 
 ### Philter 4.0.0 API coverage
 
@@ -46,8 +48,10 @@ the listing's response type.
   most recent revisions), rollback, deleted policies (`getDeletedPolicies`), templates (`getPolicyTemplate`),
   PhiSQL compilation (`compilePhiSql`), descriptions and notes, managed policies (`listManagedPolicies`), and
   `copyPolicy`. Writes to a managed policy are a 409 `policy_managed`, and deleting `default` a 409
-  `policy_default`. A description or notes given to `savePolicy` or `replacePolicy` are sent in a second,
-  non-atomic request.
+  `policy_default`. A description or notes given to `savePolicy` or `replacePolicy` are written with the policy
+  in one request. `getPolicyWithETag` and `PolicyDetails.getEtag()` give a policy's entity tag, and
+  `replacePolicy`, `setPolicyDetails`, and `rollbackPolicy` take it as an expected tag, so a change made against
+  an older read is refused with `policy_changed` instead of overwriting someone else's.
 * **Contexts:** settings, including the disambiguation scope (`DisambiguationScope`); per-filter-type counts;
   and entry listing, export, and import. On `updateContext`, a `null` setting keeps its current value.
 * **Documents, custom lists, redact lists, and re-identification.** `saveList` only creates (a name in use is a
@@ -86,13 +90,14 @@ Some of this needs a Philter that includes the matching change: context, list, a
 in a request path (philterd/philter#140); session key listing (#141); managed policy descriptions (#142); policy
 descriptions and notes in a request body, without which earlier clients fail (#144); unverifiable ledger chains
 (#145); the `policy_managed` reason (#146); unreadable ledger entries (#147); `user` holds without a
-`scopeValue` (#148); an audit event's source (#149); the disambiguation scope (#150); paging the audit log
-export by cursor (#155); reading and replacing one redact list (#157); a reason and field on every error (#158);
-the listing envelopes, sorting, and search (#160), which the policy, version, hold, and custom list listings
-need to parse at all; limits and sign-in options (#159); audit event usernames and user ids (#161); policy
-templates (#164); webhook tests, delivery history, and keeping the secret (#165); deleted policies and version
-authors (#166); changing a user's email address, and the email rule on `createUser` (#168); session client
-details and signing out other sessions (#169); and request ids (#156).
+`scopeValue` (#148); an audit event's source (#149); the disambiguation scope (#150); conditional policy edits
+and a policy's details in the same request (#154); paging the audit log export by cursor (#155); reading and
+replacing one redact list (#157); a reason and field on every error (#158); the listing envelopes, sorting, and
+search (#160), which the policy, version, hold, and custom list listings need to parse at all; limits and
+sign-in options (#159); audit event usernames and user ids (#161); policy templates (#164); webhook tests,
+delivery history, and keeping the secret (#165); deleted policies and version authors (#166); changing a user's
+email address, and the email rule on `createUser` (#168); session client details and signing out other sessions
+(#169); and request ids (#156).
 
 ### Errors
 

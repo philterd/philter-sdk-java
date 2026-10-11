@@ -112,11 +112,11 @@ The reasons for each call's own refusals are below; `ErrorReasons` documents eve
 |------|--------|---------------|
 | `createContext` | `409` | `context_exists`: the caller already has a context with that name, even at the limit. `context_limit_reached`: the caller already has the most contexts a user may have. |
 | `savePolicy` | `409` | `policy_exists`: the owner already has a policy with that name. Replace it with `replacePolicy`. |
-| `replacePolicy` | `409` | `policy_managed`: a managed policy cannot be replaced; copy it with `copyPolicy` and change the copy. `policy_changed`: the policy changed concurrently. Reload it and retry. |
+| `replacePolicy` | `409` | `policy_managed`: a managed policy cannot be replaced; copy it with `copyPolicy` and change the copy. `policy_changed`: the policy changed since the read whose entity tag you passed, or while the request was writing; read it again and retry. |
 | `deletePolicy` | `409` | `policy_default`: the `default` policy cannot be deleted. `policy_managed`: a managed policy cannot be deleted. |
 | `copyPolicy` | `409` | `policy_exists`: the owner already has a policy with the new name. |
-| `rollbackPolicy` | `409` | `policy_managed`: a managed policy cannot be rolled back. `policy_changed`: the policy changed concurrently. Reload it and retry. |
-| `setPolicyDetails` | `409` | `policy_managed`: a managed policy's description and notes cannot be changed. |
+| `rollbackPolicy` | `409` | `policy_managed`: a managed policy cannot be rolled back. `policy_changed`: the policy changed since the read whose entity tag you passed, or while the request was writing; read it again and retry. |
+| `setPolicyDetails` | `409` | `policy_managed`: a managed policy's description and notes cannot be changed. `policy_changed`: the policy changed since the read whose entity tag you passed, or while the request was writing; read it again and retry. |
 | `saveList` | `409` | `list_exists`: the owner already has a list with that name. Replace it with `replaceList`. |
 | `createHold` | `409` | `hold_exists`: a hold with that reference exists. `operation_in_progress`: an evidence or hold operation for the owner is active or needs recovery. |
 | `deleteHold` | `409` | `operation_in_progress`, as for `createHold`. |

@@ -56,6 +56,7 @@ import ai.philterd.philter.model.GetApiKeysResponse;
 import ai.philterd.philter.model.GetAuditLogResponse;
 import ai.philterd.philter.model.GetListsResponse;
 import ai.philterd.philter.model.GetUsersResponse;
+import ai.philterd.philter.model.PolicyWithETag;
 import ai.philterd.philter.model.ListOptions;
 import ai.philterd.philter.model.Page;
 import ai.philterd.philter.model.RedactList;
@@ -448,6 +449,63 @@ public class PhilterClient {
 
 		return new Page<>(list, total == null || total.isJsonNull() ? list.size() : total.getAsLong());
 
+	}
+
+	/** A response's {@code ETag} header without its quotes, or {@code null} when it has none. */
+	private static String eTagOf(final HttpResponse<?> response) {
+		final String eTag = response.headers().firstValue("ETag").orElse(null);
+		if (eTag == null) {
+			return null;
+		}
+		final String value = eTag.startsWith("W/") ? eTag.substring(2) : eTag;
+		return value.length() >= 2 && value.startsWith("\"") && value.endsWith("\"")
+				? value.substring(1, value.length() - 1) : value;
+	}
+
+	/** An entity tag as an {@code If-Match} value: quoted, as Philter's {@code ETag} gives it. */
+	private static String ifMatch(final String eTag) {
+		final String value = eTag.trim();
+		return value.startsWith("\"") ? value : "\"" + value + "\"";
+	}
+
+	/**
+	 * A policy request body: the policy JSON itself, or, when a description or notes is given, the policy wrapped
+	 * with them so Philter writes all three together ({@code details=true}). A {@code null} description or notes
+	 * is left out, which keeps the current one.
+	 *
+	 * @throws IllegalArgumentException when the description or notes is given and the policy is not a JSON object.
+	 */
+	private static String policyBody(final String json, final String description, final String notes) {
+		if (description == null && notes == null) {
+			return json;
+		}
+		final JsonElement policy;
+		try {
+			policy = JsonParser.parseString(json);
+		} catch (final JsonParseException ex) {
+			throw new IllegalArgumentException("The policy is not valid JSON.", ex);
+		}
+		if (policy == null || !policy.isJsonObject()) {
+			throw new IllegalArgumentException("The policy must be a JSON object.");
+		}
+		final JsonObject body = new JsonObject();
+		body.add("policy", policy);
+		if (description != null) {
+			body.addProperty("description", description);
+		}
+		if (notes != null) {
+			body.addProperty("notes", notes);
+		}
+		return body.toString();
+	}
+
+	/** Sends a policy write and returns the new entity tag, failing on a non-2xx status. */
+	private String sendPolicyWrite(final HttpRequest request) throws IOException {
+		final HttpResponse<String> response = send(request, HttpResponse.BodyHandlers.ofString());
+		if (!isSuccessful(response)) {
+			throw toException(response, response.body());
+		}
+		return eTagOf(response);
 	}
 
 	/**
@@ -1373,6 +1431,56 @@ public class PhilterClient {
 	}
 
 	/**
+	 * Gets a policy with its entity tag. See {@link #getPolicyWithETag(String, String)}.
+	 * @param policyName The name of the policy.
+	 * @return The policy's JSON and entity tag.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public PolicyWithETag getPolicyWithETag(String policyName) throws IOException {
+		return getPolicyWithETag(policyName, null);
+	}
+
+	/**
+	 * Gets a policy's JSON together with its entity tag, for a change that must not overwrite someone else's.
+	 * Pass the tag as the expected tag to {@link #replacePolicy(String, String, String, String, String, String)},
+	 * {@link #setPolicyDetails(String, String, String, String, String)}, or
+	 * {@link #rollbackPolicy(String, int, String, String)}: if the policy, its description, or its notes changed
+	 * in between, the change is refused with {@link ErrorReasons#POLICY_CHANGED} instead of overwriting it.
+	 *
+	 * <pre>{@code
+	 * PolicyWithETag read = client.getPolicyWithETag("claims");
+	 * String edited = edit(read.getJson());
+	 * try {
+	 *     client.replacePolicy("claims", edited, null, null, read.getETag(), null);
+	 * } catch (ClientException e) {
+	 *     if (ErrorReasons.POLICY_CHANGED.equals(e.getReason())) {
+	 *         // Someone else changed it: read it again and reapply the edit.
+	 *     }
+	 * }
+	 * }</pre>
+	 *
+	 * @param policyName The name of the policy. A name beginning with {@code managed_} gets that managed policy.
+	 * @param owner The owner of the policy. May be {@code null} for the caller's own. Another user's
+	 * requires an administrator and {@code ADMIN_CROSS_USER_ACCESS_ENABLED=true} on the Philter
+	 * deployment; otherwise, or for an owner that does not exist, Philter answers HTTP 404, thrown as a
+	 * {@link ClientException}.
+	 * @return The policy's JSON and entity tag.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public PolicyWithETag getPolicyWithETag(String policyName, String owner) throws IOException {
+
+		final HttpRequest request = json(uri("/api/policies/" + encode(policyName), "owner", owner)).GET().build();
+		final HttpResponse<String> response = send(request, HttpResponse.BodyHandlers.ofString());
+
+		if (!isSuccessful(response)) {
+			throw toException(response, response.body());
+		}
+
+		return new PolicyWithETag(response.body(), eTagOf(response));
+
+	}
+
+	/**
 	 * Gets a policy template: a starting point for a new policy, as native policy JSON that Philter accepts
 	 * for its running policy schema version. Edit it, then save it as a policy with
 	 * {@link #savePolicy(String, String)}. A template is not a policy and cannot be used to redact until it
@@ -1402,10 +1510,12 @@ public class PhilterClient {
 	 * existing policy with {@link #replacePolicy(String, String)}.
 	 * @param name The name of the policy.
 	 * @param json The body of the policy.
+	 * @return The policy's new entity tag, for a later conditional change; {@code null} from a Philter version
+	 * that does not send one.
 	 * @throws IOException Thrown if the call can not be executed.
 	 */
-	public void savePolicy(String name, String json) throws IOException {
-		savePolicy(name, json, null);
+	public String savePolicy(String name, String json) throws IOException {
+		return savePolicy(name, json, null);
 	}
 
 	/**
@@ -1415,10 +1525,12 @@ public class PhilterClient {
 	 * @param name The name of the policy.
 	 * @param json The body of the policy.
 	 * @param owner The owner of the policy. May be {@code null}.
+	 * @return The policy's new entity tag, for a later conditional change; {@code null} from a Philter version
+	 * that does not send one.
 	 * @throws IOException Thrown if the call can not be executed.
 	 */
-	public void savePolicy(String name, String json, String owner) throws IOException {
-		savePolicy(name, json, null, null, owner);
+	public String savePolicy(String name, String json, String owner) throws IOException {
+		return savePolicy(name, json, null, null, owner);
 	}
 
 	/**
@@ -1428,10 +1540,12 @@ public class PhilterClient {
 	 * @param json The body of the policy.
 	 * @param description The description, up to 200 characters. May be {@code null}.
 	 * @param notes The notes, up to 1000 characters. May be {@code null}.
+	 * @return The policy's new entity tag, for a later conditional change; {@code null} from a Philter version
+	 * that does not send one.
 	 * @throws IOException Thrown if the call can not be executed.
 	 */
-	public void savePolicy(String name, String json, String description, String notes) throws IOException {
-		savePolicy(name, json, description, notes, null);
+	public String savePolicy(String name, String json, String description, String notes) throws IOException {
+		return savePolicy(name, json, description, notes, null);
 	}
 
 	/**
@@ -1446,12 +1560,10 @@ public class PhilterClient {
 	 * <p>Philter rejects a missing or invalid name (including one beginning with {@code managed_}) and
 	 * an invalid policy with an HTTP 400, thrown as a {@link ClientException}.</p>
 	 *
-	 * <p>When {@code description} or {@code notes} is given, this is two requests: the policy is
-	 * created, then they are set with {@link #setPolicyDetails(String, String, String, String)}. They
-	 * are not atomic. If the second request fails, for example with an HTTP 400 for a description over
-	 * 200 characters or notes over 1000, its {@link ClientException} is thrown but the policy has
-	 * already been created, without the description or notes; call {@code setPolicyDetails} to set
-	 * them.</p>
+	 * <p>The policy, description, and notes are written in one request, so if it is refused, for example with
+	 * an HTTP 400 for a description over 200 characters or notes over 1000, nothing is created. With a
+	 * description or notes, the policy must be a JSON object; anything else is an
+	 * {@link IllegalArgumentException} before any request is sent.</p>
 	 *
 	 * @param name The name of the policy.
 	 * @param json The body of the policy.
@@ -1461,22 +1573,21 @@ public class PhilterClient {
 	 * requires an administrator and {@code ADMIN_CROSS_USER_ACCESS_ENABLED=true} on the Philter
 	 * deployment; otherwise, or for an owner that does not exist, Philter answers HTTP 404, thrown as a
 	 * {@link ClientException}.
+	 * @return The policy's new entity tag, for a later conditional change; {@code null} from a Philter version
+	 * that does not send one.
 	 * @throws IOException Thrown if the call can not be executed.
 	 */
-	public void savePolicy(String name, String json, String description, String notes, String owner)
+	public String savePolicy(String name, String json, String description, String notes, String owner)
 			throws IOException {
 
-		final HttpRequest request = request(uri("/api/policies", "name", name, "owner", owner))
+		final boolean withDetails = description != null || notes != null;
+		final HttpRequest request = request(uri("/api/policies", "name", name, "owner", owner,
+				"details", withDetails ? Boolean.TRUE : null))
 				.header("Content-Type", APPLICATION_JSON)
-				.POST(text(json))
+				.POST(text(policyBody(json, description, notes)))
 				.build();
 
-		sendExpectingNoContent(request);
-
-		// Philter takes the description and notes only through the details endpoint, in a JSON body.
-		if (description != null || notes != null) {
-			setPolicyDetails(name, description, notes, owner);
-		}
+		return sendPolicyWrite(request);
 
 	}
 
@@ -1485,10 +1596,12 @@ public class PhilterClient {
 	 * {@code policies:write} scope. See {@link #replacePolicy(String, String, String, String, String)}.
 	 * @param name The name of the policy.
 	 * @param json The body of the policy.
+	 * @return The policy's new entity tag, for a later conditional change; {@code null} from a Philter version
+	 * that does not send one.
 	 * @throws IOException Thrown if the call can not be executed.
 	 */
-	public void replacePolicy(String name, String json) throws IOException {
-		replacePolicy(name, json, null, null, null);
+	public String replacePolicy(String name, String json) throws IOException {
+		return replacePolicy(name, json, null, null, null);
 	}
 
 	/**
@@ -1500,10 +1613,12 @@ public class PhilterClient {
 	 * requires an administrator and {@code ADMIN_CROSS_USER_ACCESS_ENABLED=true} on the Philter
 	 * deployment; otherwise, or for an owner that does not exist, Philter answers HTTP 404, thrown as a
 	 * {@link ClientException}.
+	 * @return The policy's new entity tag, for a later conditional change; {@code null} from a Philter version
+	 * that does not send one.
 	 * @throws IOException Thrown if the call can not be executed.
 	 */
-	public void replacePolicy(String name, String json, String owner) throws IOException {
-		replacePolicy(name, json, null, null, owner);
+	public String replacePolicy(String name, String json, String owner) throws IOException {
+		return replacePolicy(name, json, null, null, owner);
 	}
 
 	/**
@@ -1514,10 +1629,12 @@ public class PhilterClient {
 	 * @param description The description, up to 200 characters. May be {@code null} to keep the
 	 * current one.
 	 * @param notes The notes, up to 1000 characters. May be {@code null} to keep the current notes.
+	 * @return The policy's new entity tag, for a later conditional change; {@code null} from a Philter version
+	 * that does not send one.
 	 * @throws IOException Thrown if the call can not be executed.
 	 */
-	public void replacePolicy(String name, String json, String description, String notes) throws IOException {
-		replacePolicy(name, json, description, notes, null);
+	public String replacePolicy(String name, String json, String description, String notes) throws IOException {
+		return replacePolicy(name, json, description, notes, null);
 	}
 
 	/**
@@ -1531,15 +1648,14 @@ public class PhilterClient {
 	 * {@link ClientException#getReason()} says why: {@code policy_managed} for a managed policy (a name
 	 * beginning with {@code managed_}), which cannot be replaced, so copy it with
 	 * {@link #copyPolicy(String, String)} and change the copy; or {@code policy_changed} when the policy
-	 * changed concurrently, in which case reload it and retry. An invalid policy is an HTTP 400. Each is
-	 * thrown as a {@link ClientException}.</p>
+	 * changed while this request was writing, in which case read it again and retry. An invalid policy is an
+	 * HTTP 400. Each is thrown as a {@link ClientException}. To refuse the change if the policy changed since you
+	 * read it, use {@link #replacePolicy(String, String, String, String, String, String)} with its entity tag.</p>
 	 *
-	 * <p>When {@code description} or {@code notes} is given, this is two requests: the policy is
-	 * replaced, then they are set with {@link #setPolicyDetails(String, String, String, String)}. They
-	 * are not atomic. If the second request fails, for example with an HTTP 400 for a description over
-	 * 200 characters or notes over 1000, its {@link ClientException} is thrown but the new revision has
-	 * already been stored, with the previous description and notes; call {@code setPolicyDetails} to
-	 * set them.</p>
+	 * <p>The policy, description, and notes are written in one request, so if it is refused, for example with
+	 * an HTTP 400 for a description over 200 characters or notes over 1000, nothing is changed. With a
+	 * description or notes, the policy must be a JSON object; anything else is an
+	 * {@link IllegalArgumentException} before any request is sent.</p>
 	 *
 	 * @param name The name of the policy.
 	 * @param json The body of the policy.
@@ -1550,21 +1666,52 @@ public class PhilterClient {
 	 * requires an administrator and {@code ADMIN_CROSS_USER_ACCESS_ENABLED=true} on the Philter
 	 * deployment; otherwise, or for an owner that does not exist, Philter answers HTTP 404, thrown as a
 	 * {@link ClientException}.
+	 * @return The policy's new entity tag, for a later conditional change; {@code null} from a Philter version
+	 * that does not send one.
 	 * @throws IOException Thrown if the call can not be executed.
 	 */
-	public void replacePolicy(String name, String json, String description, String notes, String owner)
+	public String replacePolicy(String name, String json, String description, String notes, String owner)
 			throws IOException {
+		return replacePolicy(name, json, description, notes, null, owner);
+	}
 
-		final HttpRequest request = request(uri("/api/policies/" + encode(name), "owner", owner))
-				.header("Content-Type", APPLICATION_JSON)
-				.PUT(text(json))
-				.build();
+	/**
+	 * Replaces an existing policy, and its description and notes when given, only if it has not changed since you
+	 * read it. See {@link #replacePolicy(String, String, String, String, String)} for the rest.
+	 *
+	 * <p>With an {@code expectedETag}, the change is made only if the policy, its description, and its notes are
+	 * still as they were when you read the tag. If someone changed any of them since, nothing is written and
+	 * Philter answers HTTP 409 with {@link ClientException#getReason()} {@link ErrorReasons#POLICY_CHANGED}: read
+	 * the policy again, apply your change to what you read, and retry. A tag that is not one Philter gave is an
+	 * HTTP 400. Each is thrown as a {@link ClientException}.</p>
+	 *
+	 * @param name The name of the policy.
+	 * @param json The body of the policy.
+	 * @param description The description, up to 200 characters. May be {@code null} to keep the current one; an
+	 * empty string clears it.
+	 * @param notes The notes, up to 1000 characters. May be {@code null} to keep the current notes; an empty string
+	 * clears them.
+	 * @param expectedETag The entity tag from your read, from {@link #getPolicyWithETag(String, String)} or
+	 * {@link PolicyDetails#getEtag()}, quoted or not; or {@code null} to change the policy whatever its state.
+	 * @param owner The owner of the policy. May be {@code null} for the caller's own. Another user's
+	 * requires an administrator and {@code ADMIN_CROSS_USER_ACCESS_ENABLED=true} on the Philter
+	 * deployment; otherwise, or for an owner that does not exist, Philter answers HTTP 404, thrown as a
+	 * {@link ClientException}.
+	 * @return The policy's new entity tag, for the next change.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public String replacePolicy(String name, String json, String description, String notes, String expectedETag,
+			String owner) throws IOException {
 
-		sendExpectingNoContent(request);
-
-		if (description != null || notes != null) {
-			setPolicyDetails(name, description, notes, owner);
+		final boolean withDetails = description != null || notes != null;
+		final HttpRequest.Builder builder = request(uri("/api/policies/" + encode(name), "owner", owner,
+				"details", withDetails ? Boolean.TRUE : null))
+				.header("Content-Type", APPLICATION_JSON);
+		if (expectedETag != null && !expectedETag.isBlank()) {
+			builder.header("If-Match", ifMatch(expectedETag));
 		}
+
+		return sendPolicyWrite(builder.PUT(text(policyBody(json, description, notes))).build());
 
 	}
 
@@ -1642,13 +1789,44 @@ public class PhilterClient {
 	 */
 	public PolicyDetails setPolicyDetails(String policyName, String description, String notes, String owner)
 			throws IOException {
+		return setPolicyDetails(policyName, description, notes, null, owner);
+	}
 
-		final HttpRequest request = json(uri("/api/policies/" + encode(policyName) + "/details", "owner", owner))
-				.header("Content-Type", APPLICATION_JSON)
-				.PUT(text(gson.toJson(new SetPolicyDetailsRequest(description, notes))))
-				.build();
+	/**
+	 * Sets a policy's description and notes only if the policy has not changed since you read it. See
+	 * {@link #setPolicyDetails(String, String, String, String)} for the rest.
+	 *
+	 * <p>With an {@code expectedETag}, the change is made only if the policy, its description, and its notes are
+	 * still as they were when you read the tag. If someone changed any of them since, nothing is written and
+	 * Philter answers HTTP 409 with {@link ClientException#getReason()} {@link ErrorReasons#POLICY_CHANGED}: read
+	 * the policy again, apply your change to what you read, and retry. A tag that is not one Philter gave is an
+	 * HTTP 400. Each is thrown as a {@link ClientException}.</p>
+	 *
+	 * @param policyName The name of the policy.
+	 * @param description The description, up to 200 characters. {@code null} leaves it as it is, and an empty
+	 * string clears it.
+	 * @param notes The notes, up to 1000 characters. {@code null} leaves them as they are, and an empty string
+	 * clears them.
+	 * @param expectedETag The entity tag from your read, from {@link #getPolicyWithETag(String, String)} or
+	 * {@link PolicyDetails#getEtag()}, quoted or not; or {@code null} to change the policy whatever its state.
+	 * @param owner The owner of the policy. May be {@code null} for the caller's own. Another user's
+	 * requires an administrator and {@code ADMIN_CROSS_USER_ACCESS_ENABLED=true} on the Philter
+	 * deployment; otherwise, or for an owner that does not exist, Philter answers HTTP 404, thrown as a
+	 * {@link ClientException}.
+	 * @return The policy's details after the change, with its new {@link PolicyDetails#getEtag()}.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public PolicyDetails setPolicyDetails(String policyName, String description, String notes, String expectedETag,
+			String owner) throws IOException {
 
-		return sendExpectingJson(request, PolicyDetails.class);
+		final HttpRequest.Builder builder = json(uri("/api/policies/" + encode(policyName) + "/details", "owner", owner))
+				.header("Content-Type", APPLICATION_JSON);
+		if (expectedETag != null && !expectedETag.isBlank()) {
+			builder.header("If-Match", ifMatch(expectedETag));
+		}
+
+		return sendExpectingJson(builder.PUT(text(gson.toJson(new SetPolicyDetailsRequest(description, notes)))).build(),
+				PolicyDetails.class);
 
 	}
 
@@ -2024,8 +2202,9 @@ public class PhilterClient {
 	 * it is {@code null} when the {@code owner} does not exist or may not be reached. A policy that was
 	 * not rolled back is an HTTP 409 whose {@link ClientException#getReason()} says why:
 	 * {@code policy_managed} for a managed policy (a name beginning with {@code managed_}), which cannot
-	 * be rolled back, or {@code policy_changed} when the policy changed concurrently, in which case reload
-	 * it and retry. Each is thrown as a {@link ClientException}.</p>
+	 * be rolled back, or {@code policy_changed} when the policy changed while this request was writing, in
+	 * which case read it again and retry. Each is thrown as a {@link ClientException}. To refuse the rollback if
+	 * the policy changed since you read it, use {@link #rollbackPolicy(String, int, String, String)}.</p>
 	 *
 	 * @param policyName The name of the policy.
 	 * @param revision The revision number to roll back to.
@@ -2034,13 +2213,48 @@ public class PhilterClient {
 	 * @throws IOException Thrown if the call can not be executed.
 	 */
 	public PolicyRollbackResponse rollbackPolicy(String policyName, int revision, String owner) throws IOException {
+		return rollbackPolicy(policyName, revision, null, owner);
+	}
 
-		final HttpRequest request = json(uri("/api/policies/" + encode(policyName) + "/rollback",
-				"revision", revision, "owner", owner))
-				.POST(HttpRequest.BodyPublishers.noBody())
-				.build();
+	/**
+	 * Rolls a policy back to a prior revision only if the policy has not changed since you read it. The
+	 * description and notes are kept. See {@link #rollbackPolicy(String, int, String)} for the rest.
+	 *
+	 * <p>With an {@code expectedETag}, the change is made only if the policy, its description, and its notes are
+	 * still as they were when you read the tag. If someone changed any of them since, nothing is written and
+	 * Philter answers HTTP 409 with {@link ClientException#getReason()} {@link ErrorReasons#POLICY_CHANGED}: read
+	 * the policy again, apply your change to what you read, and retry. A tag that is not one Philter gave is an
+	 * HTTP 400. Each is thrown as a {@link ClientException}.</p>
+	 *
+	 * @param policyName The name of the policy.
+	 * @param revision The revision number to roll back to.
+	 * @param expectedETag The entity tag from your read, from {@link #getPolicyWithETag(String, String)} or
+	 * {@link PolicyDetails#getEtag()}, quoted or not; or {@code null} to change the policy whatever its state.
+	 * @param owner The owner of the policy. May be {@code null} for the caller's own. Another user's
+	 * requires an administrator and {@code ADMIN_CROSS_USER_ACCESS_ENABLED=true} on the Philter
+	 * deployment; otherwise, or for an owner that does not exist, Philter answers HTTP 404, thrown as a
+	 * {@link ClientException}.
+	 * @return The new revision number, and the policy's new entity tag in {@link PolicyRollbackResponse#getETag()}.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public PolicyRollbackResponse rollbackPolicy(String policyName, int revision, String expectedETag, String owner)
+			throws IOException {
 
-		return sendExpectingJson(request, PolicyRollbackResponse.class);
+		final HttpRequest.Builder builder = json(uri("/api/policies/" + encode(policyName) + "/rollback",
+				"revision", revision, "owner", owner));
+		if (expectedETag != null && !expectedETag.isBlank()) {
+			builder.header("If-Match", ifMatch(expectedETag));
+		}
+
+		final HttpResponse<String> response = send(builder.POST(HttpRequest.BodyPublishers.noBody()).build(),
+				HttpResponse.BodyHandlers.ofString());
+		if (!isSuccessful(response)) {
+			throw toException(response, response.body());
+		}
+
+		final PolicyRollbackResponse rollback = gson.fromJson(response.body(), PolicyRollbackResponse.class);
+		rollback.setETag(eTagOf(response));
+		return rollback;
 
 	}
 

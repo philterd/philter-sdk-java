@@ -27,12 +27,27 @@ public class PolicyRollbackResponse {
     @SerializedName("revision")
     private int revision;
 
+    /** From the response's {@code ETag} header, not its body. */
+    private transient String eTag;
+
     public int getRevision() {
         return revision;
     }
 
     public void setRevision(int revision) {
         this.revision = revision;
+    }
+
+    /**
+     * The policy's entity tag after the rollback, from the response's {@code ETag} header, without quotes, for the
+     * next conditional change. {@code null} from a Philter version that does not send one.
+     */
+    public String getETag() {
+        return eTag;
+    }
+
+    public void setETag(String eTag) {
+        this.eTag = eTag;
     }
 
 }

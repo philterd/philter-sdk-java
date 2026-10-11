@@ -40,6 +40,10 @@ public class PolicyDetails {
     private int revision;
 
     @Expose
+    @SerializedName("etag")
+    private String etag;
+
+    @Expose
     @SerializedName("managed")
     private boolean managed;
 
@@ -85,6 +89,21 @@ public class PolicyDetails {
 
     public void setRevision(int revision) {
         this.revision = revision;
+    }
+
+    /**
+     * The policy's entity tag, such as {@code 7-0123456789abcdef}. It identifies the policy together with its
+     * description and notes, and changes when any of them does; the revision changes only when the policy's
+     * content does. Pass it as the expected tag to {@code replacePolicy}, {@code setPolicyDetails}, or
+     * {@code rollbackPolicy} so the change is refused if someone else changed the policy since. {@code null} from a
+     * Philter version that does not return it.
+     */
+    public String getEtag() {
+        return etag;
+    }
+
+    public void setEtag(String etag) {
+        this.etag = etag;
     }
 
     /** Whether this is a built-in managed policy, which can be read and copied but not changed. */

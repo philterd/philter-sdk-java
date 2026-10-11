@@ -157,6 +157,16 @@ This client reads the listing shape Philter returns since philterd/philter#160: 
 `GET /api/policies`, `/api/holds`, `/api/lists`, and policy versions used to return bare arrays, so their listing methods
 need a Philter that includes that change. The older methods that return a plain `List` still work and are deprecated.
 
+Edit a policy without overwriting someone else's change: read it with its entity tag, and pass the tag back. If the
+policy changed since, the write is refused with `ErrorReasons.POLICY_CHANGED`:
+
+```
+PolicyWithETag read = client.getPolicyWithETag("claims");
+String newTag = client.replacePolicy("claims", edited, "Claims", null, read.getETag(), null);
+```
+
+A description or notes passed to `savePolicy` or `replacePolicy` is written with the policy in one request.
+
 Every refusal carries a stable reason. Act on it with the `ErrorReasons` constants rather than on the message or the
 status alone; `getField()` names the invalid field when Philter reports one:
 

@@ -68,6 +68,7 @@ import ai.philterd.philter.model.StatusResponse;
 import ai.philterd.philter.model.UpdateAdminSettingsRequest;
 import ai.philterd.philter.model.User;
 import ai.philterd.philter.model.Webhook;
+import ai.philterd.philter.model.PolicyWithETag;
 import ai.philterd.philter.model.GetContextsResponse;
 import ai.philterd.philter.model.Page;
 import ai.philterd.philter.model.ListOptions;
@@ -828,40 +829,35 @@ public class PhilterClientMockTest {
     @Test
     public void savePolicyWithDescriptionAndNotes() throws Exception {
 
-        respondNext(201, "");
-        respond(200, POLICY_DETAILS);
+        responseHeaders.put("ETag", "\"1-0123456789abcdef\"");
+        respond(201, "");
 
-        client().savePolicy("court", "{\"identifiers\":{}}", "Federal court filings", "Line one\nline two");
+        final String eTag = client().savePolicy("court", "{\"identifiers\":{}}", "Federal court filings",
+                "Line one\nline two");
 
-        // Philter refuses description and notes on the create, so they follow in a details request.
-        Assert.assertEquals(2, requests.size());
+        // One request: the policy and its details are written together.
+        Assert.assertEquals(1, requests.size());
         final RecordedRequest create = requests.get(0);
         Assert.assertEquals("POST", create.method);
         Assert.assertEquals("/api/policies", create.path);
-        Assert.assertEquals(Map.of("name", "court"), create.queryParameters);
-        Assert.assertEquals("{\"identifiers\":{}}", create.body);
-        final RecordedRequest details = requests.get(1);
-        Assert.assertEquals("PUT", details.method);
-        Assert.assertEquals("/api/policies/court/details", details.path);
-        Assert.assertTrue(details.queryParameters.isEmpty());
-        Assert.assertEquals("{\"description\":\"Federal court filings\",\"notes\":\"Line one\\nline two\"}", details.body);
+        Assert.assertEquals(Map.of("name", "court", "details", "true"), create.queryParameters);
+        Assert.assertEquals("{\"policy\":{\"identifiers\":{}},\"description\":\"Federal court filings\","
+                + "\"notes\":\"Line one\\nline two\"}", create.body);
+        Assert.assertEquals("the created policy's tag, unquoted", "1-0123456789abcdef", eTag);
 
         requests.clear();
-        respondNext(201, "");
         client().savePolicy("court", "{\"identifiers\":{}}", null, "Only the notes", OWNER);
+        Assert.assertEquals(Map.of("name", "court", "owner", OWNER, "details", "true"), requests.get(0).queryParameters);
+        // A null description is left out, so nothing is set for it.
+        Assert.assertEquals("{\"policy\":{\"identifiers\":{}},\"notes\":\"Only the notes\"}", requests.get(0).body);
 
-        Assert.assertEquals(Map.of("name", "court", "owner", OWNER), requests.get(0).queryParameters);
-        Assert.assertEquals(Map.of("owner", OWNER), requests.get(1).queryParameters);
-        // A null description is left out, so the stored one is kept.
-        Assert.assertEquals("{\"notes\":\"Only the notes\"}", requests.get(1).body);
-
-        // Neither given: only the create is sent.
+        // Neither given: the policy is sent as it is, without details=true.
         requests.clear();
-        respond(201, "");
         client().savePolicy("court", "{\"identifiers\":{}}", null, null);
         Assert.assertEquals(1, requests.size());
+        Assert.assertEquals(Map.of("name", "court"), requests.get(0).queryParameters);
+        Assert.assertEquals("{\"identifiers\":{}}", requests.get(0).body);
     }
-
     /** 1000 three-byte characters: within the notes limit, but 9000 bytes once percent-encoded. */
     private static final String LONG_NOTES = "\u8a18".repeat(1000);
 
@@ -870,43 +866,33 @@ public class PhilterClientMockTest {
     @Test
     public void longNotesTravelInTheDetailsBodyWhenSavingOrReplacingAPolicy() throws Exception {
 
-        respondNext(201, "");
-        respond(200, POLICY_DETAILS);
+        respond(201, "");
         client().savePolicy("court", "{\"identifiers\":{}}", null, LONG_NOTES);
-
-        respondNext(200, "");
+        respond(200, "");
         client().replacePolicy("court", "{\"identifiers\":{}}", null, LONG_NOTES, OWNER);
 
-        Assert.assertEquals(4, requests.size());
-        for (final int i : new int[]{1, 3}) {
-            final RecordedRequest details = requests.get(i);
-            Assert.assertEquals("/api/policies/court/details", details.path);
-            Assert.assertEquals(LONG_NOTES, com.google.gson.JsonParser.parseString(details.body).getAsJsonObject()
-                    .get("notes").getAsString());
-        }
+        Assert.assertEquals(2, requests.size());
         for (final RecordedRequest request : requests) {
+            Assert.assertEquals(LONG_NOTES, com.google.gson.JsonParser.parseString(request.body).getAsJsonObject()
+                    .get("notes").getAsString());
             Assert.assertFalse(request.queryParameters.containsKey("notes"));
             Assert.assertFalse(request.queryParameters.containsKey("description"));
             Assert.assertTrue(request.rawQuery == null || request.rawQuery.length() < 100);
         }
     }
-
     @Test
     public void aFailedDetailsRequestAfterSavingAPolicyIsAClientException() {
 
-        respondNext(201, "");
-        respond(400, "{\"message\":\"The notes cannot be longer than 1000 characters.\"}");
+        respond(400, "{\"message\":\"The notes cannot be longer than 1000 characters.\",\"reason\":\"invalid_request\"}");
 
         final ClientException ex = Assert.assertThrows(ClientException.class,
                 () -> client().savePolicy("court", "{\"identifiers\":{}}", null, "n"));
 
         Assert.assertEquals(400, ex.getStatusCode());
         Assert.assertEquals("The notes cannot be longer than 1000 characters.", ex.getErrorMessage());
-        // The create was sent and succeeded before the details request failed.
-        Assert.assertEquals("POST", requests.get(0).method);
-        Assert.assertEquals("/api/policies/court/details", requests.get(1).path);
+        // One request, refused as a whole: nothing was created without its details.
+        Assert.assertEquals(1, requests.size());
     }
-
     @Test
     public void aFailedReplaceDoesNotSendTheDetails() {
 
@@ -2502,11 +2488,11 @@ public class PhilterClientMockTest {
         verifyOwner("/api/policies", "", () -> c.savePolicy("p1", "{}", OWNER));
         // With a description or notes, both the create and the details request carry the owner.
         requests.clear();
-        verifyOwner("/api/policies/p1/details", "{}", () -> c.savePolicy("p1", "{}", "d", "n", OWNER));
+        verifyOwner("/api/policies", "{}", () -> c.savePolicy("p1", "{}", "d", "n", OWNER));
         Assert.assertEquals("/api/policies", requests.get(0).path);
         Assert.assertEquals(OWNER, requests.get(0).queryParameters.get("owner"));
         requests.clear();
-        verifyOwner("/api/policies/p1/details", "{}", () -> c.replacePolicy("p1", "{}", "d", "n", OWNER));
+        verifyOwner("/api/policies/p1", "{}", () -> c.replacePolicy("p1", "{}", "d", "n", OWNER));
         Assert.assertEquals("/api/policies/p1", requests.get(0).path);
         Assert.assertEquals(OWNER, requests.get(0).queryParameters.get("owner"));
         verifyOwner("/api/policies/p1", "", () -> c.replacePolicy("p1", "{}", OWNER));
@@ -3012,10 +2998,14 @@ public class PhilterClientMockTest {
         Assert.assertEquals(List.of("2001:db8::7"), lastRecorded().forwardedFor);
         Assert.assertEquals(2, calls.get());
 
-        // A call that makes two requests reads it twice.
-        respondNext(201, "");
-        respond(200, POLICY_DETAILS);
-        c.savePolicy("court", "{\"identifiers\":{}}", "Federal court filings", null);
+        // A call that makes two requests reads it twice: every list, read a page at a time.
+        final StringBuilder first = new StringBuilder("{\"lists\":[");
+        for (int i = 0; i < 100; i++) {
+            first.append(i == 0 ? "" : ",").append("{\"name\":\"l").append(i).append("\"}");
+        }
+        queuedResponses.add(Map.entry(200, first.append("],\"total\":101}").toString().getBytes(StandardCharsets.UTF_8)));
+        queuedResponses.add(Map.entry(200, "{\"lists\":[{\"name\":\"l100\"}],\"total\":101}".getBytes(StandardCharsets.UTF_8)));
+        c.listCustomLists();
         Assert.assertEquals(4, calls.get());
         Assert.assertEquals(List.of("2001:db8::7"), requests.get(requests.size() - 2).forwardedFor);
         Assert.assertEquals(List.of("2001:db8::7"), lastRecorded().forwardedFor);
@@ -3711,23 +3701,19 @@ public class PhilterClientMockTest {
         Assert.assertEquals("/api/policies/court", path);
         Assert.assertEquals("application/json", header("Content-Type"));
         Assert.assertEquals("{\"identifiers\":{}}", requestBodyAsString());
-        // Left out, so Philter keeps the current description and notes.
+        // Left out, so Philter keeps the current description and notes, and no If-Match is sent.
         Assert.assertTrue(queryParameters.isEmpty());
+        Assert.assertNull(header("If-Match"));
 
         requests.clear();
-        respond(200, POLICY_DETAILS);
         client().replacePolicy("court", "{\"identifiers\":{}}", "Federal court filings", null, OWNER);
-        Assert.assertEquals(2, requests.size());
+        Assert.assertEquals(1, requests.size());
         Assert.assertEquals("PUT", requests.get(0).method);
         Assert.assertEquals("/api/policies/court", requests.get(0).path);
-        Assert.assertEquals(Map.of("owner", OWNER), requests.get(0).queryParameters);
-        Assert.assertEquals("{\"identifiers\":{}}", requests.get(0).body);
-        Assert.assertEquals("PUT", requests.get(1).method);
-        Assert.assertEquals("/api/policies/court/details", requests.get(1).path);
-        Assert.assertEquals(Map.of("owner", OWNER), requests.get(1).queryParameters);
-        Assert.assertEquals("{\"description\":\"Federal court filings\"}", requests.get(1).body);
+        Assert.assertEquals(Map.of("owner", OWNER, "details", "true"), requests.get(0).queryParameters);
+        Assert.assertEquals("{\"policy\":{\"identifiers\":{}},\"description\":\"Federal court filings\"}",
+                requests.get(0).body);
     }
-
     @Test
     public void replacingAPolicyThatDoesNotExistIsA404() {
 
@@ -5085,6 +5071,137 @@ public class PhilterClientMockTest {
         respond(200, "{\"policies\":[\"a\",\"b\"]}");
 
         Assert.assertEquals(2, client().listPolicies(null, null).getTotal());
+    }
+
+
+    // ----- Conditional policy edits -----
+
+    private static final String TAG = "7-0123456789abcdef";
+
+    @Test
+    public void getPolicyWithETagReturnsTheJsonAndTheUnquotedTag() throws Exception {
+
+        responseHeaders.put("ETag", "\"" + TAG + "\"");
+        respond(200, "{\"identifiers\":{}}");
+
+        final PolicyWithETag read = client().getPolicyWithETag("claims");
+
+        Assert.assertEquals("GET", method);
+        Assert.assertEquals("/api/policies/claims", path);
+        Assert.assertEquals("{\"identifiers\":{}}", read.getJson());
+        Assert.assertEquals(TAG, read.getETag());
+
+        responseHeaders.remove("ETag");
+        Assert.assertNull("an older Philter sends no tag", client().getPolicyWithETag("claims", OWNER).getETag());
+        Assert.assertEquals(OWNER, queryParameter("owner"));
+    }
+
+    @Test
+    public void policyDetailsCarryTheTag() throws Exception {
+
+        respond(200, "{\"name\":\"claims\",\"revision\":7,\"etag\":\"" + TAG + "\",\"managed\":false}");
+
+        Assert.assertEquals(TAG, client().getPolicyDetails("claims").getEtag());
+    }
+
+    @Test
+    public void replacePolicyWithATagSendsIfMatchAndReturnsTheNewTag() throws Exception {
+
+        responseHeaders.put("ETag", "\"8-fedcba9876543210\"");
+        respond(200, "");
+
+        final String newTag = client().replacePolicy("claims", "{\"identifiers\":{}}", "Claims", null, TAG, null);
+
+        Assert.assertEquals("PUT", method);
+        Assert.assertEquals("\"" + TAG + "\"", header("If-Match"));
+        Assert.assertEquals(Map.of("details", "true"), queryParameters);
+        Assert.assertEquals("{\"policy\":{\"identifiers\":{}},\"description\":\"Claims\"}", requestBodyAsString());
+        Assert.assertEquals("8-fedcba9876543210", newTag);
+
+        // A tag passed as the ETag header gives it, quoted, is sent as it is.
+        client().replacePolicy("claims", "{\"identifiers\":{}}", null, null, "\"" + TAG + "\"", OWNER);
+        Assert.assertEquals("\"" + TAG + "\"", header("If-Match"));
+        Assert.assertEquals("{\"identifiers\":{}}", requestBodyAsString());
+        Assert.assertEquals(Map.of("owner", OWNER), queryParameters);
+
+        // No tag, no If-Match.
+        client().replacePolicy("claims", "{\"identifiers\":{}}", null, null, null, null);
+        Assert.assertNull(header("If-Match"));
+    }
+
+    @Test
+    public void aStaleTagIsAConflictWithReasonPolicyChanged() {
+
+        respond(409, "{\"message\":\"The policy changed since it was read. Read it again and retry.\","
+                + "\"reason\":\"policy_changed\"}");
+
+        for (final ThrowingRunnable write : new ThrowingRunnable[]{
+                () -> client().replacePolicy("claims", "{}", null, null, TAG, null),
+                () -> client().setPolicyDetails("claims", null, "n", TAG, null),
+                () -> client().rollbackPolicy("claims", 3, TAG, null)}) {
+            final ClientException ex = Assert.assertThrows(ClientException.class, write);
+            Assert.assertEquals(409, ex.getStatusCode());
+            Assert.assertEquals(ErrorReasons.POLICY_CHANGED, ex.getReason());
+        }
+    }
+
+    @Test
+    public void aMalformedTagIsA400NamingIfMatch() {
+
+        respond(400, "{\"message\":\"If-Match must be an entity tag this API returned for the policy.\","
+                + "\"reason\":\"invalid_request\",\"field\":\"If-Match\"}");
+
+        final ClientException ex = Assert.assertThrows(ClientException.class,
+                () -> client().replacePolicy("claims", "{}", null, null, "7", null));
+
+        Assert.assertEquals(400, ex.getStatusCode());
+        Assert.assertEquals("If-Match", ex.getField());
+    }
+
+    @Test
+    public void setPolicyDetailsWithATagReturnsTheNewTag() throws Exception {
+
+        respond(200, "{\"name\":\"claims\",\"notes\":\"n\",\"revision\":7,\"etag\":\"7-1111111111111111\"}");
+
+        final PolicyDetails details = client().setPolicyDetails("claims", null, "n", TAG, OWNER);
+
+        Assert.assertEquals("PUT", method);
+        Assert.assertEquals("/api/policies/claims/details", path);
+        Assert.assertEquals("\"" + TAG + "\"", header("If-Match"));
+        Assert.assertEquals("{\"notes\":\"n\"}", requestBodyAsString());
+        Assert.assertEquals("7-1111111111111111", details.getEtag());
+
+        client().setPolicyDetails("claims", "d", null, OWNER);
+        Assert.assertNull("the existing overload sends no If-Match", header("If-Match"));
+    }
+
+    @Test
+    public void rollbackWithATagReturnsTheRevisionAndTheNewTag() throws Exception {
+
+        responseHeaders.put("ETag", "\"9-2222222222222222\"");
+        respond(201, "{\"revision\":9}");
+
+        final PolicyRollbackResponse rollback = client().rollbackPolicy("claims", 3, TAG, null);
+
+        Assert.assertEquals("POST", method);
+        Assert.assertEquals(Map.of("revision", "3"), queryParameters);
+        Assert.assertEquals("\"" + TAG + "\"", header("If-Match"));
+        Assert.assertEquals(9, rollback.getRevision());
+        Assert.assertEquals("9-2222222222222222", rollback.getETag());
+
+        client().rollbackPolicy("claims", 3, null);
+        Assert.assertNull(header("If-Match"));
+    }
+
+    @Test
+    public void aPolicyThatIsNotAnObjectCannotCarryDetails() {
+
+        requests.clear();
+        for (final String json : new String[]{"not json", "[1]"}) {
+            Assert.assertThrows(IllegalArgumentException.class,
+                    () -> client().savePolicy("claims", json, "d", null));
+        }
+        Assert.assertTrue("nothing is sent", requests.isEmpty());
     }
 
 }
