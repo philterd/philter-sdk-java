@@ -38,6 +38,8 @@ List the contexts, and inspect or clear the values a context has accumulated:
 
 ```java
 import ai.philterd.philter.model.ContextDetails;
+import ai.philterd.philter.model.ContextEntriesExport;
+import ai.philterd.philter.model.ImportContextEntriesResponse;
 import ai.philterd.philter.model.ContextEntry;
 import ai.philterd.philter.model.GetContextEntriesResponse;
 
@@ -55,7 +57,9 @@ for (ContextEntry entry : page.getEntries()) {
     System.out.println(entry.getFilterType() + " -> " + entry.getReplacement());
 }
 
-String export = client.exportContextEntries("tenant-a", null);
+// Its mapping table, to load into another context.
+ContextEntriesExport export = client.getContextEntriesExport("tenant-a");
+ImportContextEntriesResponse imported = client.importContextEntriesExport("tenant-b", export);
 
 client.deleteContextEntry("tenant-a", entryId);
 client.deleteContextEntries("tenant-a");
@@ -77,4 +81,6 @@ client.deleteContextEntries("tenant-a");
 }
 ```
 
-A context's entries are its token-to-replacement mapping table, which is what gives [consistent pseudonymization](concepts.md) its referential integrity: the same source value keeps the same replacement until the entries are deleted. An export carries only token hashes and their replacements, never the original values, so it can be moved between environments. `importContextEntries(name, onConflict, owner, json)` loads one into another context; `onConflict` defaults to `skip`.
+A context's entries are its token-to-replacement mapping table, which is what gives [consistent pseudonymization](concepts.md) its referential integrity: the same source value keeps the same replacement until the entries are deleted. An export carries only token hashes and their replacements, never the original values, so it can be moved between environments: the hash is a plain SHA-256 of the value, the same on every Philter.
+
+`getContextEntriesExport` returns the export as a `ContextEntriesExport`, and `importContextEntriesExport(name, export, onConflict, owner)` loads it into a context, here or on another Philter, with no JSON to handle. For a value the context already has, `onConflict` `skip` (the default) keeps the existing replacement and `overwrite` replaces it. The result says how many entries were `getInserted()`, `getOverwritten()`, and `getSkipped()`, out of `getTotal()`. Philter checks every entry before writing any, so a malformed export imports nothing. `exportContextEntries` and `importContextEntries`, which use JSON strings, are deprecated.

@@ -88,6 +88,7 @@ Philter keeps a revision history for each policy:
 ```java
 import ai.philterd.philter.model.PolicyVersionSummary;
 import ai.philterd.philter.model.PolicyRollbackResponse;
+import ai.philterd.philter.model.PolicyDiff;
 
 for (PolicyVersionSummary v : client.getPolicyVersions("my-policy")) {
     // The author is the username whose change produced the revision, or null when it is not known.
@@ -95,8 +96,11 @@ for (PolicyVersionSummary v : client.getPolicyVersions("my-policy")) {
 }
 
 String revisionJson = client.getPolicyVersion("my-policy", 2);   // a specific revision
-String diff = client.getPolicyDiff("my-policy", 1, 2);            // diff between revisions
-String latest = client.getPolicyDiff("my-policy");                // the two most recent revisions
+PolicyDiff diff = client.diffPolicy("my-policy", 1, 2);           // diff between revisions
+PolicyDiff latest = client.diffPolicy("my-policy");               // the two most recent revisions
+for (PolicyDiff.Change change : latest.getChanges()) {
+    System.out.println(change.getOp() + " " + change.getPath() + ": " + change.getOldValue() + " -> " + change.getValue());
+}
 
 PolicyRollbackResponse rollback = client.rollbackPolicy("my-policy", 1);
 System.out.println("rolled back to revision " + rollback.getRevision());
@@ -104,7 +108,7 @@ System.out.println("rolled back to revision " + rollback.getRevision());
 
 A rollback is refused with a `404` if the policy or the revision does not exist, and `getErrorMessage()` says which, for example `Revision 99 does not exist.` It is refused with a `409` whose `getReason()` is `policy_managed` for a managed policy, and `policy_changed` if the policy changed concurrently, in which case reload it and retry.
 
-A diff is JSON with the `from` and `to` revisions and an RFC 6902 `changes` array. Without revision numbers, `getPolicyDiff` compares the two most recent retained revisions, and `from` and `to` say which they were. It reads the retained history, so it works for a [deleted policy](#deleted-policies) too. A policy with fewer than two retained revisions, including a name with no history at all, is a `400`.
+A `PolicyDiff` has the `from` and `to` revisions and the RFC 6902 changes that turn one into the other. Each change has its `op` (`add`, `remove`, or `replace`), the JSON Pointer `path` that changed, the new `value` (`null` for a removal), and the `oldValue` before it (`null` for an addition), both as Gson `JsonElement`s. Without revision numbers, `diffPolicy` compares the two most recent retained revisions, and `from` and `to` say which they were. It reads the retained history, so it works for a [deleted policy](#deleted-policies) too. A policy with fewer than two retained revisions, including a name with no history at all, is a `400`. `getPolicyDiff`, which returns the diff as a JSON string, is deprecated.
 
 `getAuthor()` is `null` for a revision made before Philter recorded authors, for a managed policy, and for a revision first captured when the policy was used to redact.
 
@@ -134,13 +138,15 @@ client.savePolicy("claims-2025", json);
 
 ## Compiling PhiSQL
 
-`compilePolicy(phiSql)` compiles [PhiSQL](https://github.com/philterd/phisql) source into a native policy without saving it. It requires the `policies:read` scope.
+`compilePhiSql(phiSql)` compiles [PhiSQL](https://github.com/philterd/phisql) source into a native policy without saving it. It requires the `policies:read` scope.
 
 ```java
-String compiled = client.compilePolicy("POLICY ssn_only;\nREDACT SSN WITH MASK;");
-// JSON: {"name": "ssn_only", "policy": {"identifiers": {...}}}
+import ai.philterd.philter.model.CompilePolicyResponse;
+
+CompilePolicyResponse compiled = client.compilePhiSql("POLICY ssn_only;\nREDACT SSN WITH MASK;");
+client.savePolicy(compiled.getName(), compiled.getPolicyJson());
 ```
 
-The response carries the compiled `policy`, the `name` from the source's `POLICY` declaration (`null` when it has none), and the `description` when the source declares one. The policy is validated before it is returned. To store it, pass the `policy` object's JSON to `savePolicy`, supplying a name if the source had none.
+The result carries the compiled policy (`getPolicy()` as a JSON object, `getPolicyJson()` as a string for `savePolicy`), the `getName()` from the source's `POLICY` declaration (`null` when it has none), and the `getDescription()` when the source declares one. The policy is validated before it is returned. Supply a name to `savePolicy` if the source had none. `compilePolicy`, which returns the response as a JSON string, is deprecated.
 
 Source that fails to parse or compile, or a compiled policy that fails validation, is rejected with an HTTP 400, raised as a `ClientException` carrying the compiler's message.

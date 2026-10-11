@@ -31,11 +31,12 @@ act on another user's data, and paged calls take `offset` and `limit`.
 * **Filtering:** redact PDFs with `filterToPdf`, or asynchronously with `filterAsync` and `filterToPdfAsync`
   and then `getDocumentState` and `getDocument`, from a `File` or a `byte[]`. `filter` and `explain` take an
   optional filename and can return a signed response (`X-Philter-Signature`).
-* **Policies:** versions (each with its `author`), diffs (`getPolicyDiff(name)` compares the two most recent
-  revisions), rollback, deleted policies (`getDeletedPolicies`), templates (`getPolicyTemplate`), PhiSQL
-  compilation, descriptions and notes, managed policies (`listManagedPolicies`), and `copyPolicy`. Writes to a
-  managed policy are a 409 `policy_managed`, and deleting `default` a 409 `policy_default`. A description or
-  notes given to `savePolicy` or `replacePolicy` are sent in a second, non-atomic request.
+* **Policies:** versions (each with its `author`), diffs (`diffPolicy`, and `diffPolicy(name)` compares the two
+  most recent revisions), rollback, deleted policies (`getDeletedPolicies`), templates (`getPolicyTemplate`),
+  PhiSQL compilation (`compilePhiSql`), descriptions and notes, managed policies (`listManagedPolicies`), and
+  `copyPolicy`. Writes to a managed policy are a 409 `policy_managed`, and deleting `default` a 409
+  `policy_default`. A description or notes given to `savePolicy` or `replacePolicy` are sent in a second,
+  non-atomic request.
 * **Contexts:** settings, including the disambiguation scope (`DisambiguationScope`); per-filter-type counts;
   and entry listing, export, and import. On `updateContext`, a `null` setting keeps its current value.
 * **Documents, custom lists, redact lists, and re-identification.** `saveList` only creates (a name in use is
@@ -56,10 +57,12 @@ act on another user's data, and paged calls take `offset` and `limit`.
   refer to them by. `AuditEvent.getSource()` is `api` for an event a request caused or `system` for one Philter
   recorded on its own, and `getClientIpAddress()` is only ever the requesting client's address.
 
-Responses are typed models. Calls that returned raw JSON have typed alternatives, such as `listContexts`,
-`getContextDetails`, `listLedgerChains`, and `getLedgerExport`, and the `String` versions are deprecated, as
-is `getManagedPolicies`. Policy JSON, policy diffs, and
-context exports stay strings.
+Responses are typed models. Calls that returned raw JSON have typed alternatives, and the `String` versions are
+deprecated: `listContexts`, `getContextDetails`, `listLedgerChains`, `getLedgerExport`, `compilePhiSql` (for
+`compilePolicy`), `reidentifyValues` (for `reidentify`), `diffPolicy` (for `getPolicyDiff`), and
+`getContextEntriesExport` and `importContextEntriesExport`, whose export imports with no JSON to handle (for
+`exportContextEntries` and `importContextEntries`). `getManagedPolicies` is deprecated too. Policy JSON stays a
+string, so it can be edited and saved as it is.
 
 Some of this needs a Philter that includes the matching change: context, list, and hold names that can be used
 in a request path (philterd/philter#140); session key listing (#141); managed policy descriptions (#142); policy

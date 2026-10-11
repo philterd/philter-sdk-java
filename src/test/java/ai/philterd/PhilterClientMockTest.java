@@ -68,6 +68,11 @@ import ai.philterd.philter.model.StatusResponse;
 import ai.philterd.philter.model.UpdateAdminSettingsRequest;
 import ai.philterd.philter.model.User;
 import ai.philterd.philter.model.Webhook;
+import ai.philterd.philter.model.ReidentifyResponse;
+import ai.philterd.philter.model.PolicyDiff;
+import ai.philterd.philter.model.ImportContextEntriesResponse;
+import ai.philterd.philter.model.ContextEntriesExport;
+import ai.philterd.philter.model.CompilePolicyResponse;
 import ai.philterd.philter.model.WebhookTestResult;
 import ai.philterd.philter.model.WebhookEvents;
 import ai.philterd.philter.model.WebhookDelivery;
@@ -4358,6 +4363,137 @@ public class PhilterClientMockTest {
         server.stop(0);
         Assert.assertThrows(IOException.class, client::getPolicies);
         Assert.assertNull(client.getLastRequestId());
+    }
+
+
+    // ----- Typed results -----
+
+    @Test
+    public void compilePhiSqlReturnsTheNameAndAPolicyReadyToSave() throws Exception {
+
+        respond(200, "{\"name\":\"ssn_only\",\"policy\":{\"identifiers\":{\"ssn\":{\"ssnFilterStrategies\":"
+                + "[{\"strategy\":\"MASK\"}]}}}}");
+
+        final CompilePolicyResponse compiled = client().compilePhiSql("POLICY ssn_only; REDACT SSN WITH MASK;");
+
+        Assert.assertEquals("POST", method);
+        Assert.assertEquals("/api/policies/compile", path);
+        Assert.assertEquals("POLICY ssn_only; REDACT SSN WITH MASK;", requestBodyAsString());
+        Assert.assertEquals("ssn_only", compiled.getName());
+        Assert.assertNull(compiled.getDescription());
+        Assert.assertTrue(compiled.getPolicy().isJsonObject());
+        Assert.assertEquals("{\"identifiers\":{\"ssn\":{\"ssnFilterStrategies\":[{\"strategy\":\"MASK\"}]}}}",
+                compiled.getPolicyJson());
+    }
+
+    @Test
+    public void reidentifyValuesReturnsEachResultInOrder() throws Exception {
+
+        respond(200, "{\"results\":[{\"encrypted\":\"enc-1\",\"decrypted\":\"123-45-6789\",\"error\":null},"
+                + "{\"encrypted\":\"enc-2\",\"decrypted\":null,\"error\":\"Decryption failed.\"}]}");
+
+        final ReidentifyResponse response = client().reidentifyValues(new ReidentifyRequest());
+
+        Assert.assertEquals("/api/reidentify", path);
+        Assert.assertTrue(queryParameters.isEmpty());
+        Assert.assertEquals(2, response.getResults().size());
+        Assert.assertEquals("enc-1", response.getResults().get(0).getEncrypted());
+        Assert.assertEquals("123-45-6789", response.getResults().get(0).getDecrypted());
+        Assert.assertNull(response.getResults().get(0).getError());
+        Assert.assertNull(response.getResults().get(1).getDecrypted());
+        Assert.assertEquals("Decryption failed.", response.getResults().get(1).getError());
+
+        client().reidentifyValues(OWNER, new ReidentifyRequest());
+        Assert.assertEquals(OWNER, queryParameter("owner"));
+    }
+
+    @Test
+    public void diffPolicyReadsEachChangeWithItsValues() throws Exception {
+
+        respond(200, "{\"from\":3,\"to\":4,\"changes\":["
+                + "{\"op\":\"add\",\"path\":\"/identifiers/ssn\",\"value\":{\"ssnFilterStrategies\":[]}},"
+                + "{\"op\":\"remove\",\"path\":\"/identifiers/emailAddress\",\"oldValue\":{\"x\":1}},"
+                + "{\"op\":\"replace\",\"path\":\"/config/splitting/threshold\",\"value\":2000,\"oldValue\":1000},"
+                + "{\"op\":\"replace\",\"path\":\"/config/label\",\"value\":null,\"oldValue\":\"old\"}]}");
+
+        final PolicyDiff diff = client().diffPolicy("claims");
+
+        Assert.assertEquals("/api/policies/claims/diff", path);
+        Assert.assertTrue(queryParameters.isEmpty());
+        Assert.assertEquals(3, diff.getFrom());
+        Assert.assertEquals(4, diff.getTo());
+        Assert.assertEquals(4, diff.getChanges().size());
+
+        final PolicyDiff.Change add = diff.getChanges().get(0);
+        Assert.assertEquals(PolicyDiff.Change.ADD, add.getOp());
+        Assert.assertEquals("/identifiers/ssn", add.getPath());
+        Assert.assertTrue(add.getValue().isJsonObject());
+        Assert.assertNull(add.getOldValue());
+
+        final PolicyDiff.Change remove = diff.getChanges().get(1);
+        Assert.assertEquals(PolicyDiff.Change.REMOVE, remove.getOp());
+        Assert.assertNull(remove.getValue());
+        Assert.assertEquals(1, remove.getOldValue().getAsJsonObject().get("x").getAsInt());
+
+        final PolicyDiff.Change replace = diff.getChanges().get(2);
+        Assert.assertEquals(2000, replace.getValue().getAsInt());
+        Assert.assertEquals(1000, replace.getOldValue().getAsInt());
+
+        Assert.assertTrue("a JSON null value", diff.getChanges().get(3).getValue().isJsonNull());
+
+        client().diffPolicy("claims", 1, 2, OWNER);
+        Assert.assertEquals(Map.of("from", "1", "to", "2", "owner", OWNER), queryParameters);
+        client().diffPolicy("claims", OWNER);
+        Assert.assertEquals(Map.of("owner", OWNER), queryParameters);
+        client().diffPolicy("claims", 1, 2);
+        Assert.assertEquals(Map.of("from", "1", "to", "2"), queryParameters);
+    }
+
+    @Test
+    public void aContextExportImportsWithoutHandlingJson() throws Exception {
+
+        final String hash = "a".repeat(64);
+        respond(200, "{\"version\":1,\"context\":\"claims\",\"count\":2,\"entries\":["
+                + "{\"tokenHash\":\"" + hash + "\",\"replacement\":\"{{{REDACTED-ssn}}}\",\"filterType\":\"ssn\","
+                + "\"replacementUuid\":false},"
+                + "{\"tokenHash\":\"" + "b".repeat(64) + "\",\"replacement\":\"6f1d...\",\"filterType\":\"person\","
+                + "\"replacementUuid\":true}]}");
+
+        final ContextEntriesExport export = client().getContextEntriesExport("claims");
+
+        Assert.assertEquals("GET", method);
+        Assert.assertEquals("/api/contexts/claims/entries/export", path);
+        Assert.assertEquals(1, export.getVersion());
+        Assert.assertEquals("claims", export.getContext());
+        Assert.assertEquals(2, export.getCount());
+        Assert.assertEquals(hash, export.getEntries().get(0).getTokenHash());
+        Assert.assertEquals("{{{REDACTED-ssn}}}", export.getEntries().get(0).getReplacement());
+        Assert.assertEquals("ssn", export.getEntries().get(0).getFilterType());
+        Assert.assertFalse(export.getEntries().get(0).isReplacementUuid());
+        Assert.assertTrue(export.getEntries().get(1).isReplacementUuid());
+
+        respond(200, "{\"total\":2,\"inserted\":1,\"overwritten\":0,\"skipped\":1}");
+
+        final ImportContextEntriesResponse imported =
+                client().importContextEntriesExport("claims-copy", export, "skip", OWNER);
+
+        Assert.assertEquals("POST", method);
+        Assert.assertEquals("/api/contexts/claims-copy/entries/import", path);
+        Assert.assertEquals(Map.of("on_conflict", "skip", "owner", OWNER), queryParameters);
+        Assert.assertEquals("application/json", header("Content-Type"));
+        // The body is the export as Philter wrote it.
+        final com.google.gson.JsonObject body = com.google.gson.JsonParser.parseString(requestBodyAsString()).getAsJsonObject();
+        Assert.assertEquals(2, body.getAsJsonArray("entries").size());
+        Assert.assertEquals(hash, body.getAsJsonArray("entries").get(0).getAsJsonObject().get("tokenHash").getAsString());
+        Assert.assertTrue(body.getAsJsonArray("entries").get(1).getAsJsonObject().get("replacementUuid").getAsBoolean());
+
+        Assert.assertEquals(2, imported.getTotal());
+        Assert.assertEquals(1, imported.getInserted());
+        Assert.assertEquals(0, imported.getOverwritten());
+        Assert.assertEquals(1, imported.getSkipped());
+
+        client().importContextEntriesExport("claims", export);
+        Assert.assertTrue("the defaults send no parameters: " + queryParameters, queryParameters.isEmpty());
     }
 
 }

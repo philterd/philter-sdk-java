@@ -56,6 +56,11 @@ import ai.philterd.philter.model.GetApiKeysResponse;
 import ai.philterd.philter.model.GetAuditLogResponse;
 import ai.philterd.philter.model.GetListsResponse;
 import ai.philterd.philter.model.GetUsersResponse;
+import ai.philterd.philter.model.CompilePolicyResponse;
+import ai.philterd.philter.model.ContextEntriesExport;
+import ai.philterd.philter.model.ImportContextEntriesResponse;
+import ai.philterd.philter.model.PolicyDiff;
+import ai.philterd.philter.model.ReidentifyResponse;
 import ai.philterd.philter.model.GetWebhookDeliveriesResponse;
 import ai.philterd.philter.model.WebhookDelivery;
 import ai.philterd.philter.model.WebhookTestResult;
@@ -974,7 +979,9 @@ public class PhilterClient {
 	 * declaration ({@code null} when it has none), and the {@code description} when the source declares
 	 * one.
 	 * @throws IOException Thrown if the request can not be completed.
+	 * @deprecated Use {@link #compilePhiSql(String)}, which returns a typed model.
 	 */
+	@Deprecated
 	public String compilePolicy(String phiSql) throws IOException {
 
 		final HttpRequest request = request(uri("/api/policies/compile"))
@@ -988,12 +995,32 @@ public class PhilterClient {
 	}
 
 	/**
+	 * Compiles PhiSQL source into a native policy. Nothing is saved: save the result with
+	 * {@code savePolicy(name, result.getPolicyJson())}. See {@link #compilePolicy(String)} for the scope and
+	 * the errors.
+	 *
+	 * <pre>{@code
+	 * CompilePolicyResponse compiled = client.compilePhiSql("POLICY ssn_only; REDACT SSN WITH MASK;");
+	 * client.savePolicy(compiled.getName(), compiled.getPolicyJson());
+	 * }</pre>
+	 *
+	 * @param phiSql The PhiSQL source.
+	 * @return The compiled policy, with the name and description the source declares.
+	 * @throws IOException Thrown if the request can not be completed.
+	 */
+	public CompilePolicyResponse compilePhiSql(String phiSql) throws IOException {
+		return gson.fromJson(compilePolicy(phiSql), CompilePolicyResponse.class);
+	}
+
+	/**
 	 * Re-identifies previously redacted values.
 	 * @param owner The owner of the values. May be {@code null}.
 	 * @param request The {@link ReidentifyRequest}.
 	 * @return The re-identification result.
 	 * @throws IOException Thrown if the request can not be completed.
+	 * @deprecated Use {@link #reidentifyValues(String, ReidentifyRequest)}, which returns a typed model.
 	 */
+	@Deprecated
 	public String reidentify(String owner, ReidentifyRequest request) throws IOException {
 
 		final HttpRequest httpRequest = request(uri("/api/reidentify", "owner", owner))
@@ -1003,6 +1030,29 @@ public class PhilterClient {
 
 		return sendExpectingString(httpRequest);
 
+	}
+
+	/**
+	 * Re-identifies previously redacted values, returning the original of each. See
+	 * {@link #reidentifyValues(String, ReidentifyRequest)}.
+	 * @param request The values, and how they were redacted.
+	 * @return One result per value, in the order sent.
+	 * @throws IOException Thrown if the request can not be completed.
+	 */
+	public ReidentifyResponse reidentifyValues(ReidentifyRequest request) throws IOException {
+		return reidentifyValues(null, request);
+	}
+
+	/**
+	 * Re-identifies previously redacted values, returning the original of each. A value that cannot be
+	 * re-identified does not fail the request: its result has an {@code error} and no {@code decrypted} value.
+	 * @param owner The owner of the values. May be {@code null}.
+	 * @param request The values, and how they were redacted.
+	 * @return One result per value, in the order sent.
+	 * @throws IOException Thrown if the request can not be completed.
+	 */
+	public ReidentifyResponse reidentifyValues(String owner, ReidentifyRequest request) throws IOException {
+		return gson.fromJson(reidentify(owner, request), ReidentifyResponse.class);
 	}
 
 	// Status.
@@ -1715,7 +1765,9 @@ public class PhilterClient {
 	 * @param policyName The name of the policy.
 	 * @return The difference, as JSON.
 	 * @throws IOException Thrown if the call can not be executed.
+	 * @deprecated Use {@link #diffPolicy(String)}, which returns a typed model.
 	 */
+	@Deprecated
 	public String getPolicyDiff(String policyName) throws IOException {
 		return getPolicyDiff(policyName, null);
 	}
@@ -1735,7 +1787,9 @@ public class PhilterClient {
 	 * @param owner The owner of the policy. May be {@code null}.
 	 * @return The difference, as JSON: {@code from}, {@code to}, and the RFC 6902 {@code changes}.
 	 * @throws IOException Thrown if the call can not be executed.
+	 * @deprecated Use {@link #diffPolicy(String, String)}, which returns a typed model.
 	 */
+	@Deprecated
 	public String getPolicyDiff(String policyName, String owner) throws IOException {
 
 		final HttpRequest request = json(uri("/api/policies/" + encode(policyName) + "/diff", "owner", owner))
@@ -1754,7 +1808,9 @@ public class PhilterClient {
 	 * @param to The ending revision number.
 	 * @return The difference.
 	 * @throws IOException Thrown if the call can not be executed.
+	 * @deprecated Use {@link #diffPolicy(String, int, int)}, which returns a typed model.
 	 */
+	@Deprecated
 	public String getPolicyDiff(String policyName, int from, int to) throws IOException {
 		return getPolicyDiff(policyName, from, to, null);
 	}
@@ -1767,7 +1823,9 @@ public class PhilterClient {
 	 * @param owner The owner of the policy. May be {@code null}.
 	 * @return The difference.
 	 * @throws IOException Thrown if the call can not be executed.
+	 * @deprecated Use {@link #diffPolicy(String, int, int, String)}, which returns a typed model.
 	 */
+	@Deprecated
 	public String getPolicyDiff(String policyName, int from, int to, String owner) throws IOException {
 
 		final HttpRequest request = json(uri("/api/policies/" + encode(policyName) + "/diff",
@@ -1777,6 +1835,70 @@ public class PhilterClient {
 
 		return sendExpectingString(request);
 
+	}
+
+	/**
+	 * Gets the difference between the two most recent retained revisions of a policy. See
+	 * {@link #diffPolicy(String, String)}.
+	 * @param policyName The name of the policy.
+	 * @return The revisions compared and the changes.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public PolicyDiff diffPolicy(String policyName) throws IOException {
+		return diffPolicy(policyName, null);
+	}
+
+	/**
+	 * Gets the difference between the two most recent retained revisions of a policy, such as to show what the
+	 * latest change did. {@link PolicyDiff#getFrom()} and {@link PolicyDiff#getTo()} say which revisions they were.
+	 *
+	 * <p>The revisions are read from the policy's retained history, so this works for a
+	 * {@link #getDeletedPolicies() deleted policy} too. A policy with fewer than two retained revisions,
+	 * including a name with no history at all, is an HTTP 400 saying at least two are required, and an
+	 * {@code owner} that does not exist is an HTTP 404, each thrown as a {@link ClientException}.</p>
+	 *
+	 * <pre>{@code
+	 * PolicyDiff diff = client.diffPolicy("claims");
+	 * for (PolicyDiff.Change change : diff.getChanges()) {
+	 *     System.out.println(change.getOp() + " " + change.getPath() + ": " + change.getOldValue()
+	 *             + " -> " + change.getValue());
+	 * }
+	 * }</pre>
+	 *
+	 * @param policyName The name of the policy.
+	 * @param owner The owner of the policy. May be {@code null}.
+	 * @return The revisions compared and the changes.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public PolicyDiff diffPolicy(String policyName, String owner) throws IOException {
+		return gson.fromJson(getPolicyDiff(policyName, owner), PolicyDiff.class);
+	}
+
+	/**
+	 * Gets the difference between two revisions of a policy. See {@link #diffPolicy(String, int, int, String)}.
+	 * @param policyName The name of the policy.
+	 * @param from The revision to compare from.
+	 * @param to The revision to compare to.
+	 * @return The revisions compared and the changes.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public PolicyDiff diffPolicy(String policyName, int from, int to) throws IOException {
+		return diffPolicy(policyName, from, to, null);
+	}
+
+	/**
+	 * Gets the difference between two revisions of a policy: the RFC 6902 changes that turn {@code from} into
+	 * {@code to}, each with the value before it, so the change can be shown. A revision that does not exist is
+	 * an HTTP 404, thrown as a {@link ClientException}.
+	 * @param policyName The name of the policy.
+	 * @param from The revision to compare from.
+	 * @param to The revision to compare to.
+	 * @param owner The owner of the policy. May be {@code null}.
+	 * @return The revisions compared and the changes.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public PolicyDiff diffPolicy(String policyName, int from, int to, String owner) throws IOException {
+		return gson.fromJson(getPolicyDiff(policyName, from, to, owner), PolicyDiff.class);
 	}
 
 	/**
@@ -2233,7 +2355,9 @@ public class PhilterClient {
 	 * @param owner The owner. May be {@code null}.
 	 * @return The exported entries.
 	 * @throws IOException Thrown if the call can not be executed.
+	 * @deprecated Use {@link #getContextEntriesExport(String, String)}, which returns a typed model.
 	 */
+	@Deprecated
 	public String exportContextEntries(String name, String owner) throws IOException {
 
 		final HttpRequest request = request(uri("/api/contexts/" + encode(name) + "/entries/export", "owner", owner))
@@ -2252,7 +2376,10 @@ public class PhilterClient {
 	 * @param json The entries to import as JSON.
 	 * @return The import result.
 	 * @throws IOException Thrown if the call can not be executed.
+	 * @deprecated Use {@link #importContextEntriesExport(String, ContextEntriesExport, String, String)},
+	 * which takes and returns typed models.
 	 */
+	@Deprecated
 	public String importContextEntries(String name, String onConflict, String owner, String json) throws IOException {
 
 		final HttpRequest request = request(uri("/api/contexts/" + encode(name) + "/entries/import",
@@ -2263,6 +2390,68 @@ public class PhilterClient {
 
 		return sendExpectingString(request);
 
+	}
+
+	/**
+	 * Exports a context's entries. See {@link #getContextEntriesExport(String, String)}.
+	 * @param name The name of the context.
+	 * @return The context's mappings.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public ContextEntriesExport getContextEntriesExport(String name) throws IOException {
+		return getContextEntriesExport(name, null);
+	}
+
+	/**
+	 * Exports a context's mapping table: for each value it has replaced, the value's SHA-256 hash and its
+	 * replacement. The values themselves are never exported. Load the export into a context, on this or another
+	 * Philter, with {@link #importContextEntriesExport(String, ContextEntriesExport, String, String)}, so the
+	 * same values keep the same replacements there.
+	 *
+	 * <pre>{@code
+	 * ContextEntriesExport export = source.getContextEntriesExport("claims");
+	 * ImportContextEntriesResponse result = target.importContextEntriesExport("claims", export);
+	 * }</pre>
+	 *
+	 * @param name The name of the context.
+	 * @param owner The owner. May be {@code null}.
+	 * @return The context's mappings.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public ContextEntriesExport getContextEntriesExport(String name, String owner) throws IOException {
+		return gson.fromJson(exportContextEntries(name, owner), ContextEntriesExport.class);
+	}
+
+	/**
+	 * Imports a context export, skipping values the context already has. See
+	 * {@link #importContextEntriesExport(String, ContextEntriesExport, String, String)}.
+	 * @param name The name of the context to import into.
+	 * @param export The export, from {@link #getContextEntriesExport(String)}.
+	 * @return How many entries were inserted, overwritten, and skipped.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public ImportContextEntriesResponse importContextEntriesExport(String name, ContextEntriesExport export)
+			throws IOException {
+		return importContextEntriesExport(name, export, null, null);
+	}
+
+	/**
+	 * Imports a context export into a context. The context may be a different one, or on another Philter, from
+	 * the one exported. Philter checks every entry before writing any, so a malformed entry, or an
+	 * {@code onConflict} other than {@code skip} or {@code overwrite}, is an HTTP 400 that imports nothing,
+	 * thrown as a {@link ClientException}. A context that does not exist is an HTTP 404.
+	 * @param name The name of the context to import into.
+	 * @param export The export, from {@link #getContextEntriesExport(String, String)}.
+	 * @param onConflict For a value the context already has: {@code skip} keeps the existing replacement and
+	 * {@code overwrite} replaces it. May be {@code null} for {@code skip}.
+	 * @param owner The owner. May be {@code null}.
+	 * @return How many entries were inserted, overwritten, and skipped.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public ImportContextEntriesResponse importContextEntriesExport(String name, ContextEntriesExport export,
+			String onConflict, String owner) throws IOException {
+		return gson.fromJson(importContextEntries(name, onConflict, owner, gson.toJson(export)),
+				ImportContextEntriesResponse.class);
 	}
 
 	/**

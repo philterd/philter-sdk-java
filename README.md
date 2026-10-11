@@ -125,6 +125,22 @@ for (DeletedPolicy deleted : client.getDeletedPolicies().getPolicies()) {
 client.savePolicy("claims-2025", client.getPolicyVersion("claims-2025", 4));
 ```
 
+Responses are typed. Compile PhiSQL with `compilePhiSql`, compare policy revisions with `diffPolicy`, re-identify
+values with `reidentifyValues`, and copy a context's mappings with `getContextEntriesExport` and
+`importContextEntriesExport`, without handling JSON:
+
+```
+CompilePolicyResponse compiled = client.compilePhiSql("POLICY ssn_only; REDACT SSN WITH MASK;");
+client.savePolicy(compiled.getName(), compiled.getPolicyJson());
+
+PolicyDiff diff = client.diffPolicy("ssn_only");
+ImportContextEntriesResponse imported =
+        client.importContextEntriesExport("tenant-b", client.getContextEntriesExport("tenant-a"));
+```
+
+The older `compilePolicy`, `getPolicyDiff`, `reidentify`, `exportContextEntries`, and `importContextEntries`, which
+return JSON strings, still work and are deprecated.
+
 A webhook delivers the result of each asynchronous redaction. `testWebhook` sends it a test event now and reports how
 the receiver answered, and `getWebhookDeliveries` shows each delivery's status and last error:
 

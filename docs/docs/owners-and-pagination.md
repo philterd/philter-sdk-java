@@ -4,7 +4,7 @@ Philter scopes its data to the user whose API key made the request. Every call i
 
 ## Acting on another user's data
 
-Endpoints that accept an `owner` have an overload taking that owner's username. It is the last argument everywhere except `reidentify(owner, request)`, where it comes first, and `importContextEntries(name, onConflict, owner, json)`, where it is third.
+Endpoints that accept an `owner` have an overload taking that owner's username. It is the last argument everywhere except `reidentifyValues(owner, request)`, where it comes first.
 
 ```java
 // Your own policies.

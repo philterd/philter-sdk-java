@@ -11,6 +11,7 @@ A `reason` is required on every request; Philter records it in the audit log.
 
 ```java
 import ai.philterd.philter.model.ReidentifyRequest;
+import ai.philterd.philter.model.ReidentifyResponse;
 import java.util.List;
 
 ReidentifyRequest request = new ReidentifyRequest();
@@ -19,10 +20,17 @@ request.setPolicyName("my-policy");
 request.setReason("authorized support investigation");
 request.setValues(List.of("<redacted-value>"));
 
-// The first argument is the owner, for an administrator re-identifying another
-// user's values. Pass null to act on your own.
-String result = client.reidentify(null, request);
+ReidentifyResponse response = client.reidentifyValues(request);
+for (ReidentifyResponse.ReidentifyResult result : response.getResults()) {
+    // The original value, or null with an error saying why it could not be re-identified.
+    System.out.println(result.getEncrypted() + " -> " + result.getDecrypted() + " " + result.getError());
+}
+
+// An administrator re-identifying another user's values passes the owner first.
+client.reidentifyValues("someone@example.com", request);
 ```
+
+There is one result for each value, in the order sent. A value that cannot be re-identified does not fail the request: its result has an error and no decrypted value. `reidentify(owner, request)`, which returns the response as a JSON string, is deprecated.
 
 Any other strategy name, a missing reason, or an empty value list is rejected with an HTTP 400, which the client raises as a `ClientException`.
 
