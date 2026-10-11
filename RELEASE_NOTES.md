@@ -78,7 +78,10 @@ deleted policies and version authors (#166); changing a user's email address, an
 * `ClientException` exposes `getStatusCode()`, `getErrorMessage()` (the body's `message`), and `getReason()`,
   a machine-readable value such as `context_exists`, so callers need not parse messages.
 * `SignInLockedException` and `SignInRateLimitedException` extend it and carry the seconds to wait.
-  `UnauthorizedException` carries Philter's message.
+  `UnauthorizedException` (401) and `ServiceUnavailableException` (503) carry the same status code, error
+  message, reason, and request id as `ClientException`, and all three implement `PhilterError`, without either
+  becoming a `ClientException`, so existing `catch` blocks keep working. A 401's reason tells an expired session
+  (`session_expired`) from an unknown key (`invalid_credentials`) or a deactivated user (`user_deactivated`).
 * Every exception built from a Philter response has `getRequestId()`, the response's `X-Request-Id`, and its
   message ends with the id, so a logged stack trace carries it. `getLastRequestId()` returns the id of the
   calling thread's most recent response, for calls that succeed. Philter records the same id on the audit

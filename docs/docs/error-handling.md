@@ -15,7 +15,42 @@ Philter explains a rejected request in the response body, and the `ClientExcepti
 Unknown error: HTTP 400: {"message":"'strategy' must be CRYPTO_REPLACE or FPE_ENCRYPT_REPLACE."}
 ```
 
-`UnauthorizedException` carries Philter's message, such as `Invalid or missing credentials`, or `Unauthorized` when the response has none, followed by the [request id](#request-ids) when the response has one. Philter gives the same 401 for an unknown key, an expired or revoked session key, and a deactivated user, so the client cannot tell them apart. `ServiceUnavailableException` carries a fixed message.
+`UnauthorizedException` and `ServiceUnavailableException` carry what `ClientException` does: `getStatusCode()` (`401` or `503`), `getErrorMessage()`, `getReason()`, and `getRequestId()`. Their message is Philter's message, or `Unauthorized` or `Service unavailable` when the response has none, followed by the [request id](#request-ids) when the response has one; `getErrorMessage()` and `getReason()` are then `null`.
+
+A 401's `getReason()` tells apart why the credentials were refused, so a user interface can, for example, send a person whose session ended back to sign in:
+
+| `getReason()` | Meaning |
+|---------------|---------|
+| `invalid_credentials` | The key is missing, malformed, or unknown, or is a revoked long-lived key. |
+| `session_expired` | The session key expired, was revoked, or signed out. Sign in again. |
+| `user_deactivated` | The key's user is deactivated. |
+
+```java
+try {
+    client.getPolicies();
+} catch (UnauthorizedException e) {
+    if ("session_expired".equals(e.getReason())) {
+        // Show the sign-in page.
+    }
+}
+```
+
+Neither is a subclass of `ClientException`, so a `catch (ClientException e)` does not catch a 401 or a 503, and a multi-catch of `ClientException | ServiceUnavailableException` compiles. All three implement `PhilterError`, which has the four accessors, to handle any Philter error the same way:
+
+```java
+import ai.philterd.philter.model.exceptions.PhilterError;
+
+try {
+    client.getPolicies();
+} catch (RuntimeException e) {
+    if (e instanceof PhilterError) {
+        PhilterError error = (PhilterError) e;
+        log.warn("Philter refused the request: {} {} ({}, request id {})", error.getStatusCode(),
+                error.getErrorMessage(), error.getReason(), error.getRequestId());
+    }
+    throw e;
+}
+```
 
 `SignInLockedException` and `SignInRateLimitedException` are subclasses of `ClientException`, so a handler for `ClientException` still catches them. See [Failed sign-ins](sign-in.md#failed-sign-ins).
 

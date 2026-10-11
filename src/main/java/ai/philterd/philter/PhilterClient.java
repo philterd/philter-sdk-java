@@ -435,9 +435,12 @@ public class PhilterClient {
 
 		if(code == 401) {
 			final String message = messageOf(body);
-			return new UnauthorizedException(message == null ? UNAUTHORIZED : message, requestId);
+			return new UnauthorizedException(message == null ? UNAUTHORIZED : message, message,
+					fieldOf(body, "reason"), requestId);
 		} else if(code == 503) {
-			return new ServiceUnavailableException(SERVICE_UNAVAILABLE, requestId);
+			final String message = messageOf(body);
+			return new ServiceUnavailableException(message == null ? SERVICE_UNAVAILABLE : message, message,
+					fieldOf(body, "reason"), requestId);
 		} else {
 			return new ClientException(describe(code, body), code, messageOf(body), fieldOf(body, "reason"), requestId);
 		}

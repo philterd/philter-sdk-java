@@ -78,6 +78,7 @@ import ai.philterd.philter.model.WebhookEvents;
 import ai.philterd.philter.model.WebhookDelivery;
 import ai.philterd.philter.model.GetWebhookDeliveriesResponse;
 import ai.philterd.philter.model.exceptions.ClientException;
+import ai.philterd.philter.model.exceptions.PhilterError;
 import ai.philterd.philter.model.exceptions.ServiceUnavailableException;
 import ai.philterd.philter.model.exceptions.SignInLockedException;
 import ai.philterd.philter.model.exceptions.SignInRateLimitedException;
@@ -4494,6 +4495,84 @@ public class PhilterClientMockTest {
 
         client().importContextEntriesExport("claims", export);
         Assert.assertTrue("the defaults send no parameters: " + queryParameters, queryParameters.isEmpty());
+    }
+
+
+    // ----- 401 and 503 bodies -----
+
+    @Test
+    public void a401CarriesPhiltersMessageAndReason() {
+
+        respond(401, "{\"message\":\"The session has ended. Sign in again.\",\"reason\":\"session_expired\"}");
+
+        final UnauthorizedException ex = Assert.assertThrows(UnauthorizedException.class, () -> client().getPolicies());
+
+        Assert.assertEquals(401, ex.getStatusCode());
+        Assert.assertEquals("The session has ended. Sign in again.", ex.getErrorMessage());
+        Assert.assertEquals("session_expired", ex.getReason());
+        Assert.assertEquals("The session has ended. Sign in again.", ex.getMessage());
+    }
+
+    @Test
+    public void a401WithoutAJsonBodyKeepsTheFallbackMessage() {
+
+        for (final String body : new String[]{"", "Unauthorized, as plain text"}) {
+            respond(401, body);
+            final UnauthorizedException ex = Assert.assertThrows(UnauthorizedException.class, () -> client().getPolicies());
+            Assert.assertEquals(401, ex.getStatusCode());
+            Assert.assertNull(ex.getErrorMessage());
+            Assert.assertNull(ex.getReason());
+            Assert.assertEquals(PhilterClient.UNAUTHORIZED, ex.getMessage());
+        }
+    }
+
+    @Test
+    public void a503CarriesPhiltersMessageAndReason() {
+
+        respond(503, "{\"message\":\"Philter is starting. Try again shortly.\",\"reason\":\"service_unavailable\"}");
+
+        final ServiceUnavailableException ex = Assert.assertThrows(ServiceUnavailableException.class,
+                () -> client().getPolicies());
+
+        Assert.assertEquals(503, ex.getStatusCode());
+        Assert.assertEquals("Philter is starting. Try again shortly.", ex.getErrorMessage());
+        Assert.assertEquals("service_unavailable", ex.getReason());
+        Assert.assertEquals("Philter is starting. Try again shortly.", ex.getMessage());
+    }
+
+    @Test
+    public void a503WithoutAJsonBodyKeepsTheFallbackMessage() {
+
+        for (final String body : new String[]{"", "<html>Bad gateway</html>"}) {
+            respond(503, body);
+            final ServiceUnavailableException ex = Assert.assertThrows(ServiceUnavailableException.class,
+                    () -> client().getPolicies());
+            Assert.assertEquals(503, ex.getStatusCode());
+            Assert.assertNull(ex.getErrorMessage());
+            Assert.assertNull(ex.getReason());
+            Assert.assertEquals(PhilterClient.SERVICE_UNAVAILABLE, ex.getMessage());
+        }
+    }
+
+    @Test
+    public void everyPhilterErrorCanBeHandledThroughOneInterface() {
+
+        responseHeaders.put("X-Request-Id", "req-1");
+        final int[] statuses = {400, 401, 503};
+        for (final int status : statuses) {
+            respond(status, "{\"message\":\"m" + status + "\",\"reason\":\"r" + status + "\"}");
+            final RuntimeException thrown = Assert.assertThrows(RuntimeException.class, () -> client().getPolicies());
+            Assert.assertTrue(thrown.getClass().getName(), thrown instanceof PhilterError);
+            final PhilterError error = (PhilterError) thrown;
+            Assert.assertEquals(status, error.getStatusCode());
+            Assert.assertEquals("m" + status, error.getErrorMessage());
+            Assert.assertEquals("r" + status, error.getReason());
+            Assert.assertEquals("req-1", error.getRequestId());
+        }
+
+        // The types stay apart, so a catch of ClientException alongside the others still compiles and works.
+        Assert.assertFalse(ClientException.class.isAssignableFrom(UnauthorizedException.class));
+        Assert.assertFalse(ClientException.class.isAssignableFrom(ServiceUnavailableException.class));
     }
 
 }

@@ -52,7 +52,7 @@ package ai.philterd.philter.model.exceptions;
  *   {@link SignInRateLimitedException}. The MFA step has no username lockout.</li>
  * </ul>
  */
-public class ClientException extends RuntimeException {
+public class ClientException extends RuntimeException implements PhilterError {
 
     private final int statusCode;
     private final String errorMessage;
