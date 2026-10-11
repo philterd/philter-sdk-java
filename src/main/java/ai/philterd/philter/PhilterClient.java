@@ -448,7 +448,8 @@ public class PhilterClient {
 			return new ServiceUnavailableException(message == null ? SERVICE_UNAVAILABLE : message, message,
 					fieldOf(body, "reason"), requestId);
 		} else {
-			return new ClientException(describe(code, body), code, messageOf(body), fieldOf(body, "reason"), requestId);
+			return new ClientException(describe(code, body), code, messageOf(body), fieldOf(body, "reason"), requestId,
+					fieldOf(body, "field"));
 		}
 
 	}

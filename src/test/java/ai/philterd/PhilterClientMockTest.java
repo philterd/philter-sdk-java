@@ -4752,4 +4752,56 @@ public class PhilterClientMockTest {
         Assert.assertEquals(0L, lists.getNeverRedactRevision());
     }
 
+
+    // ----- Reasons and fields -----
+
+    @Test
+    public void anInvalidRequestNamesTheField() {
+
+        respond(400, "{\"message\":\"sort must be one of name, created, updated.\",\"reason\":\"invalid_request\","
+                + "\"field\":\"sort\"}");
+
+        final ClientException ex = Assert.assertThrows(ClientException.class, () -> client().getPolicies());
+
+        Assert.assertEquals(ErrorReasons.INVALID_REQUEST, ex.getReason());
+        Assert.assertEquals("sort", ex.getField());
+        Assert.assertEquals("sort must be one of name, created, updated.", ex.getErrorMessage());
+    }
+
+    @Test
+    public void aRefusalWithAReasonButNoFieldHasANullField() {
+
+        respond(403, "{\"message\":\"This API key does not have the 'policies:read' scope.\",\"reason\":\"missing_scope\"}");
+
+        final ClientException ex = Assert.assertThrows(ClientException.class, () -> client().getPolicies());
+
+        Assert.assertEquals(ErrorReasons.MISSING_SCOPE, ex.getReason());
+        Assert.assertNull(ex.getField());
+    }
+
+    @Test
+    public void aBodyThatIsNotPhiltersJsonHasNoReasonOrField() {
+
+        for (final String body : new String[]{"", "<html>Bad gateway</html>", "{\"error\":\"old shape\"}"}) {
+            respond(502, body);
+            final ClientException ex = Assert.assertThrows(ClientException.class, () -> client().getPolicies());
+            Assert.assertEquals(502, ex.getStatusCode());
+            Assert.assertNull(ex.getReason());
+            Assert.assertNull(ex.getField());
+        }
+    }
+
+    @Test
+    public void everyStatusDefaultReadsAsItsConstant() {
+
+        final Map<Integer, String> defaults = Map.of(400, ErrorReasons.INVALID_REQUEST, 403, ErrorReasons.FORBIDDEN,
+                404, ErrorReasons.NOT_FOUND, 409, ErrorReasons.CONFLICT, 429, ErrorReasons.RATE_LIMITED,
+                500, ErrorReasons.INTERNAL_ERROR);
+        for (final Map.Entry<Integer, String> entry : defaults.entrySet()) {
+            respond(entry.getKey(), "{\"message\":\"m\",\"reason\":\"" + entry.getValue() + "\"}");
+            final ClientException ex = Assert.assertThrows(ClientException.class, () -> client().getPolicies());
+            Assert.assertEquals(entry.getValue(), ex.getReason());
+        }
+    }
+
 }

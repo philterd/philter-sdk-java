@@ -20,7 +20,9 @@ package ai.philterd.philter.model.exceptions;
  * Act on {@link #getStatusCode()}, {@link #getReason()}, and {@link #getErrorMessage()} rather than
  * parsing {@link #getMessage()}, whose wording is for logs.
  *
- * <p>Where refusals share a status, Philter's error body carries a machine-readable {@code reason}:</p>
+ * <p>Philter's error body carries a machine-readable {@code reason} on every error: a specific one where the
+ * refusal has one, and otherwise the one its status implies, such as {@code not_found}. {@link ErrorReasons} has a
+ * constant for each. The reasons that tell apart refusals sharing a status include:</p>
  * <ul>
  *   <li>{@code createContext}, {@code 409}: {@code context_exists} (the caller already has a context with
  *   that name, even at the limit) or {@code context_limit_reached} (the caller already has the most
@@ -58,6 +60,7 @@ public class ClientException extends RuntimeException implements PhilterError {
     private final String errorMessage;
     private final String reason;
     private final String requestId;
+    private final String field;
 
     /**
      * An exception not caused by a non-successful HTTP status, such as a response missing a header the
@@ -99,11 +102,26 @@ public class ClientException extends RuntimeException implements PhilterError {
      * @param requestId The response's {@code X-Request-Id}, or {@code null} when it had none.
      */
     public ClientException(String message, int statusCode, String errorMessage, String reason, String requestId) {
+        this(message, statusCode, errorMessage, reason, requestId, null);
+    }
+
+    /**
+     * As above, naming the invalid parameter or body field Philter reported.
+     * @param message The message.
+     * @param statusCode The HTTP status code, or {@code 0} when the status was successful.
+     * @param errorMessage The {@code message} field of Philter's JSON error body, or {@code null}.
+     * @param reason The {@code reason} field of Philter's JSON error body, or {@code null}.
+     * @param requestId The response's {@code X-Request-Id}, or {@code null} when it had none.
+     * @param field The {@code field} field of Philter's JSON error body, or {@code null}.
+     */
+    public ClientException(String message, int statusCode, String errorMessage, String reason, String requestId,
+                           String field) {
         super(withRequestId(message, requestId));
         this.statusCode = statusCode;
         this.errorMessage = errorMessage;
         this.reason = reason;
         this.requestId = requestId;
+        this.field = field;
     }
 
     /** The message with the request id appended, when there is one. */
@@ -145,6 +163,16 @@ public class ClientException extends RuntimeException implements PhilterError {
      */
     public String getRequestId() {
         return requestId;
+    }
+
+    /**
+     * The parameter or body field Philter found invalid, from the {@code field} field of its JSON error body, such
+     * as {@code sort}, {@code password}, or {@code email}. Philter gives it on some {@code 400} responses, whose
+     * reason is {@link ErrorReasons#INVALID_REQUEST}, so a form can mark the field. {@code null} when Philter
+     * does not name one.
+     */
+    public String getField() {
+        return field;
     }
 
 }

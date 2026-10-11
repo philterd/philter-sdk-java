@@ -146,6 +146,21 @@ terms.add("Project X");
 client.replaceRedactList(RedactList.ALWAYS, terms, current.getRevision());
 ```
 
+Every refusal carries a stable reason. Act on it with the `ErrorReasons` constants rather than on the message or the
+status alone; `getField()` names the invalid field when Philter reports one:
+
+```
+try {
+    client.savePolicy("claims", json);
+} catch (ClientException e) {
+    if (ErrorReasons.POLICY_EXISTS.equals(e.getReason())) {
+        client.replacePolicy("claims", json);
+    } else {
+        throw e;
+    }
+}
+```
+
 Responses are typed. Compile PhiSQL with `compilePhiSql`, compare policy revisions with `diffPolicy`, re-identify
 values with `reidentifyValues`, and copy a context's mappings with `getContextEntriesExport` and
 `importContextEntriesExport`, without handling JSON:

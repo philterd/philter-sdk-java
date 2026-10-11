@@ -74,15 +74,17 @@ in a request path (philterd/philter#140); session key listing (#141); managed po
 descriptions and notes in a request body, without which earlier clients fail (#144); unverifiable ledger chains
 (#145); the `policy_managed` reason (#146); unreadable ledger entries (#147); `user` holds without a
 `scopeValue` (#148); an audit event's source (#149); the disambiguation scope (#150); reading and replacing one
-redact list (#157); limits and sign-in options (#159); audit event usernames and user ids (#161); policy
-templates (#164); webhook tests, delivery history, and keeping the secret (#165); deleted policies and version
-authors (#166); changing a user's email address, and the email rule on `createUser` (#168); session client
-details and signing out other sessions (#169); and request ids (#156).
+redact list (#157); a reason and field on every error (#158); limits and sign-in options (#159); audit event
+usernames and user ids (#161); policy templates (#164); webhook tests, delivery history, and keeping the secret
+(#165); deleted policies and version authors (#166); changing a user's email address, and the email rule on
+`createUser` (#168); session client details and signing out other sessions (#169); and request ids (#156).
 
 ### Errors
 
-* `ClientException` exposes `getStatusCode()`, `getErrorMessage()` (the body's `message`), and `getReason()`,
-  a machine-readable value such as `context_exists`, so callers need not parse messages.
+* `ClientException` exposes `getStatusCode()`, `getErrorMessage()` (the body's `message`), and `getReason()`, a
+  machine-readable value such as `context_exists`, so callers need not parse messages. `ErrorReasons` has a
+  constant for every reason Philter gives, and `getField()` names the invalid parameter or body field on a `400`
+  when Philter reports it.
 * `SignInLockedException` and `SignInRateLimitedException` extend it and carry the seconds to wait.
   `UnauthorizedException` (401) and `ServiceUnavailableException` (503) carry the same status code, error
   message, reason, and request id as `ClientException`, and all three implement `PhilterError`, without either

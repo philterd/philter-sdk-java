@@ -29,7 +29,7 @@ A 401's `getReason()` tells apart why the credentials were refused, so a user in
 try {
     client.getPolicies();
 } catch (UnauthorizedException e) {
-    if ("session_expired".equals(e.getReason())) {
+    if (ErrorReasons.SESSION_EXPIRED.equals(e.getReason())) {
         // Show the sign-in page.
     }
 }
@@ -75,32 +75,38 @@ try {
 }
 ```
 
-## Acting on the status
+## Acting on the reason
 
-`ClientException` exposes the HTTP status with `getStatusCode()` and the `message` field of Philter's JSON error body with `getErrorMessage()`. Branch on the status, not on the exception message, whose wording is for logs and may change. `getErrorMessage()` is read from the whole body, so it is complete even when the exception message was truncated, and it is `null` when the body was not JSON or had no `message`. Philter returns its errors as JSON with a `message`, so in practice it is `null` for a response with no body, such as the `404` from `getUser`, `revokeApiKey`, or `getPolicy` when what it names does not exist; for a `403` from `exportAuditLog` for a caller who is not an administrator, which is plain text; and for a response that did not come from Philter, such as a proxy's error page. Fall back to the status in those cases.
+Every error Philter returns is a JSON object with a `message`, a `reason`, and, for some invalid requests, a `field`. `ClientException` exposes them as `getErrorMessage()`, `getReason()`, and `getField()`, alongside the HTTP status as `getStatusCode()`.
+
+- `getReason()` is a stable, machine-readable code. Branch on it: it tells apart refusals that share a status, and it does not change when the wording does. `ErrorReasons` has a constant for every reason Philter gives. Philter gives one on every error: a specific reason where the refusal has one, and otherwise the one its status implies, such as `ErrorReasons.NOT_FOUND` for a `404`.
+- `getErrorMessage()` is written for people, so show it rather than branching on it. It is read from the whole body, so it is complete even when the exception message was truncated.
+- `getField()` names the parameter or body field Philter found invalid, such as `sort`, `password`, or `email`, on some `400` responses whose reason is `invalid_request`, so a form can mark the field. It is `null` otherwise.
+
+All three are `null` for a response that did not come from Philter, such as a proxy's error page; fall back to the status then. Compare with `ErrorReasons.X.equals(e.getReason())`, which is safe when the reason is `null`.
 
 ```java
+import ai.philterd.philter.model.exceptions.ErrorReasons;
+
 try {
     client.changePassword(currentPassword, newPassword);
 } catch (ClientException e) {
-    switch (e.getStatusCode()) {
-        case 400:
-            // The new password was rejected; show the person why.
-            System.out.println(e.getErrorMessage());
-            break;
-        case 403:
-            // The current password is not correct, or the key lacks users:write.
-            break;
-        case 409:
-            // The user has no password yet; an administrator sets the first one.
-            break;
-        default:
-            throw e;
+    if (ErrorReasons.WRONG_PASSWORD.equals(e.getReason())) {
+        // The current password is not correct.
+    } else if (ErrorReasons.INVALID_REQUEST.equals(e.getReason())) {
+        // The new password was rejected; show the person why.
+        System.out.println(e.getErrorMessage());
+    } else if (ErrorReasons.CHANGED_CONCURRENTLY.equals(e.getReason())) {
+        // Another request changed the password first; try again.
+    } else {
+        // Such as missing_scope, or a 409 conflict for a user with no password yet, whose first one an
+        // administrator sets.
+        throw e;
     }
 }
 ```
 
-Where refusals share a status, `getReason()` tells them apart with a stable, machine-readable value from the error body. Branch on it rather than on the error message. It is `null` when the body has no `reason`. Philter returns these reasons:
+The reasons for each call's own refusals are below; `ErrorReasons` documents every reason, including the general ones such as `missing_scope`, `admin_required`, `session_expired`, and `not_found`, and Philter's [Errors documentation](https://github.com/philterd/philter/blob/main/docs/docs/api_and_sdks/api.md#errors) lists them with their statuses.
 
 | Call | Status | `getReason()` |
 |------|--------|---------------|
@@ -114,6 +120,8 @@ Where refusals share a status, `getReason()` tells them apart with a stable, mac
 | `saveList` | `409` | `list_exists`: the owner already has a list with that name. Replace it with `replaceList`. |
 | `createHold` | `409` | `hold_exists`: a hold with that reference exists. `operation_in_progress`: an evidence or hold operation for the owner is active or needs recovery. |
 | `deleteHold` | `409` | `operation_in_progress`, as for `createHold`. |
+| `replaceRedactList` | `409` | `redact_list_changed`: the list changed after the revision you passed. Read it again and retry. |
+| `testWebhook` | `409` | `webhook_not_set`: no webhook is set. |
 | `getLedgerExport` | `422` | `entry_unreadable`: an entry in the chain could not be read, so the chain is not exported. |
 | `signIn` | `429` | `locked`: the username is locked after repeated failures. `rate_limited`: the client address is over the sign-in rate limit. These are raised as `SignInLockedException` and `SignInRateLimitedException`. |
 | `completeSignIn` | `429` | `rate_limited`, raised as `SignInRateLimitedException`. The MFA step has no username lockout. |
@@ -122,9 +130,9 @@ Where refusals share a status, `getReason()` tells them apart with a stable, mac
 try {
     client.createContext("tenant-a", false, false);
 } catch (ClientException e) {
-    if ("context_limit_reached".equals(e.getReason())) {
+    if (ErrorReasons.CONTEXT_LIMIT_REACHED.equals(e.getReason())) {
         // Offer to delete a context first.
-    } else if ("context_exists".equals(e.getReason())) {
+    } else if (ErrorReasons.CONTEXT_EXISTS.equals(e.getReason())) {
         // Choose another name.
     } else {
         throw e;
