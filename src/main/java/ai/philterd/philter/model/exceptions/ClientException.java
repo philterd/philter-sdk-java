@@ -57,6 +57,7 @@ public class ClientException extends RuntimeException {
     private final int statusCode;
     private final String errorMessage;
     private final String reason;
+    private final String requestId;
 
     /**
      * An exception not caused by a non-successful HTTP status, such as a response missing a header the
@@ -85,10 +86,29 @@ public class ClientException extends RuntimeException {
      * @param reason The {@code reason} field of Philter's JSON error body, or {@code null}.
      */
     public ClientException(String message, int statusCode, String errorMessage, String reason) {
-        super(message);
+        this(message, statusCode, errorMessage, reason, null);
+    }
+
+    /**
+     * An exception caused by a Philter response, carrying the response's request id. The id is appended to
+     * the message, so a logged stack trace carries it.
+     * @param message The message.
+     * @param statusCode The HTTP status code, or {@code 0} when the status was successful.
+     * @param errorMessage The {@code message} field of Philter's JSON error body, or {@code null}.
+     * @param reason The {@code reason} field of Philter's JSON error body, or {@code null}.
+     * @param requestId The response's {@code X-Request-Id}, or {@code null} when it had none.
+     */
+    public ClientException(String message, int statusCode, String errorMessage, String reason, String requestId) {
+        super(withRequestId(message, requestId));
         this.statusCode = statusCode;
         this.errorMessage = errorMessage;
         this.reason = reason;
+        this.requestId = requestId;
+    }
+
+    /** The message with the request id appended, when there is one. */
+    static String withRequestId(final String message, final String requestId) {
+        return requestId == null || requestId.isBlank() ? message : message + " (request id: " + requestId + ")";
     }
 
     /**
@@ -115,6 +135,16 @@ public class ClientException extends RuntimeException {
      */
     public String getReason() {
         return reason;
+    }
+
+    /**
+     * The request id Philter gave the response, from its {@code X-Request-Id} header, or {@code null} when
+     * the response had none or the exception was not caused by a response. Philter records the same id as
+     * {@code request_id} on the audit events the request caused, so an administrator can find the request
+     * in the audit log with it.
+     */
+    public String getRequestId() {
+        return requestId;
     }
 
 }

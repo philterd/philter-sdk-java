@@ -3844,4 +3844,112 @@ public class PhilterClientMockTest {
         client().getPolicies();
     }
 
+
+    // ----- Request ids -----
+
+    private static final String REQUEST_ID = "01929f2e-6c3a-7b1d-9e4f-3a2b1c0d9e8f";
+
+    @Test
+    public void aRefusalCarriesItsRequestIdOnTheExceptionAndInTheMessage() {
+
+        responseHeaders.put("X-Request-Id", REQUEST_ID);
+        respond(409, "{\"message\":\"A policy with this name already exists.\",\"reason\":\"policy_exists\"}");
+
+        final ClientException ex = Assert.assertThrows(ClientException.class,
+                () -> client().savePolicy("my-policy", "{}"));
+
+        Assert.assertEquals(REQUEST_ID, ex.getRequestId());
+        Assert.assertTrue(ex.getMessage(), ex.getMessage().endsWith("(request id: " + REQUEST_ID + ")"));
+        Assert.assertEquals("A policy with this name already exists.", ex.getErrorMessage());
+        Assert.assertEquals("policy_exists", ex.getReason());
+    }
+
+    @Test
+    public void unauthorizedUnavailableAndThrottledCarryTheRequestId() {
+
+        responseHeaders.put("X-Request-Id", REQUEST_ID);
+
+        respond(401, "{\"message\":\"Unauthorized.\"}");
+        final UnauthorizedException unauthorized = Assert.assertThrows(UnauthorizedException.class,
+                () -> client().getPolicies());
+        Assert.assertEquals(REQUEST_ID, unauthorized.getRequestId());
+        Assert.assertEquals("Unauthorized. (request id: " + REQUEST_ID + ")", unauthorized.getMessage());
+
+        respond(503, "");
+        final ServiceUnavailableException unavailable = Assert.assertThrows(ServiceUnavailableException.class,
+                () -> client().getPolicies());
+        Assert.assertEquals(REQUEST_ID, unavailable.getRequestId());
+        Assert.assertTrue(unavailable.getMessage(), unavailable.getMessage().contains(REQUEST_ID));
+
+        responseHeaders.put("Retry-After", "900");
+        respond(429, "{\"message\":\"Too many failed sign-ins for this username. Try again later.\",\"reason\":\"locked\"}");
+        final SignInLockedException locked = Assert.assertThrows(SignInLockedException.class,
+                () -> client().signIn("jordan", "the-users-password"));
+        Assert.assertEquals(REQUEST_ID, locked.getRequestId());
+        Assert.assertEquals("Too many failed sign-ins for this username. Try again later.", locked.getErrorMessage());
+        Assert.assertTrue(locked.getMessage(), locked.getMessage().endsWith("(request id: " + REQUEST_ID + ")"));
+    }
+
+    @Test
+    public void aRefusalWithoutARequestIdKeepsItsMessage() {
+
+        respond(404, "{\"message\":\"Not found.\"}");
+
+        final ClientException ex = Assert.assertThrows(ClientException.class, () -> client().getPolicy("missing"));
+
+        Assert.assertNull(ex.getRequestId());
+        Assert.assertFalse(ex.getMessage(), ex.getMessage().contains("request id"));
+    }
+
+    @Test
+    public void theLastRequestIdIsTheMostRecentResponsesOnThisThread() throws Exception {
+
+        final PhilterClient client = client();
+        Assert.assertNull("nothing sent yet", client.getLastRequestId());
+
+        responseHeaders.put("X-Request-Id", REQUEST_ID);
+        respond(200, "[]");
+        client.getPolicies();
+        Assert.assertEquals(REQUEST_ID, client.getLastRequestId());
+
+        // A failed call sets it too.
+        responseHeaders.put("X-Request-Id", "second-id");
+        respond(400, "{\"message\":\"Bad.\"}");
+        Assert.assertThrows(ClientException.class, client::getPolicies);
+        Assert.assertEquals("second-id", client.getLastRequestId());
+
+        // Another thread's call with the same client does not change this thread's.
+        responseHeaders.put("X-Request-Id", "other-thread");
+        respond(200, "[]");
+        final ExecutorService other = Executors.newSingleThreadExecutor();
+        try {
+            Assert.assertEquals("other-thread", other.submit(() -> {
+                client.getPolicies();
+                return client.getLastRequestId();
+            }).get(10, TimeUnit.SECONDS));
+        } finally {
+            other.shutdownNow();
+        }
+        Assert.assertEquals("second-id", client.getLastRequestId());
+
+        // A response without one clears it, rather than leaving the previous call's.
+        responseHeaders.remove("X-Request-Id");
+        client.getPolicies();
+        Assert.assertNull(client.getLastRequestId());
+    }
+
+    @Test
+    public void aCallThatGetsNoResponseLeavesNoRequestId() throws Exception {
+
+        responseHeaders.put("X-Request-Id", REQUEST_ID);
+        respond(200, "[]");
+        final PhilterClient client = client();
+        client.getPolicies();
+        Assert.assertEquals(REQUEST_ID, client.getLastRequestId());
+
+        server.stop(0);
+        Assert.assertThrows(IOException.class, client::getPolicies);
+        Assert.assertNull(client.getLastRequestId());
+    }
+
 }

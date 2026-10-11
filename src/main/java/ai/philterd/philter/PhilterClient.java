@@ -172,6 +172,9 @@ public class PhilterClient {
 	private final Supplier<String> clientAddress;
 	private final Gson gson = new Gson();
 
+	/** The request id of the most recent response this client received, per calling thread. */
+	private final ThreadLocal<String> lastRequestId = new ThreadLocal<>();
+
 	/**
 	 * Builds {@link PhilterClient} instances. Only {@link #withEndpoint(String)} is required; all other
 	 * settings are optional and fall back to sensible defaults.
@@ -391,6 +394,29 @@ public class PhilterClient {
 	}
 
 	/**
+	 * The request id Philter gave the most recent response this client received on the calling thread,
+	 * from its {@code X-Request-Id} header, whether the call succeeded or not. {@code null} before the
+	 * thread's first call, when the last call got no response (such as a connection failure), or when the
+	 * response had no request id, as from a Philter version before 4.0.
+	 *
+	 * <p>Philter records the same id as {@code request_id} on every audit event the request caused, so an
+	 * administrator can find the request in the audit log with it. It is kept per thread, so calls other
+	 * threads make with the same client do not change it. Read it right after the call it belongs to:</p>
+	 *
+	 * <pre>{@code
+	 * FilterResponse response = client.filter("default", "default", text);
+	 * String requestId = client.getLastRequestId();
+	 * }</pre>
+	 *
+	 * <p>A failed call also carries its id on the exception, such as {@link ClientException#getRequestId()}.</p>
+	 *
+	 * @return The request id, or {@code null}.
+	 */
+	public String getLastRequestId() {
+		return lastRequestId.get();
+	}
+
+	/**
 	 * Determines whether a response carries a 2xx status code.
 	 */
 	private static boolean isSuccessful(final HttpResponse<?> response) {
@@ -401,24 +427,35 @@ public class PhilterClient {
 	private static final int MAX_ERROR_BODY_LENGTH = 512;
 
 	/**
-	 * Maps an HTTP status code to a client exception. Philter explains a rejected request in the
+	 * Maps a failed response to a client exception. Philter explains a rejected request in the
 	 * response body, so the body is carried into the {@link ClientException} message; a caller left
-	 * with only a status code has nothing to act on.
-	 * @param code The HTTP status code.
-	 * @param body The response body, which may be {@code null} or empty.
+	 * with only a status code has nothing to act on. The response's request id is carried too.
+	 * @param response The response.
+	 * @param body The response body as text, which may be {@code null} or empty.
 	 * @return A {@link RuntimeException} describing the error.
 	 */
-	private static RuntimeException toException(final int code, final String body) {
+	private static RuntimeException toException(final HttpResponse<?> response, final String body) {
+
+		final int code = response.statusCode();
+		final String requestId = requestIdOf(response);
 
 		if(code == 401) {
 			final String message = messageOf(body);
-			return new UnauthorizedException(message == null ? UNAUTHORIZED : message);
+			return new UnauthorizedException(message == null ? UNAUTHORIZED : message, requestId);
 		} else if(code == 503) {
-			return new ServiceUnavailableException(SERVICE_UNAVAILABLE);
+			return new ServiceUnavailableException(SERVICE_UNAVAILABLE, requestId);
 		} else {
-			return new ClientException(describe(code, body), code, messageOf(body), fieldOf(body, "reason"));
+			return new ClientException(describe(code, body), code, messageOf(body), fieldOf(body, "reason"), requestId);
 		}
 
+	}
+
+	/** The response header carrying the id Philter gave the request. */
+	private static final String REQUEST_ID_HEADER = "X-Request-Id";
+
+	/** The response's {@code X-Request-Id}, or {@code null} when it has none. */
+	private static String requestIdOf(final HttpResponse<?> response) {
+		return response.headers().firstValue(REQUEST_ID_HEADER).orElse(null);
 	}
 
 	/**
@@ -473,14 +510,14 @@ public class PhilterClient {
 			final String reason = fieldOf(response.body(), "reason");
 
 			if("locked".equals(reason)) {
-				return new SignInLockedException(message, retryAfter);
+				return new SignInLockedException(message, retryAfter, requestIdOf(response));
 			} else if("rate_limited".equals(reason)) {
-				return new SignInRateLimitedException(message, retryAfter);
+				return new SignInRateLimitedException(message, retryAfter, requestIdOf(response));
 			}
 
 		}
 
-		return toException(response.statusCode(), response.body());
+		return toException(response, response.body());
 
 	}
 
@@ -537,9 +574,14 @@ public class PhilterClient {
 
 	private <T> HttpResponse<T> send(final HttpRequest request, final HttpResponse.BodyHandler<T> bodyHandler) throws IOException {
 
+		// Cleared first, so a request that gets no response does not leave an earlier request's id.
+		lastRequestId.remove();
+
 		try {
 
-			return httpClient.send(request, bodyHandler);
+			final HttpResponse<T> response = httpClient.send(request, bodyHandler);
+			lastRequestId.set(requestIdOf(response));
+			return response;
 
 		} catch (final InterruptedException ex) {
 
@@ -559,7 +601,7 @@ public class PhilterClient {
 		final HttpResponse<String> response = send(request, HttpResponse.BodyHandlers.ofString());
 
 		if(!isSuccessful(response)) {
-			throw toException(response.statusCode(), response.body());
+			throw toException(response, response.body());
 		}
 
 	}
@@ -575,7 +617,7 @@ public class PhilterClient {
 			return response.body();
 		}
 
-		throw toException(response.statusCode(), response.body());
+		throw toException(response, response.body());
 
 	}
 
@@ -597,7 +639,7 @@ public class PhilterClient {
 			return response.body();
 		}
 
-		throw toException(response.statusCode(), new String(response.body(), StandardCharsets.UTF_8));
+		throw toException(response, new String(response.body(), StandardCharsets.UTF_8));
 
 	}
 
@@ -675,7 +717,7 @@ public class PhilterClient {
 
 		}
 
-		throw toException(response.statusCode(), response.body());
+		throw toException(response, response.body());
 
 	}
 
@@ -755,7 +797,7 @@ public class PhilterClient {
 
 		}
 
-		throw toException(response.statusCode(), new String(response.body(), StandardCharsets.UTF_8));
+		throw toException(response, new String(response.body(), StandardCharsets.UTF_8));
 
 	}
 
@@ -913,7 +955,7 @@ public class PhilterClient {
 		final HttpResponse<String> response = send(request, HttpResponse.BodyHandlers.ofString());
 
 		if(!isSuccessful(response)) {
-			throw toException(response.statusCode(), response.body());
+			throw toException(response, response.body());
 		}
 
 		final ExplainResponse explainResponse = gson.fromJson(response.body(), ExplainResponse.class);
@@ -3354,7 +3396,7 @@ public class PhilterClient {
 		final HttpResponse<byte[]> response = send(request, HttpResponse.BodyHandlers.ofByteArray());
 
 		if(!isSuccessful(response)) {
-			throw toException(response.statusCode(), new String(response.body(), StandardCharsets.UTF_8));
+			throw toException(response, new String(response.body(), StandardCharsets.UTF_8));
 		}
 
 		// Without these headers a truncated page is indistinguishable from a complete one, so refuse it.
@@ -3362,7 +3404,8 @@ public class PhilterClient {
 		final String truncated = response.headers().firstValue(EXPORT_TRUNCATED_HEADER).orElse(null);
 		if(rows == null || truncated == null) {
 			throw new ClientException("The audit log export response is missing the "
-					+ EXPORT_ROWS_HEADER + " or " + EXPORT_TRUNCATED_HEADER + " header.");
+					+ EXPORT_ROWS_HEADER + " or " + EXPORT_TRUNCATED_HEADER + " header.", 0, null, null,
+					requestIdOf(response));
 		}
 
 		try {
@@ -3375,7 +3418,8 @@ public class PhilterClient {
 
 		} catch (final NumberFormatException ex) {
 			throw new ClientException("The audit log export response has a malformed "
-					+ EXPORT_ROWS_HEADER + " or " + EXPORT_NEXT_OFFSET_HEADER + " header.");
+					+ EXPORT_ROWS_HEADER + " or " + EXPORT_NEXT_OFFSET_HEADER + " header.", 0, null, null,
+					requestIdOf(response));
 		}
 
 	}

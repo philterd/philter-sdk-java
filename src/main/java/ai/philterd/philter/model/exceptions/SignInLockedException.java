@@ -23,7 +23,12 @@ package ai.philterd.philter.model.exceptions;
 public class SignInLockedException extends SignInThrottledException {
 
     public SignInLockedException(String message, Integer retryAfterSeconds) {
-        super(message, "locked", retryAfterSeconds);
+        this(message, retryAfterSeconds, null);
+    }
+
+    /** As above, carrying the response's request id from {@code X-Request-Id}, or {@code null}. */
+    public SignInLockedException(String message, Integer retryAfterSeconds, String requestId) {
+        super(message, "locked", retryAfterSeconds, requestId);
     }
 
 }

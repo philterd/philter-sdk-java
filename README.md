@@ -83,6 +83,19 @@ To filter text with explanation:
 ExplainResponse explainResponse = client.explain("context", "default", text);
 ```
 
+Every Philter response carries a request id, which Philter also records on the audit events the request caused.
+A failed call carries it on the exception (`getRequestId()`, and at the end of the message), and
+`client.getLastRequestId()` returns it for the last call on the current thread. Log it, and use it to find the request
+in the audit log:
+
+```
+try {
+    client.replacePolicy("claims", policyJson);
+} catch (ClientException e) {
+    System.err.println(e.getErrorMessage() + " (request id " + e.getRequestId() + ")");
+}
+```
+
 Philter 4.0.0 expects an `Authorization` header on nearly every endpoint. Provide its value with
 `withApiKey(...)`; the value is sent verbatim, so include any scheme prefix (for example `"Bearer "`) if your
 deployment requires it. The `health()` endpoint does not require authentication.

@@ -15,7 +15,7 @@ Philter explains a rejected request in the response body, and the `ClientExcepti
 Unknown error: HTTP 400: {"message":"'strategy' must be CRYPTO_REPLACE or FPE_ENCRYPT_REPLACE."}
 ```
 
-`UnauthorizedException` carries Philter's message, such as `Invalid or missing credentials`, or `Unauthorized` when the response has none. Philter gives the same 401 for an unknown key, an expired or revoked session key, and a deactivated user, so the client cannot tell them apart. `ServiceUnavailableException` carries a fixed message.
+`UnauthorizedException` carries Philter's message, such as `Invalid or missing credentials`, or `Unauthorized` when the response has none, followed by the [request id](#request-ids) when the response has one. Philter gives the same 401 for an unknown key, an expired or revoked session key, and a deactivated user, so the client cannot tell them apart. `ServiceUnavailableException` carries a fixed message.
 
 `SignInLockedException` and `SignInRateLimitedException` are subclasses of `ClientException`, so a handler for `ClientException` still catches them. See [Failed sign-ins](sign-in.md#failed-sign-ins).
 
@@ -98,4 +98,38 @@ try {
 ```
 
 `getStatusCode()` is `0` when the exception was not caused by a non-successful status, such as a response the client could not use. `SignInLockedException` and `SignInRateLimitedException` report `429`.
+
+## Request ids
+
+Philter gives every API request an id and returns it in the `X-Request-Id` response header, on successes and refusals alike. It records the same id as `request_id` on every audit event the request causes, so the id ties what a client saw to what Philter recorded. Log it with errors, and quote it when asking an administrator, or Philterd support, about a request.
+
+Every exception built from a Philter response carries it: `ClientException` (and so `SignInLockedException` and `SignInRateLimitedException`), `UnauthorizedException`, and `ServiceUnavailableException` all have `getRequestId()`, and their messages end with it, so a logged stack trace carries it without extra code:
+
+```
+Unknown error: HTTP 409: {"message":"A policy with this name already exists.","reason":"policy_exists"} (request id: 01929f2e-6c3a-7b1d-9e4f-3a2b1c0d9e8f)
+```
+
+`getRequestId()` is `null` when the response had none, as from a Philter version before 4.0, or when the exception was not caused by a response. `getErrorMessage()` is unchanged: it is Philter's message alone, without the id, for showing to people.
+
+For a call that succeeded, `getLastRequestId()` returns the id of the most recent response the client received on the calling thread. Read it right after the call. It is kept per thread, so calls other threads make with the same client do not change it, and it is `null` when the thread's last call got no response, such as a connection failure.
+
+```java
+try {
+    client.replacePolicy("claims", policyJson);
+    log.info("Replaced the claims policy (request id {})", client.getLastRequestId());
+} catch (ClientException e) {
+    log.warn("Philter refused the change: {} (request id {})", e.getErrorMessage(), e.getRequestId());
+}
+```
+
+An administrator finds the request's audit events by their `request_id`, in the audit log's CSV export or with `getAuditLog`:
+
+```java
+GetAuditLogResponse page = admin.getAuditLog(null, from, to, null, 0, 100);
+page.getEvents().stream()
+        .filter(event -> requestId.equals(event.getRequestId()))
+        .forEach(event -> System.out.println(event.getEvent() + " " + event.getDetails()));
+```
+
+Redaction events are the exception: `document_redaction_initiated` and `document_redaction_completed` record the document id as their `request_id`, so a queued redaction's start and completion share one id. Find those by the document id, from `FilterResponse.getDocumentId()`.
 

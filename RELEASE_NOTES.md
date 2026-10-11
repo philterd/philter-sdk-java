@@ -61,8 +61,8 @@ Some of this needs a Philter that includes the matching change: path-unsafe name
 `deleteList`, and `deleteHold` can still remove (philterd/philter#140); session key listing (#141); managed
 policy descriptions (#142); policy descriptions and notes in a request body, without which earlier clients
 fail (#144); unverifiable ledger chains (#145); the `policy_managed` reason (#146); unreadable ledger entries
-(#147); `user` holds without a `scopeValue` (#148); an audit event's source (#149); and the disambiguation
-scope (#150).
+(#147); `user` holds without a `scopeValue` (#148); an audit event's source (#149); the disambiguation
+scope (#150); and request ids (#156).
 
 ### Errors
 
@@ -70,6 +70,10 @@ scope (#150).
   a machine-readable value such as `context_exists`, so callers need not parse messages.
 * `SignInLockedException` and `SignInRateLimitedException` extend it and carry the seconds to wait.
   `UnauthorizedException` carries Philter's message.
+* Every exception built from a Philter response has `getRequestId()`, the response's `X-Request-Id`, and its
+  message ends with the id, so a logged stack trace carries it. `getLastRequestId()` returns the id of the
+  calling thread's most recent response, for calls that succeed. Philter records the same id on the audit
+  events the request caused.
 
 ### Build and tooling
 

@@ -22,7 +22,12 @@ package ai.philterd.philter.model.exceptions;
 public class SignInRateLimitedException extends SignInThrottledException {
 
     public SignInRateLimitedException(String message, Integer retryAfterSeconds) {
-        super(message, "rate_limited", retryAfterSeconds);
+        this(message, retryAfterSeconds, null);
+    }
+
+    /** As above, carrying the response's request id from {@code X-Request-Id}, or {@code null}. */
+    public SignInRateLimitedException(String message, Integer retryAfterSeconds, String requestId) {
+        super(message, "rate_limited", retryAfterSeconds, requestId);
     }
 
 }

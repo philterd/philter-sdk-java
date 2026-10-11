@@ -15,10 +15,34 @@
  ******************************************************************************/
 package ai.philterd.philter.model.exceptions;
 
+/**
+ * Philter refused the request with an HTTP 401: the credentials are missing or not accepted, such as an unknown,
+ * revoked, or expired key, or at sign-in a wrong username or password.
+ */
 public class UnauthorizedException extends RuntimeException {
 
+    private final String requestId;
+
     public UnauthorizedException(String message) {
-        super(message);
+        this(message, null);
+    }
+
+    /**
+     * As above, carrying the response's request id, which is appended to the message.
+     * @param message The message.
+     * @param requestId The response's {@code X-Request-Id}, or {@code null} when it had none.
+     */
+    public UnauthorizedException(String message, String requestId) {
+        super(ClientException.withRequestId(message, requestId));
+        this.requestId = requestId;
+    }
+
+    /**
+     * The request id Philter gave the response, from its {@code X-Request-Id} header, or {@code null} when
+     * the response had none. The audit events the request caused record the same id as {@code request_id}.
+     */
+    public String getRequestId() {
+        return requestId;
     }
 
 }
