@@ -33,6 +33,14 @@ public class RedactLists {
     @SerializedName("neverRedact")
     private List<String> neverRedact;
 
+    @Expose
+    @SerializedName("alwaysRedactRevision")
+    private long alwaysRedactRevision;
+
+    @Expose
+    @SerializedName("neverRedactRevision")
+    private long neverRedactRevision;
+
     /** Terms always redacted. */
     public List<String> getAlwaysRedact() {
         return alwaysRedact;
@@ -49,6 +57,30 @@ public class RedactLists {
 
     public void setNeverRedact(List<String> neverRedact) {
         this.neverRedact = neverRedact;
+    }
+
+    /**
+     * The always-redact list's revision, for {@code replaceRedactList(RedactList.ALWAYS, ...)}. {@code 0} for a
+     * list never written, or from a Philter version that does not return it.
+     */
+    public long getAlwaysRedactRevision() {
+        return alwaysRedactRevision;
+    }
+
+    public void setAlwaysRedactRevision(long alwaysRedactRevision) {
+        this.alwaysRedactRevision = alwaysRedactRevision;
+    }
+
+    /**
+     * The never-redact list's revision, for {@code replaceRedactList(RedactList.NEVER, ...)}. {@code 0} for a
+     * list never written, or from a Philter version that does not return it.
+     */
+    public long getNeverRedactRevision() {
+        return neverRedactRevision;
+    }
+
+    public void setNeverRedactRevision(long neverRedactRevision) {
+        this.neverRedactRevision = neverRedactRevision;
     }
 
 }

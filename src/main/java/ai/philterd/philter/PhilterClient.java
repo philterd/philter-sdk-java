@@ -56,6 +56,8 @@ import ai.philterd.philter.model.GetApiKeysResponse;
 import ai.philterd.philter.model.GetAuditLogResponse;
 import ai.philterd.philter.model.GetListsResponse;
 import ai.philterd.philter.model.GetUsersResponse;
+import ai.philterd.philter.model.RedactList;
+import ai.philterd.philter.model.RedactListTerms;
 import ai.philterd.philter.model.Limits;
 import ai.philterd.philter.model.SignInOptions;
 import ai.philterd.philter.model.CompilePolicyResponse;
@@ -84,6 +86,7 @@ import ai.philterd.philter.model.UpdateAdminSettingsRequest;
 import ai.philterd.philter.model.User;
 import ai.philterd.philter.model.Webhook;
 import ai.philterd.philter.model.exceptions.ClientException;
+import ai.philterd.philter.model.exceptions.ErrorReasons;
 import ai.philterd.philter.model.exceptions.ServiceUnavailableException;
 import ai.philterd.philter.model.exceptions.SignInLockedException;
 import ai.philterd.philter.model.exceptions.SignInRateLimitedException;
@@ -3570,6 +3573,95 @@ public class PhilterClient {
 	 */
 	public GenericResponse updateRedactList(RedactListsRequest request, String owner) throws IOException {
 		return updateRedactList(gson.toJson(request), owner);
+	}
+
+	/**
+	 * Gets one of the caller's redact lists. See {@link #getRedactList(RedactList, String)}.
+	 * @param list {@link RedactList#ALWAYS} or {@link RedactList#NEVER}.
+	 * @return The list's terms and revision.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public RedactListTerms getRedactList(RedactList list) throws IOException {
+		return getRedactList(list, null);
+	}
+
+	/**
+	 * Gets one redact list, the always-redact or the never-redact list, with its revision. Pass the revision to
+	 * {@link #replaceRedactList(RedactList, List, Long, String)} so the replacement is refused if someone changed
+	 * the list in between. Requires the {@code lists:read} scope.
+	 * @param list {@link RedactList#ALWAYS} or {@link RedactList#NEVER}.
+	 * @param owner The owner. May be {@code null} for the caller's own. Another user's requires an
+	 * administrator and {@code ADMIN_CROSS_USER_ACCESS_ENABLED=true}; otherwise Philter answers HTTP 404.
+	 * @return The list's terms and revision.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public RedactListTerms getRedactList(RedactList list, String owner) throws IOException {
+		return sendExpectingJson(json(uri("/api/redact-lists/" + list.getName(), "owner", owner)).GET().build(),
+				RedactListTerms.class);
+	}
+
+	/**
+	 * Replaces one of the caller's redact lists. See {@link #replaceRedactList(RedactList, List, Long, String)}.
+	 * @param list {@link RedactList#ALWAYS} or {@link RedactList#NEVER}.
+	 * @param terms The list's new terms. {@code null} or empty clears it.
+	 * @param expectedRevision The revision you read, or {@code null} to replace the list whatever its revision.
+	 * @return The list as written, with its new revision.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public RedactListTerms replaceRedactList(RedactList list, List<String> terms, Long expectedRevision)
+			throws IOException {
+		return replaceRedactList(list, terms, expectedRevision, null);
+	}
+
+	/**
+	 * Replaces one redact list, leaving the other as it is. Philter trims the terms and drops blank ones. A list
+	 * holds up to 1000 terms of up to 100 characters each; more is an HTTP 400, thrown as a
+	 * {@link ClientException}. Requires the {@code lists:write} scope.
+	 *
+	 * <p>Pass the revision you read, from {@link #getRedactList(RedactList, String)} or
+	 * {@link #listRedactLists(String)}, as {@code expectedRevision}. The client sends it as {@code If-Match},
+	 * and Philter replaces the list only if it is still at that revision. If someone changed it since, nothing is written and
+	 * Philter answers HTTP 409, thrown as a {@link ClientException} whose {@link ClientException#getReason()} is
+	 * {@link ErrorReasons#REDACT_LIST_CHANGED}: read the list again, apply your change to what you read, and
+	 * retry. With a {@code null} {@code expectedRevision} no {@code If-Match} is sent and the list is replaced
+	 * whatever its revision.</p>
+	 *
+	 * <pre>{@code
+	 * RedactListTerms current = client.getRedactList(RedactList.ALWAYS);
+	 * List<String> terms = new ArrayList<>(current.getTerms());
+	 * terms.add("Project X");
+	 * try {
+	 *     client.replaceRedactList(RedactList.ALWAYS, terms, current.getRevision());
+	 * } catch (ClientException e) {
+	 *     if (!ErrorReasons.REDACT_LIST_CHANGED.equals(e.getReason())) {
+	 *         throw e;
+	 *     }
+	 *     // Someone changed the list: read it again and reapply the change.
+	 * }
+	 * }</pre>
+	 *
+	 * @param list {@link RedactList#ALWAYS} or {@link RedactList#NEVER}.
+	 * @param terms The list's new terms. {@code null} or empty clears it.
+	 * @param expectedRevision The revision you read, or {@code null} to replace the list whatever its revision.
+	 * @param owner The owner. May be {@code null} for the caller's own. Another user's requires an
+	 * administrator and {@code ADMIN_CROSS_USER_ACCESS_ENABLED=true}; otherwise Philter answers HTTP 404.
+	 * @return The list as written, with its new revision.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public RedactListTerms replaceRedactList(RedactList list, List<String> terms, Long expectedRevision, String owner)
+			throws IOException {
+
+		final JsonObject body = new JsonObject();
+		body.add("terms", gson.toJsonTree(terms == null ? new ArrayList<String>() : terms));
+
+		final HttpRequest.Builder builder = json(uri("/api/redact-lists/" + list.getName(), "owner", owner))
+				.header("Content-Type", APPLICATION_JSON);
+		if(expectedRevision != null) {
+			builder.header("If-Match", "\"" + expectedRevision + "\"");
+		}
+
+		return sendExpectingJson(builder.PUT(text(body.toString())).build(), RedactListTerms.class);
+
 	}
 
 

@@ -39,8 +39,10 @@ act on another user's data, and paged calls take `offset` and `limit`.
   non-atomic request.
 * **Contexts:** settings, including the disambiguation scope (`DisambiguationScope`); per-filter-type counts;
   and entry listing, export, and import. On `updateContext`, a `null` setting keeps its current value.
-* **Documents, custom lists, redact lists, and re-identification.** `saveList` only creates (a name in use is
-  a 409 `list_exists`); `replaceList` replaces.
+* **Documents, custom lists, redact lists, and re-identification.** `saveList` only creates (a name in use is a
+  409 `list_exists`); `replaceList` replaces. `getRedactList` and `replaceRedactList` read and replace one
+  redact list, with a revision check that refuses a write made against an older read (409 `redact_list_changed`,
+  `ErrorReasons.REDACT_LIST_CHANGED`).
 * **Redaction ledger and legal holds:** list, verify, export, and delete ledger chains (`deleteLedgerEntry`,
   `purgeLedger`). A chain Philter cannot check has a `getValidationError()` and `null` check results. An
   unreadable entry has a `getReadError()`, and exporting its chain is a 422 `entry_unreadable`. A `user` hold
@@ -71,11 +73,11 @@ Some of this needs a Philter that includes the matching change: context, list, a
 in a request path (philterd/philter#140); session key listing (#141); managed policy descriptions (#142); policy
 descriptions and notes in a request body, without which earlier clients fail (#144); unverifiable ledger chains
 (#145); the `policy_managed` reason (#146); unreadable ledger entries (#147); `user` holds without a
-`scopeValue` (#148); an audit event's source (#149); the disambiguation scope (#150); limits and sign-in options
-(#159); audit event usernames and user ids (#161); policy templates (#164); webhook tests, delivery history, and
-keeping the secret (#165); deleted policies and version authors (#166); changing a user's email address, and the
-email rule on `createUser` (#168); session client details and signing out other sessions (#169); and request ids
-(#156).
+`scopeValue` (#148); an audit event's source (#149); the disambiguation scope (#150); reading and replacing one
+redact list (#157); limits and sign-in options (#159); audit event usernames and user ids (#161); policy
+templates (#164); webhook tests, delivery history, and keeping the secret (#165); deleted policies and version
+authors (#166); changing a user's email address, and the email rule on `createUser` (#168); session client
+details and signing out other sessions (#169); and request ids (#156).
 
 ### Errors
 

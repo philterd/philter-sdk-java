@@ -68,6 +68,8 @@ import ai.philterd.philter.model.StatusResponse;
 import ai.philterd.philter.model.UpdateAdminSettingsRequest;
 import ai.philterd.philter.model.User;
 import ai.philterd.philter.model.Webhook;
+import ai.philterd.philter.model.RedactListTerms;
+import ai.philterd.philter.model.RedactList;
 import ai.philterd.philter.model.SignInOptions;
 import ai.philterd.philter.model.Limits;
 import ai.philterd.philter.model.ReidentifyResponse;
@@ -80,6 +82,7 @@ import ai.philterd.philter.model.WebhookEvents;
 import ai.philterd.philter.model.WebhookDelivery;
 import ai.philterd.philter.model.GetWebhookDeliveriesResponse;
 import ai.philterd.philter.model.exceptions.ClientException;
+import ai.philterd.philter.model.exceptions.ErrorReasons;
 import ai.philterd.philter.model.exceptions.PhilterError;
 import ai.philterd.philter.model.exceptions.ServiceUnavailableException;
 import ai.philterd.philter.model.exceptions.SignInLockedException;
@@ -4679,6 +4682,74 @@ public class PhilterClientMockTest {
 
         final ClientException ex = Assert.assertThrows(ClientException.class, () -> client().getSignInOptions());
         Assert.assertEquals(500, ex.getStatusCode());
+    }
+
+
+    // ----- One redact list -----
+
+    @Test
+    public void getRedactListReadsTheTermsAndRevision() throws Exception {
+
+        respond(200, "{\"terms\":[\"Project X\",\"Acme\"],\"revision\":4}");
+
+        final RedactListTerms list = client().getRedactList(RedactList.ALWAYS);
+
+        Assert.assertEquals("GET", method);
+        Assert.assertEquals("/api/redact-lists/always", path);
+        Assert.assertTrue(queryParameters.isEmpty());
+        Assert.assertEquals(List.of("Project X", "Acme"), list.getTerms());
+        Assert.assertEquals(4L, list.getRevision());
+
+        client().getRedactList(RedactList.NEVER, OWNER);
+        Assert.assertEquals("/api/redact-lists/never", path);
+        Assert.assertEquals(OWNER, queryParameter("owner"));
+    }
+
+    @Test
+    public void replaceRedactListSendsIfMatchOnlyWithARevision() throws Exception {
+
+        respond(200, "{\"terms\":[\"Project X\"],\"revision\":5}");
+
+        final RedactListTerms written = client().replaceRedactList(RedactList.ALWAYS, List.of("Project X"), 4L);
+
+        Assert.assertEquals("PUT", method);
+        Assert.assertEquals("/api/redact-lists/always", path);
+        Assert.assertEquals("\"4\"", header("If-Match"));
+        Assert.assertEquals("application/json", header("Content-Type"));
+        Assert.assertEquals("{\"terms\":[\"Project X\"]}", requestBodyAsString());
+        Assert.assertEquals(5L, written.getRevision());
+        Assert.assertEquals(List.of("Project X"), written.getTerms());
+
+        client().replaceRedactList(RedactList.NEVER, null, null, OWNER);
+        Assert.assertEquals("/api/redact-lists/never", path);
+        Assert.assertNull("no revision, no If-Match", header("If-Match"));
+        Assert.assertEquals("a null list clears it", "{\"terms\":[]}", requestBodyAsString());
+        Assert.assertEquals(OWNER, queryParameter("owner"));
+    }
+
+    @Test
+    public void aStaleRevisionIsAConflictWithTheRedactListChangedReason() {
+
+        respond(409, "{\"message\":\"The always-redact list changed since revision 4. Read it again and retry.\","
+                + "\"reason\":\"redact_list_changed\"}");
+
+        final ClientException ex = Assert.assertThrows(ClientException.class,
+                () -> client().replaceRedactList(RedactList.ALWAYS, List.of("Project X"), 4L));
+
+        Assert.assertEquals(409, ex.getStatusCode());
+        Assert.assertEquals(ErrorReasons.REDACT_LIST_CHANGED, ex.getReason());
+        Assert.assertEquals("The always-redact list changed since revision 4. Read it again and retry.", ex.getErrorMessage());
+    }
+
+    @Test
+    public void listRedactListsCarriesEachListsRevision() throws Exception {
+
+        respond(200, "{\"alwaysRedact\":[\"a\"],\"neverRedact\":[],\"alwaysRedactRevision\":3,\"neverRedactRevision\":0}");
+
+        final RedactLists lists = client().listRedactLists();
+
+        Assert.assertEquals(3L, lists.getAlwaysRedactRevision());
+        Assert.assertEquals(0L, lists.getNeverRedactRevision());
     }
 
 }

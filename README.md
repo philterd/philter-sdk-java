@@ -135,6 +135,17 @@ int maxDescription = limits.getPolicies().getDescriptionMaxLength();
 Optional<SignInOptions> options = client.getSignInOptions();
 ```
 
+Replace one redact list without losing someone else's change: pass the revision you read, and a list changed since is
+refused with a `ClientException` whose reason is `ErrorReasons.REDACT_LIST_CHANGED`, so you can read it again and
+retry:
+
+```
+RedactListTerms current = client.getRedactList(RedactList.ALWAYS);
+List<String> terms = new ArrayList<>(current.getTerms());   // the list is replaced, so start from what is there
+terms.add("Project X");
+client.replaceRedactList(RedactList.ALWAYS, terms, current.getRevision());
+```
+
 Responses are typed. Compile PhiSQL with `compilePhiSql`, compare policy revisions with `diffPolicy`, re-identify
 values with `reidentifyValues`, and copy a context's mappings with `getContextEntriesExport` and
 `importContextEntriesExport`, without handling JSON:
