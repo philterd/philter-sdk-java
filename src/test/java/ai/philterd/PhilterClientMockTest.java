@@ -1072,6 +1072,46 @@ public class PhilterClientMockTest {
     }
 
     @Test
+    public void getPolicyDiffWithoutRevisionsComparesTheTwoMostRecent() throws Exception {
+
+        final String diff = "{\"from\":3,\"to\":4,\"changes\":[{\"op\":\"add\",\"path\":\"/identifiers/ssn\","
+                + "\"value\":{}}]}";
+        respond(200, diff);
+
+        Assert.assertEquals(diff, client().getPolicyDiff("claims"));
+        Assert.assertEquals("GET", method);
+        Assert.assertEquals("/api/policies/claims/diff", path);
+        Assert.assertTrue("no revision numbers: " + queryParameters, queryParameters.isEmpty());
+
+        client().getPolicyDiff("claims", OWNER);
+        Assert.assertEquals(Map.of("owner", OWNER), queryParameters);
+    }
+
+    @Test
+    public void getPolicyDiffWithRevisionsStillSendsBoth() throws Exception {
+
+        respond(200, "{\"from\":1,\"to\":2,\"changes\":[]}");
+
+        client().getPolicyDiff("claims", 1, 2);
+        Assert.assertEquals(Map.of("from", "1", "to", "2"), queryParameters);
+
+        client().getPolicyDiff("claims", 1, 2, OWNER);
+        Assert.assertEquals(Map.of("from", "1", "to", "2", "owner", OWNER), queryParameters);
+    }
+
+    @Test
+    public void aPolicyWithOneRevisionHasNoLatestDiff() {
+
+        respond(400, "{\"message\":\"At least two retained revisions are required to produce a diff.\","
+                + "\"reason\":\"invalid_request\"}");
+
+        final ClientException ex = Assert.assertThrows(ClientException.class, () -> client().getPolicyDiff("new"));
+
+        Assert.assertEquals(400, ex.getStatusCode());
+        Assert.assertEquals("At least two retained revisions are required to produce a diff.", ex.getErrorMessage());
+    }
+
+    @Test
     public void getPolicyVersions() throws Exception {
 
         respond(200, "[{\"capturedTimestamp\":\"2026-01-01T00:00:00Z\",\"contentHash\":\"hash1\",\"revision\":1}]");

@@ -31,11 +31,11 @@ act on another user's data, and paged calls take `offset` and `limit`.
 * **Filtering:** redact PDFs with `filterToPdf`, or asynchronously with `filterAsync` and `filterToPdfAsync`
   and then `getDocumentState` and `getDocument`, from a `File` or a `byte[]`. `filter` and `explain` take an
   optional filename and can return a signed response (`X-Philter-Signature`).
-* **Policies:** versions (each with its `author`), diffs, rollback, deleted policies (`getDeletedPolicies`),
-  templates (`getPolicyTemplate`), PhiSQL compilation, descriptions and notes, managed policies
-  (`listManagedPolicies`), and `copyPolicy`. Writes to a managed policy are a 409 `policy_managed`, and deleting
-  `default` a 409 `policy_default`. A description or notes given to `savePolicy` or `replacePolicy` are sent in
-  a second, non-atomic request.
+* **Policies:** versions (each with its `author`), diffs (`getPolicyDiff(name)` compares the two most recent
+  revisions), rollback, deleted policies (`getDeletedPolicies`), templates (`getPolicyTemplate`), PhiSQL
+  compilation, descriptions and notes, managed policies (`listManagedPolicies`), and `copyPolicy`. Writes to a
+  managed policy are a 409 `policy_managed`, and deleting `default` a 409 `policy_default`. A description or
+  notes given to `savePolicy` or `replacePolicy` are sent in a second, non-atomic request.
 * **Contexts:** settings, including the disambiguation scope (`DisambiguationScope`); per-filter-type counts;
   and entry listing, export, and import. On `updateContext`, a `null` setting keeps its current value.
 * **Documents, custom lists, redact lists, and re-identification.** `saveList` only creates (a name in use is

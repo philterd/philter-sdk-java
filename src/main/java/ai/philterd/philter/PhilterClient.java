@@ -1710,7 +1710,45 @@ public class PhilterClient {
 	}
 
 	/**
-	 * Gets the difference between two revisions of a policy.
+	 * Gets the difference between the two most recent revisions of a policy. See
+	 * {@link #getPolicyDiff(String, String)}.
+	 * @param policyName The name of the policy.
+	 * @return The difference, as JSON.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public String getPolicyDiff(String policyName) throws IOException {
+		return getPolicyDiff(policyName, null);
+	}
+
+	/**
+	 * Gets the difference between the two most recent retained revisions of a policy, such as to show what
+	 * the latest change did, without first listing its versions. The request sends no revision numbers;
+	 * the response's {@code from} and {@code to} say which revisions were compared.
+	 *
+	 * <p>The revisions are read from the policy's retained history, so this works for a
+	 * {@link #getDeletedPolicies() deleted policy} too. A policy with fewer than two retained revisions,
+	 * including a name with no history at all, is an HTTP 400 saying at least two are required, and an
+	 * {@code owner} that does not exist is an HTTP 404, each thrown as a {@link ClientException}. To
+	 * compare particular revisions, use {@link #getPolicyDiff(String, int, int, String)}.</p>
+	 *
+	 * @param policyName The name of the policy.
+	 * @param owner The owner of the policy. May be {@code null}.
+	 * @return The difference, as JSON: {@code from}, {@code to}, and the RFC 6902 {@code changes}.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public String getPolicyDiff(String policyName, String owner) throws IOException {
+
+		final HttpRequest request = json(uri("/api/policies/" + encode(policyName) + "/diff", "owner", owner))
+				.GET()
+				.build();
+
+		return sendExpectingString(request);
+
+	}
+
+	/**
+	 * Gets the difference between two revisions of a policy. To compare the two most recent revisions
+	 * without naming them, use {@link #getPolicyDiff(String)}.
 	 * @param policyName The name of the policy.
 	 * @param from The starting revision number.
 	 * @param to The ending revision number.

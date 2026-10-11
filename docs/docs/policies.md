@@ -96,12 +96,15 @@ for (PolicyVersionSummary v : client.getPolicyVersions("my-policy")) {
 
 String revisionJson = client.getPolicyVersion("my-policy", 2);   // a specific revision
 String diff = client.getPolicyDiff("my-policy", 1, 2);            // diff between revisions
+String latest = client.getPolicyDiff("my-policy");                // the two most recent revisions
 
 PolicyRollbackResponse rollback = client.rollbackPolicy("my-policy", 1);
 System.out.println("rolled back to revision " + rollback.getRevision());
 ```
 
 A rollback is refused with a `404` if the policy or the revision does not exist, and `getErrorMessage()` says which, for example `Revision 99 does not exist.` It is refused with a `409` whose `getReason()` is `policy_managed` for a managed policy, and `policy_changed` if the policy changed concurrently, in which case reload it and retry.
+
+A diff is JSON with the `from` and `to` revisions and an RFC 6902 `changes` array. Without revision numbers, `getPolicyDiff` compares the two most recent retained revisions, and `from` and `to` say which they were. It reads the retained history, so it works for a [deleted policy](#deleted-policies) too. A policy with fewer than two retained revisions, including a name with no history at all, is a `400`.
 
 `getAuthor()` is `null` for a revision made before Philter recorded authors, for a managed policy, and for a revision first captured when the policy was used to redact.
 
