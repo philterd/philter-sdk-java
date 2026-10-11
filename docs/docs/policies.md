@@ -26,6 +26,17 @@ client.deletePolicy("my-policy");
 
 `savePolicy` only creates. A name the owner already uses is refused with a `ClientException` whose `getStatusCode()` is `409` and `getReason()` is `policy_exists`; replace the policy with `replacePolicy` instead. `replacePolicy` is refused with a `404` if there is no such policy, and with a `409` whose reason is `policy_changed` if the policy changed concurrently, in which case reload it and retry. `deletePolicy` is refused with a `404` if there is no such policy, and with a `409` whose reason is `policy_default` for the `default` policy, which cannot be deleted. Both refuse a [managed policy](#managed-policies) with a `409` whose reason is `policy_managed`.
 
+## Starting from a template
+
+Rather than keep your own starting policy, which can fall behind the schema as Philter adds filters, start from one of Philter's templates. `getPolicyTemplate` returns a template's policy JSON, which Philter accepts for its running schema version. Edit it, then save it as a policy:
+
+```java
+String template = client.getPolicyTemplate("default");
+client.savePolicy("claims", template);
+```
+
+The `default` template is the one every new user's `default` policy is created from: it redacts person names, Social Security numbers, and email addresses. Philter detects person names with PhEye, so that part needs a PhEye service your deployment can reach. More templates may be added. A template is not a policy, and cannot be used to redact until it is saved as one. It requires the `policies:read` scope. A name Philter has no template for is a `404`, and the `ClientException`'s `getErrorMessage()` lists the templates there are.
+
 ## Description and notes
 
 A policy can carry a description (up to 200 characters) and notes (up to 1000). They are not part of the policy's JSON, so `getPolicy` does not return them and changing them does not create a new revision. Creating and replacing require `policies:write`, and reading requires `policies:read`.

@@ -1245,6 +1245,30 @@ public class PhilterClient {
 	}
 
 	/**
+	 * Gets a policy template: a starting point for a new policy, as native policy JSON that Philter accepts
+	 * for its running policy schema version. Edit it, then save it as a policy with
+	 * {@link #savePolicy(String, String)}. A template is not a policy and cannot be used to redact until it
+	 * is saved as one.
+	 *
+	 * <p>The template named {@code default} is the one every new user's {@code default} policy is created
+	 * from. More templates may be added. Requires the {@code policies:read} scope. A name Philter has no
+	 * template for is an HTTP 404, thrown as a {@link ClientException} whose
+	 * {@link ClientException#getErrorMessage()} lists the templates there are.</p>
+	 *
+	 * <pre>{@code
+	 * String template = client.getPolicyTemplate("default");
+	 * client.savePolicy("claims", template);
+	 * }</pre>
+	 *
+	 * @param templateName The name of the template, such as {@code default}.
+	 * @return The template's policy JSON, as Philter returned it.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public String getPolicyTemplate(String templateName) throws IOException {
+		return sendExpectingString(json(uri("/api/policies/templates/" + encode(templateName))).GET().build());
+	}
+
+	/**
 	 * Creates a policy. It only creates: a name the owner already uses is a {@link ClientException}
 	 * with status {@code 409} and {@link ClientException#getReason()} {@code policy_exists}. Replace an
 	 * existing policy with {@link #replacePolicy(String, String)}.

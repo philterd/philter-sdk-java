@@ -32,9 +32,10 @@ act on another user's data, and paged calls take `offset` and `limit`.
   and then `getDocumentState` and `getDocument`, from a `File` or a `byte[]`. `filter` and `explain` take an
   optional filename and can return a signed response (`X-Philter-Signature`).
 * **Policies:** versions (each with its `author`), diffs, rollback, deleted policies (`getDeletedPolicies`),
-  PhiSQL compilation, descriptions and notes, managed policies (`listManagedPolicies`), and `copyPolicy`. Writes to a managed policy are a 409 `policy_managed`, and
-  deleting `default` a 409 `policy_default`. A description or notes given to `savePolicy` or `replacePolicy`
-  are sent in a second, non-atomic request.
+  templates (`getPolicyTemplate`), PhiSQL compilation, descriptions and notes, managed policies
+  (`listManagedPolicies`), and `copyPolicy`. Writes to a managed policy are a 409 `policy_managed`, and deleting
+  `default` a 409 `policy_default`. A description or notes given to `savePolicy` or `replacePolicy` are sent in
+  a second, non-atomic request.
 * **Contexts:** settings, including the disambiguation scope (`DisambiguationScope`); per-filter-type counts;
   and entry listing, export, and import. On `updateContext`, a `null` setting keeps its current value.
 * **Documents, custom lists, redact lists, and re-identification.** `saveList` only creates (a name in use is
@@ -58,14 +59,13 @@ Responses are typed models. Calls that returned raw JSON have typed alternatives
 is `getManagedPolicies`. Policy JSON, policy diffs, and
 context exports stay strings.
 
-Some of this needs a Philter that includes the matching change: context, list, and hold names that
-can be used in a request path (philterd/philter#140); session key listing (#141); managed
-policy descriptions (#142); policy descriptions and notes in a request body, without which earlier clients
-fail (#144); unverifiable ledger chains (#145); the `policy_managed` reason (#146); unreadable ledger entries
-(#147); `user` holds without a `scopeValue` (#148); an audit event's source (#149); the disambiguation
-scope (#150); webhook tests, delivery history, and keeping the secret (#165); deleted policies and version
-authors (#166); changing a user's email address, and the email rule on `createUser` (#168); and request ids
-(#156).
+Some of this needs a Philter that includes the matching change: context, list, and hold names that can be used
+in a request path (philterd/philter#140); session key listing (#141); managed policy descriptions (#142); policy
+descriptions and notes in a request body, without which earlier clients fail (#144); unverifiable ledger chains
+(#145); the `policy_managed` reason (#146); unreadable ledger entries (#147); `user` holds without a
+`scopeValue` (#148); an audit event's source (#149); the disambiguation scope (#150); policy templates (#164);
+webhook tests, delivery history, and keeping the secret (#165); deleted policies and version authors (#166);
+changing a user's email address, and the email rule on `createUser` (#168); and request ids (#156).
 
 ### Errors
 

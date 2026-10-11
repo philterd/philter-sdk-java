@@ -1039,6 +1039,39 @@ public class PhilterClientMockTest {
     }
 
     @Test
+    public void getPolicyTemplateReturnsThePolicyJsonUnchanged() throws Exception {
+
+        final String template = "{\n  \"identifiers\": {\n    \"ssn\": { \"ssnFilterStrategies\": [ { \"strategy\": \"REDACT\" } ] }\n  }\n}";
+        respond(200, template);
+
+        Assert.assertEquals(template, client().getPolicyTemplate("default"));
+        Assert.assertEquals("GET", method);
+        Assert.assertEquals("/api/policies/templates/default", path);
+        Assert.assertTrue(queryParameters.isEmpty());
+    }
+
+    @Test
+    public void getPolicyTemplateEncodesTheName() throws Exception {
+
+        respond(200, "{}");
+
+        client().getPolicyTemplate("court filings");
+
+        Assert.assertEquals("/api/policies/templates/court%20filings", rawPath);
+    }
+
+    @Test
+    public void anUnknownPolicyTemplateIsA404WithPhiltersMessage() {
+
+        respond(404, "{\"message\":\"There is no template named claims. Templates: default.\",\"reason\":\"not_found\"}");
+
+        final ClientException ex = Assert.assertThrows(ClientException.class, () -> client().getPolicyTemplate("claims"));
+
+        Assert.assertEquals(404, ex.getStatusCode());
+        Assert.assertEquals("There is no template named claims. Templates: default.", ex.getErrorMessage());
+    }
+
+    @Test
     public void getPolicyVersions() throws Exception {
 
         respond(200, "[{\"capturedTimestamp\":\"2026-01-01T00:00:00Z\",\"contentHash\":\"hash1\",\"revision\":1}]");
