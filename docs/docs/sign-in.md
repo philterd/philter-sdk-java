@@ -4,6 +4,25 @@ A user interface can sign a person in as their own Philter user, without holding
 
 Password sign-in is disabled unless the deployment sets `PASSWORD_SIGN_IN_ENABLED=true`. While it is disabled, the sign-in calls fail with an HTTP 404, raised as a `ClientException`. A user can only sign in once they have a password; see [Passwords](#passwords).
 
+## Sign-in options
+
+Before anyone signs in, a sign-in page can read the rules a new password must meet with `getSignInOptions()`. It sends no API key, even when the client has one.
+
+```java
+import ai.philterd.philter.model.SignInOptions;
+import java.util.Optional;
+
+Optional<SignInOptions> options = client.getSignInOptions();
+if (options.isPresent()) {
+    int minimum = options.get().getPassword().getMinCharacters();   // 16
+    int maximumBytes = options.get().getPassword().getMaxBytes();    // 72, in UTF-8
+} else {
+    // Password sign-in is not enabled on this deployment: hide the sign-in form.
+}
+```
+
+When password sign-in is not enabled (`PASSWORD_SIGN_IN_ENABLED` is off), Philter answers HTTP 404, as for its other sign-in endpoints, and `getSignInOptions()` returns an empty `Optional` rather than throwing. A Philter older than philterd/philter#159, which has no such endpoint, answers 404 too, so it also reads as password sign-in being off. Any other failure is thrown as usual. A signed-in client reads the same rules, with the rest of Philter's limits, from [`getLimits()`](limits.md).
+
 ## Signing in
 
 `signIn` needs no API key. Its result is either a session key or, for a user enrolled in MFA, a challenge.

@@ -56,6 +56,8 @@ import ai.philterd.philter.model.GetApiKeysResponse;
 import ai.philterd.philter.model.GetAuditLogResponse;
 import ai.philterd.philter.model.GetListsResponse;
 import ai.philterd.philter.model.GetUsersResponse;
+import ai.philterd.philter.model.Limits;
+import ai.philterd.philter.model.SignInOptions;
 import ai.philterd.philter.model.CompilePolicyResponse;
 import ai.philterd.philter.model.ContextEntriesExport;
 import ai.philterd.philter.model.ImportContextEntriesResponse;
@@ -110,6 +112,7 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.function.Supplier;
 
 /**
@@ -3704,7 +3707,72 @@ public class PhilterClient {
 
 	}
 
+	// Limits.
+
+	/**
+	 * Gets the limits and rules Philter enforces, and what the caller may do: request and page sizes, the
+	 * password rules, the rule for names used in request paths, policy, list, context, and webhook limits, legal
+	 * hold scope types, user roles, audit export limits, session key lifetimes, and the caller's role and
+	 * capabilities. Read them instead of hard-coding them, for example to check input before sending it, so a
+	 * client stays right when a deployment changes a setting.
+	 *
+	 * <p>Any valid API key can call it, whatever its scopes, including a session key that must first change its
+	 * password or enroll in MFA. Fields Philter adds later are ignored.</p>
+	 *
+	 * <pre>{@code
+	 * Limits limits = client.getLimits();
+	 * if (description.length() > limits.getPolicies().getDescriptionMaxLength()) {
+	 *     // Tell the person before sending it.
+	 * }
+	 * }</pre>
+	 *
+	 * @return The limits.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public Limits getLimits() throws IOException {
+		return sendExpectingJson(json(uri("/api/limits")).GET().build(), Limits.class);
+	}
+
 	// Sign-in.
+
+	/**
+	 * Gets what a sign-in page needs before anyone signs in: the rules a new password must meet. It sends no API
+	 * key, even when this client has one, so it can be called before signing in.
+	 *
+	 * <p>When password sign-in is not enabled on the deployment, Philter answers HTTP 404, as for its other
+	 * sign-in endpoints, and this returns an empty {@link Optional} rather than throwing. A page can use that to
+	 * hide its sign-in form. A Philter version without this endpoint answers 404 too, so it also reads as empty.</p>
+	 *
+	 * <pre>{@code
+	 * Optional<SignInOptions> options = client.getSignInOptions();
+	 * if (options.isEmpty()) {
+	 *     // Password sign-in is off; offer API keys only.
+	 * }
+	 * }</pre>
+	 *
+	 * @return The sign-in options, or empty when password sign-in is not enabled.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public Optional<SignInOptions> getSignInOptions() throws IOException {
+
+		// Built without request(), which adds the client's API key.
+		final HttpRequest request = HttpRequest.newBuilder(uri("/api/sign-in")).timeout(timeout)
+				.header("Accept", APPLICATION_JSON)
+				.GET()
+				.build();
+
+		final HttpResponse<String> response = send(request, HttpResponse.BodyHandlers.ofString());
+
+		if(response.statusCode() == 404) {
+			return Optional.empty();
+		}
+		if(!isSuccessful(response)) {
+			throw toException(response, response.body());
+		}
+
+		return Optional.ofNullable(gson.fromJson(response.body(), SignInOptions.class));
+
+	}
 
 	/**
 	 * Signs a person in with a username and password, for a user interface acting as that person.

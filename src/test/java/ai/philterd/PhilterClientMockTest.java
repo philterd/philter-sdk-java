@@ -68,6 +68,8 @@ import ai.philterd.philter.model.StatusResponse;
 import ai.philterd.philter.model.UpdateAdminSettingsRequest;
 import ai.philterd.philter.model.User;
 import ai.philterd.philter.model.Webhook;
+import ai.philterd.philter.model.SignInOptions;
+import ai.philterd.philter.model.Limits;
 import ai.philterd.philter.model.ReidentifyResponse;
 import ai.philterd.philter.model.PolicyDiff;
 import ai.philterd.philter.model.ImportContextEntriesResponse;
@@ -107,6 +109,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Queue;
 import java.util.Set;
 import java.util.TreeMap;
@@ -4573,6 +4576,109 @@ public class PhilterClientMockTest {
         // The types stay apart, so a catch of ClientException alongside the others still compiles and works.
         Assert.assertFalse(ClientException.class.isAssignableFrom(UnauthorizedException.class));
         Assert.assertFalse(ClientException.class.isAssignableFrom(ServiceUnavailableException.class));
+    }
+
+
+    // ----- Limits and sign-in options -----
+
+    private static final String LIMITS = "{"
+            + "\"requests\":{\"maxDocumentBytes\":10485760,\"maxBodyBytes\":262144,\"defaultPageSize\":25,\"maxPageSize\":100},"
+            + "\"password\":{\"minCharacters\":16,\"maxBytes\":72},"
+            + "\"names\":{\"forbiddenCharacters\":[\"/\",\"\\\\\",\";\",\"%\"],\"controlCharactersForbidden\":true,"
+            + "\"reservedNames\":[\".\",\"..\"],\"rule\":\"cannot contain /, \\\\, ;, %, or control characters, and cannot be . or ..\"},"
+            + "\"policies\":{\"nameMaxLength\":50,\"namePattern\":\"^[a-zA-Z0-9_-]+$\",\"reservedNamePrefix\":\"managed_\","
+            + "\"reservedNames\":[\"templates\"],\"defaultPolicyName\":\"default\",\"descriptionMaxLength\":200,\"notesMaxLength\":1000},"
+            + "\"customLists\":{\"maxItems\":100,\"itemMaxLength\":50},"
+            + "\"redactLists\":{\"maxTerms\":1000,\"termMaxLength\":100},"
+            + "\"contexts\":{\"maxPerUser\":10,\"maxEntries\":10000},"
+            + "\"webhook\":{\"secretMinLength\":16},"
+            + "\"legalHolds\":{\"scopeTypes\":[\"document_chain\",\"user\"]},"
+            + "\"users\":{\"roles\":[\"admin\",\"user\"],\"reservedUsernames\":[\"me\"]},"
+            + "\"auditExport\":{\"maxWindowDays\":30,\"defaultPageSize\":100,\"maxPageSize\":1000},"
+            + "\"sessionKeys\":{\"idleTimeoutMinutes\":30,\"maxLifetimeMinutes\":720},"
+            + "\"caller\":{\"role\":\"admin\",\"contextCount\":3,\"crossUserAccess\":false,\"ledgerDeletion\":true},"
+            // Fields a later Philter adds are ignored.
+            + "\"somethingNew\":{\"x\":1},\"requestsExtra\":7}";
+
+    @Test
+    public void getLimitsReadsEveryGroup() throws Exception {
+
+        respond(200, LIMITS);
+
+        final Limits limits = clientBuilder().withApiKey("Bearer sk_only_one_scope").build().getLimits();
+
+        Assert.assertEquals("GET", method);
+        Assert.assertEquals("/api/limits", path);
+        Assert.assertEquals("Bearer sk_only_one_scope", header("Authorization"));
+
+        Assert.assertEquals(10485760L, limits.getRequests().getMaxDocumentBytes());
+        Assert.assertEquals(262144L, limits.getRequests().getMaxBodyBytes());
+        Assert.assertEquals(25, limits.getRequests().getDefaultPageSize());
+        Assert.assertEquals(100, limits.getRequests().getMaxPageSize());
+        Assert.assertEquals(16, limits.getPassword().getMinCharacters());
+        Assert.assertEquals(72, limits.getPassword().getMaxBytes());
+        Assert.assertEquals(List.of("/", "\\", ";", "%"), limits.getNames().getForbiddenCharacters());
+        Assert.assertTrue(limits.getNames().isControlCharactersForbidden());
+        Assert.assertEquals(List.of(".", ".."), limits.getNames().getReservedNames());
+        Assert.assertTrue(limits.getNames().getRule().startsWith("cannot contain /"));
+        Assert.assertEquals(50, limits.getPolicies().getNameMaxLength());
+        Assert.assertEquals("^[a-zA-Z0-9_-]+$", limits.getPolicies().getNamePattern());
+        Assert.assertEquals("managed_", limits.getPolicies().getReservedNamePrefix());
+        Assert.assertEquals(List.of("templates"), limits.getPolicies().getReservedNames());
+        Assert.assertEquals("default", limits.getPolicies().getDefaultPolicyName());
+        Assert.assertEquals(200, limits.getPolicies().getDescriptionMaxLength());
+        Assert.assertEquals(1000, limits.getPolicies().getNotesMaxLength());
+        Assert.assertEquals(100, limits.getCustomLists().getMaxItems());
+        Assert.assertEquals(50, limits.getCustomLists().getItemMaxLength());
+        Assert.assertEquals(1000, limits.getRedactLists().getMaxTerms());
+        Assert.assertEquals(100, limits.getRedactLists().getTermMaxLength());
+        Assert.assertEquals(10, limits.getContexts().getMaxPerUser());
+        Assert.assertEquals(10000, limits.getContexts().getMaxEntries());
+        Assert.assertEquals(16, limits.getWebhook().getSecretMinLength());
+        Assert.assertEquals(List.of("document_chain", "user"), limits.getLegalHolds().getScopeTypes());
+        Assert.assertEquals(List.of("admin", "user"), limits.getUsers().getRoles());
+        Assert.assertEquals(List.of("me"), limits.getUsers().getReservedUsernames());
+        Assert.assertEquals(30, limits.getAuditExport().getMaxWindowDays());
+        Assert.assertEquals(100, limits.getAuditExport().getDefaultPageSize());
+        Assert.assertEquals(1000, limits.getAuditExport().getMaxPageSize());
+        Assert.assertEquals(30, limits.getSessionKeys().getIdleTimeoutMinutes());
+        Assert.assertEquals(720, limits.getSessionKeys().getMaxLifetimeMinutes());
+        Assert.assertEquals("admin", limits.getCaller().getRole());
+        Assert.assertEquals(3, limits.getCaller().getContextCount());
+        Assert.assertFalse(limits.getCaller().isCrossUserAccess());
+        Assert.assertTrue(limits.getCaller().isLedgerDeletion());
+    }
+
+    @Test
+    public void getSignInOptionsSendsNoKeyAndReturnsThePasswordRules() throws Exception {
+
+        respond(200, "{\"password\":{\"minCharacters\":16,\"maxBytes\":72},\"later\":true}");
+
+        final Optional<SignInOptions> options = clientBuilder().withApiKey("Bearer sk_has_a_key").build().getSignInOptions();
+
+        Assert.assertEquals("GET", method);
+        Assert.assertEquals("/api/sign-in", path);
+        Assert.assertNull("no API key, even when the client has one", header("Authorization"));
+        Assert.assertTrue(options.isPresent());
+        Assert.assertEquals(16, options.get().getPassword().getMinCharacters());
+        Assert.assertEquals(72, options.get().getPassword().getMaxBytes());
+    }
+
+    @Test
+    public void getSignInOptionsIsEmptyWhenPasswordSignInIsOff() throws Exception {
+
+        respond(404, "");
+
+        Assert.assertFalse(client().getSignInOptions().isPresent());
+    }
+
+    @Test
+    public void getSignInOptionsStillThrowsForOtherFailures() {
+
+        respond(500, "{\"message\":\"Internal error.\",\"reason\":\"internal_error\"}");
+
+        final ClientException ex = Assert.assertThrows(ClientException.class, () -> client().getSignInOptions());
+        Assert.assertEquals(500, ex.getStatusCode());
     }
 
 }

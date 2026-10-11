@@ -125,6 +125,16 @@ for (DeletedPolicy deleted : client.getDeletedPolicies().getPolicies()) {
 client.savePolicy("claims-2025", client.getPolicyVersion("claims-2025", 4));
 ```
 
+Read Philter's limits and rules instead of hard-coding them. `getLimits()` returns them with what the caller may do,
+and `getSignInOptions()` returns the password rules before anyone signs in, empty when password sign-in is off:
+
+```
+Limits limits = client.getLimits();
+int maxDescription = limits.getPolicies().getDescriptionMaxLength();
+
+Optional<SignInOptions> options = client.getSignInOptions();
+```
+
 Responses are typed. Compile PhiSQL with `compilePhiSql`, compare policy revisions with `diffPolicy`, re-identify
 values with `reidentifyValues`, and copy a context's mappings with `getContextEntriesExport` and
 `importContextEntriesExport`, without handling JSON:

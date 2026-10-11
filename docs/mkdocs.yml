@@ -27,6 +27,7 @@ nav:
   - Redaction Ledger: ledger.md
   - Audit Log: audit-log.md
   - Owners and Pagination: owners-and-pagination.md
+  - Limits and Rules: limits.md
   - Users and API Keys: provisioning.md
   - Sign-in, Passwords, and MFA: sign-in.md
   - Admin Settings: admin-settings.md

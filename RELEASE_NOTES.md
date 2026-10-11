@@ -45,12 +45,15 @@ act on another user's data, and paged calls take `offset` and `limit`.
   `purgeLedger`). A chain Philter cannot check has a `getValidationError()` and `null` check results. An
   unreadable entry has a `getReadError()`, and exporting its chain is a 422 `entry_unreadable`. A `user` hold
   needs no `scopeValue`.
-* **Users and sign-in:** user management, including `setUserEmail`; `signIn`, `completeSignIn` (MFA), and
-  `signOut`; passwords, MFA enrollment, `revokeSessionKeys`, and `signOutOtherSessions`.
-  `withClientAddress(Supplier<String>)` sends the end user's address as `X-Forwarded-For` on every request, so
-  Philter rate-limits and audits per person.
+* **Users and sign-in:** user management, including `setUserEmail`; `getSignInOptions` (the password rules,
+  empty when password sign-in is off), `signIn`, `completeSignIn` (MFA), and `signOut`; passwords, MFA
+  enrollment, `revokeSessionKeys`, and `signOutOtherSessions`. `withClientAddress(Supplier<String>)` sends the
+  end user's address as `X-Forwarded-For` on every request, so Philter rate-limits and audits per person.
 * **API keys:** list, create, scope, and revoke keys, including session keys, each with the client address and
   user agent that signed in and whether it is the current key. `listApiKeyScopes` describes each scope.
+* **Limits:** `getLimits` returns the limits and rules Philter enforces (request and page sizes, password, name,
+  policy, list, context, webhook, legal hold, user, audit export, and session key rules) and what the caller may
+  do, so a client need not hard-code them.
 * **Administration:** admin settings, the webhook (with `testWebhook`, `getWebhookDeliveries`, and changing the
   URL while keeping the secret), the audit log and its CSV export, signing-key rotation, and listings across all
   users. `AuditEvent.getUsername()` names the user who acted, and users have their `getId()`, which audit events
@@ -68,10 +71,11 @@ Some of this needs a Philter that includes the matching change: context, list, a
 in a request path (philterd/philter#140); session key listing (#141); managed policy descriptions (#142); policy
 descriptions and notes in a request body, without which earlier clients fail (#144); unverifiable ledger chains
 (#145); the `policy_managed` reason (#146); unreadable ledger entries (#147); `user` holds without a
-`scopeValue` (#148); an audit event's source (#149); the disambiguation scope (#150); audit event usernames and
-user ids (#161); policy templates (#164); webhook tests, delivery history, and keeping the secret (#165);
-deleted policies and version authors (#166); changing a user's email address, and the email rule on `createUser`
-(#168); session client details and signing out other sessions (#169); and request ids (#156).
+`scopeValue` (#148); an audit event's source (#149); the disambiguation scope (#150); limits and sign-in options
+(#159); audit event usernames and user ids (#161); policy templates (#164); webhook tests, delivery history, and
+keeping the secret (#165); deleted policies and version authors (#166); changing a user's email address, and the
+email rule on `createUser` (#168); session client details and signing out other sessions (#169); and request ids
+(#156).
 
 ### Errors
 
