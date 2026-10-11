@@ -2347,6 +2347,93 @@ public class PhilterClientMockTest {
     }
 
     @Test
+    public void anOffsetPageAlsoGivesTheNextCursor() throws Exception {
+
+        responseHeaders.put("X-Philter-Export-Rows", "1");
+        responseHeaders.put("X-Philter-Export-Truncated", "true");
+        responseHeaders.put("X-Philter-Export-Next-Offset", "1");
+        responseHeaders.put("X-Philter-Export-Next-Cursor", "MTc5MTAwMDAwMDAwMDo2YWE1NzkyYTQwMzA3NTE4NmE4NDM5NjA");
+        respond(200, CSV_HEADER + "2026-10-05T12:00:00Z,policy_saved,r2,,p1,,api,\n");
+
+        final AuditLogExport export = client().exportAuditLog(LocalDate.of(2026, 10, 1), LocalDate.of(2026, 10, 5));
+
+        Assert.assertEquals(Integer.valueOf(1), export.getNextOffset());
+        Assert.assertEquals("MTc5MTAwMDAwMDAwMDo2YWE1NzkyYTQwMzA3NTE4NmE4NDM5NjA", export.getNextCursor());
+    }
+
+    @Test
+    public void exportAuditLogAfterSendsTheCursorAndNoOffset() throws Exception {
+
+        responseHeaders.put("X-Philter-Export-Rows", "1");
+        responseHeaders.put("X-Philter-Export-Truncated", "true");
+        // A page read by cursor gives only the next cursor.
+        responseHeaders.put("X-Philter-Export-Next-Cursor", "next-cursor");
+        responseHeaders.put("X-Philter-Export-Time-Zone", "UTC");
+        respond(200, CSV_HEADER + "2026-10-05T11:00:00Z,policy_saved,r1,,p1,,api,\n");
+
+        final AuditLogExport export = client().exportAuditLogAfter(LocalDate.of(2026, 10, 1), LocalDate.of(2026, 10, 5),
+                ZoneId.of("UTC"), "this-cursor", 1);
+
+        Assert.assertEquals("/api/audit/export", path);
+        Assert.assertEquals(Map.of("from", "2026-10-01", "to", "2026-10-05", "zone", "UTC", "cursor", "this-cursor",
+                "limit", "1"), queryParameters);
+        Assert.assertTrue(export.isTruncated());
+        Assert.assertEquals("next-cursor", export.getNextCursor());
+        Assert.assertNull(export.getNextOffset());
+
+        // The first page sends no cursor.
+        client().exportAuditLogAfter(LocalDate.of(2026, 10, 1), LocalDate.of(2026, 10, 5), null, null, null);
+        Assert.assertEquals(Map.of("from", "2026-10-01", "to", "2026-10-05"), queryParameters);
+    }
+
+    @Test
+    public void pagingByCursorFollowsEachPagesNextCursor() throws Exception {
+
+        responseHeaders.put("X-Philter-Export-Rows", "1");
+        responseHeaders.put("X-Philter-Export-Truncated", "true");
+        responseHeaders.put("X-Philter-Export-Next-Cursor", "c1");
+        respond(200, CSV_HEADER + "row1\n");
+        final AuditLogExport first = client().exportAuditLogAfter(LocalDate.of(2026, 10, 1), LocalDate.of(2026, 10, 1),
+                null, null, 1);
+
+        responseHeaders.put("X-Philter-Export-Truncated", "false");
+        responseHeaders.remove("X-Philter-Export-Next-Cursor");
+        respond(200, CSV_HEADER + "row2\n");
+        final AuditLogExport last = client().exportAuditLogAfter(LocalDate.of(2026, 10, 1), LocalDate.of(2026, 10, 1),
+                null, first.getNextCursor(), 1);
+
+        Assert.assertEquals("c1", queryParameter("cursor"));
+        Assert.assertFalse(last.isTruncated());
+        Assert.assertNull(last.getNextCursor());
+    }
+
+    @Test
+    public void aTruncatedPageWithNoWayToContinueIsRefused() {
+
+        responseHeaders.put("X-Philter-Export-Rows", "1");
+        responseHeaders.put("X-Philter-Export-Truncated", "true");
+        respond(200, CSV_HEADER + "row\n");
+
+        final ClientException ex = Assert.assertThrows(ClientException.class,
+                () -> client().exportAuditLog(LocalDate.of(2026, 10, 1), LocalDate.of(2026, 10, 1)));
+
+        Assert.assertTrue(ex.getMessage(), ex.getMessage().contains("X-Philter-Export-Next-Cursor"));
+    }
+
+    @Test
+    public void aBadCursorIsA400NamingTheCursor() {
+
+        respond(400, "{\"message\":\"cursor is not a cursor from an export page.\",\"reason\":\"invalid_request\","
+                + "\"field\":\"cursor\"}");
+
+        final ClientException ex = Assert.assertThrows(ClientException.class, () -> client().exportAuditLogAfter(
+                LocalDate.of(2026, 10, 1), LocalDate.of(2026, 10, 1), null, "nope", null));
+
+        Assert.assertEquals(400, ex.getStatusCode());
+        Assert.assertEquals("cursor", ex.getField());
+    }
+
+    @Test
     public void exportAuditLogOmitsUnsetParametersAndReportsACompleteExport() throws Exception {
 
         responseHeaders.put("X-Philter-Export-Rows", "0");

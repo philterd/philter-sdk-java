@@ -188,6 +188,17 @@ ImportContextEntriesResponse imported =
 The older `compilePolicy`, `getPolicyDiff`, `reidentify`, `exportContextEntries`, and `importContextEntries`, which
 return JSON strings, still work and are deprecated.
 
+Export the audit log as CSV a page at a time with `exportAuditLogAfter`, following each page's cursor, which returns
+each event once even when the range includes today:
+
+```
+String cursor = null;
+do {
+    AuditLogExport page = client.exportAuditLogAfter(from, to, null, cursor, 1000);
+    cursor = page.isTruncated() ? page.getNextCursor() : null;
+} while (cursor != null);
+```
+
 A webhook delivers the result of each asynchronous redaction. `testWebhook` sends it a test event now and reports how
 the receiver answered, and `getWebhookDeliveries` shows each delivery's status and last error:
 

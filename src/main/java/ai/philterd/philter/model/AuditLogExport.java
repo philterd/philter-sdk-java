@@ -28,13 +28,20 @@ public class AuditLogExport {
     private final int rows;
     private final boolean truncated;
     private final Integer nextOffset;
+    private final String nextCursor;
     private final String timeZone;
 
     public AuditLogExport(byte[] content, int rows, boolean truncated, Integer nextOffset, String timeZone) {
+        this(content, rows, truncated, nextOffset, null, timeZone);
+    }
+
+    public AuditLogExport(byte[] content, int rows, boolean truncated, Integer nextOffset, String nextCursor,
+                          String timeZone) {
         this.content = content;
         this.rows = rows;
         this.truncated = truncated;
         this.nextOffset = nextOffset;
+        this.nextCursor = nextCursor;
         this.timeZone = timeZone;
     }
 
@@ -62,10 +69,20 @@ public class AuditLogExport {
 
     /**
      * The offset to request the next page with, from {@code X-Philter-Export-Next-Offset}, or
-     * {@code null} when the export was not truncated.
+     * {@code null} when the export was not truncated or the page was read by cursor. Prefer
+     * {@link #getNextCursor()}: paging by offset can repeat events on a range that includes the current day.
      */
     public Integer getNextOffset() {
         return nextOffset;
+    }
+
+    /**
+     * The cursor to request the next page with, from {@code X-Philter-Export-Next-Cursor}, or {@code null}
+     * when the export was not truncated or Philter does not support cursors. Pass it to
+     * {@code exportAuditLogAfter}. Treat it as opaque.
+     */
+    public String getNextCursor() {
+        return nextCursor;
     }
 
     /** The time zone Philter read the dates in, from {@code X-Philter-Export-Time-Zone}. */

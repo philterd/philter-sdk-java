@@ -171,6 +171,7 @@ public class PhilterClient {
 	private static final String EXPORT_ROWS_HEADER = "X-Philter-Export-Rows";
 	private static final String EXPORT_TRUNCATED_HEADER = "X-Philter-Export-Truncated";
 	private static final String EXPORT_NEXT_OFFSET_HEADER = "X-Philter-Export-Next-Offset";
+	private static final String EXPORT_NEXT_CURSOR_HEADER = "X-Philter-Export-Next-Cursor";
 	private static final String EXPORT_TIME_ZONE_HEADER = "X-Philter-Export-Time-Zone";
 
 	private static final String APPLICATION_JSON = "application/json";
@@ -4015,9 +4016,12 @@ public class PhilterClient {
 	 * the zone used. Timestamps in the CSV are UTC whatever the zone.</p>
 	 *
 	 * <p>A page holds at most {@code limit} events. When {@link AuditLogExport#isTruncated()} is
-	 * {@code true}, more events remain: request the next page with {@code offset} set to
-	 * {@link AuditLogExport#getNextOffset()}. A range that includes the current day can repeat events
-	 * across pages.</p>
+	 * {@code true}, more events remain. Request the next page with
+	 * {@link #exportAuditLogAfter(LocalDate, LocalDate, ZoneId, String, Integer)} and
+	 * {@link AuditLogExport#getNextCursor()}, which returns each event exactly once even while events are being
+	 * recorded. Paging with {@code offset} set to {@link AuditLogExport#getNextOffset()} also works, but on a range
+	 * that includes the current day it can repeat events across pages, because each page's own export is recorded
+	 * as a new event.</p>
 	 *
 	 * <p>Philter rejects a missing date, a reversed range, a {@code to} more than 30 days after
 	 * {@code from}, an unknown zone, or a negative offset with an HTTP 400, thrown as a
@@ -4035,9 +4039,49 @@ public class PhilterClient {
 	 */
 	public AuditLogExport exportAuditLog(LocalDate from, LocalDate to, ZoneId zone, Integer offset, Integer limit)
 			throws IOException {
+		return exportAuditLog(from, to, zone, offset, null, limit);
+	}
+
+	/**
+	 * Exports the page of the audit log after a cursor, as CSV for a range of whole days, most recent first.
+	 * This is the way to page through an export: each page's {@link AuditLogExport#getNextCursor()} continues
+	 * after its last event, so events recorded while you page, including the {@code audit_log_exported} event
+	 * each page records, never move events between pages, and each event in the range is returned exactly once.
+	 * Events recorded after the first page are normally left out; export again to include them.
+	 *
+	 * <pre>{@code
+	 * String cursor = null;
+	 * do {
+	 *     AuditLogExport page = client.exportAuditLogAfter(from, to, ZoneId.of("UTC"), cursor, 1000);
+	 *     pages.add(page.getCsv()); // each page is a CSV with its own header row
+	 *     cursor = page.isTruncated() ? page.getNextCursor() : null;
+	 * } while (cursor != null);
+	 * }</pre>
+	 *
+	 * <p>Keep {@code from}, {@code to}, and {@code zone} the same on every page. The scope, administrator, and
+	 * range rules are those of {@link #exportAuditLog(LocalDate, LocalDate, ZoneId, Integer, Integer)}. A cursor
+	 * that is not one from an export page is an HTTP 400, thrown as a {@link ClientException} whose
+	 * {@link ClientException#getField()} is {@code cursor}.</p>
+	 *
+	 * @param from The first day, included in full.
+	 * @param to The last day, included in full. At most 30 days after {@code from}.
+	 * @param zone The time zone the days are read in. May be {@code null} for the server's time zone.
+	 * @param cursor The previous page's {@link AuditLogExport#getNextCursor()}, or {@code null} for the first
+	 * page.
+	 * @param limit The most events to return, up to 1000. May be {@code null} for Philter's default of 100.
+	 * @return The page of the export.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public AuditLogExport exportAuditLogAfter(LocalDate from, LocalDate to, ZoneId zone, String cursor, Integer limit)
+			throws IOException {
+		return exportAuditLog(from, to, zone, null, cursor, limit);
+	}
+
+	private AuditLogExport exportAuditLog(final LocalDate from, final LocalDate to, final ZoneId zone,
+			final Integer offset, final String cursor, final Integer limit) throws IOException {
 
 		final HttpRequest request = request(uri("/api/audit/export", "from", from, "to", to,
-				"zone", zone == null ? null : zone.getId(), "offset", offset, "limit", limit))
+				"zone", zone == null ? null : zone.getId(), "offset", offset, "cursor", cursor, "limit", limit))
 				.GET()
 				.build();
 
@@ -4060,9 +4104,18 @@ public class PhilterClient {
 
 			final Integer nextOffset = response.headers().firstValue(EXPORT_NEXT_OFFSET_HEADER)
 					.map(Integer::valueOf).orElse(null);
+			final String nextCursor = response.headers().firstValue(EXPORT_NEXT_CURSOR_HEADER).orElse(null);
+			final boolean isTruncated = Boolean.parseBoolean(truncated);
 
-			return new AuditLogExport(response.body(), Integer.parseInt(rows), Boolean.parseBoolean(truncated),
-					nextOffset, response.headers().firstValue(EXPORT_TIME_ZONE_HEADER).orElse(null));
+			// A truncated page with no way to ask for the next one would end the export early without saying so.
+			if(isTruncated && nextOffset == null && nextCursor == null) {
+				throw new ClientException("The audit log export response is truncated but has neither an "
+						+ EXPORT_NEXT_CURSOR_HEADER + " nor an " + EXPORT_NEXT_OFFSET_HEADER + " header.", 0, null, null,
+						requestIdOf(response));
+			}
+
+			return new AuditLogExport(response.body(), Integer.parseInt(rows), isTruncated, nextOffset, nextCursor,
+					response.headers().firstValue(EXPORT_TIME_ZONE_HEADER).orElse(null));
 
 		} catch (final NumberFormatException ex) {
 			throw new ClientException("The audit log export response has a malformed "

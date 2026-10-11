@@ -55,22 +55,26 @@ The CSV has a header row and the columns `timestamp`, `event`, `request_id`, `ap
 
 ### Paging
 
-An export returns one page, most recent first: up to `limit` events (default 100, at most 1000), starting `offset` events into the range. When `isTruncated()` is `true`, more events remain; request the next page with `getNextOffset()`.
+An export returns one page, most recent first: up to `limit` events (default 100, at most 1000). When `isTruncated()` is `true`, more events remain. Page through with `exportAuditLogAfter`, passing each page's `getNextCursor()` to get the next, and `null` for the first:
 
 ```java
-LocalDate from = LocalDate.of(2026, 9, 1);
-LocalDate to = LocalDate.of(2026, 9, 30);
 ZoneId utc = ZoneId.of("UTC");
+LocalDate to = LocalDate.now(utc);            // a range that includes today
+LocalDate from = to.minusDays(7);             // at most 30 days before to
 
-AuditLogExport page = client.exportAuditLog(from, to, utc, null, 1000);
-// write page.getContent()
-while (page.isTruncated()) {
-    page = client.exportAuditLog(from, to, utc, page.getNextOffset(), 1000);
+String cursor = null;
+do {
+    AuditLogExport page = client.exportAuditLogAfter(from, to, utc, cursor, 1000);
     // write page.getContent()
-}
+    cursor = page.isTruncated() ? page.getNextCursor() : null;
+} while (cursor != null);
 ```
 
-Every page starts with the CSV header row, so drop it from each page after the first when concatenating. Paging a range of past days returns each event exactly once. A range that includes the current day can repeat events across pages, because new events push older ones onto later pages; export complete days to avoid this.
+A cursor marks the last event of its page, and the next page holds the events after it. Events recorded while you page, including the `audit_log_exported` event each page records, are newer than the cursor, so they never move events between pages: paging by cursor returns each event in the range exactly once, even when the range includes the current day. Events recorded after the first page are normally left out; export again to include them. Keep `from`, `to`, and the zone the same on every page. A cursor that is not one from an export page is an HTTP 400 whose `getField()` is `cursor`.
+
+Every page starts with the CSV header row, so drop it from each page after the first when concatenating.
+
+Paging with `exportAuditLog(from, to, zone, offset, limit)` and `getNextOffset()` still works, and returns each event once for a range of past days. For a range that includes the current day it can repeat events across pages, because each page's own export, and any other activity, is recorded as a new event that moves older ones onto later pages; use the cursor for such a range. A page read by cursor has no next offset, and a page read by offset has both.
 
 ### Errors
 
