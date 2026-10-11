@@ -365,32 +365,17 @@ public class PhilterClient {
 
 	/**
 	 * Percent-encodes a single path segment or query component. {@link URLEncoder} emits {@code +}
-	 * for a space, which is only correct for form bodies, so it is rewritten to {@code %20}.
+	 * for a space, which is only correct for form bodies, so it is rewritten to {@code %20}. A value of
+	 * {@code .} or {@code ..} has its dots encoded too: {@link URI#resolve(String)} would otherwise
+	 * remove it as a dot segment and send the request to another path. Encoded, it reaches Philter as
+	 * the name it is, and Philter refuses it with an HTTP 400 as it refuses any other name that cannot be
+	 * used in a path.
 	 */
 	private static String encode(final String value) {
+		if (".".equals(value) || "..".equals(value)) {
+			return value.replace(".", "%2E");
+		}
 		return URLEncoder.encode(value, StandardCharsets.UTF_8).replace("+", "%20");
-	}
-
-	/**
-	 * Whether a context name, custom list name, or legal hold reference can be used in a request path.
-	 * The same rule as Philter's: Tomcat or Spring refuses a path containing any of these, even
-	 * percent-encoded, before Philter sees it. Philter refuses such names when they are created, but
-	 * older items can still have one, so the delete methods send it in the query instead.
-	 */
-	private static boolean isPathSafe(final String name) {
-		if (name == null) {
-			return true;
-		}
-		if (".".equals(name) || "..".equals(name)) {
-			return false;
-		}
-		for (int i = 0; i < name.length(); i++) {
-			final char c = name.charAt(i);
-			if (c == '/' || c == '\\' || c == ';' || c == '%' || Character.isISOControl(c)) {
-				return false;
-			}
-		}
-		return true;
 	}
 
 	/**
@@ -2025,9 +2010,9 @@ public class PhilterClient {
 	/**
 	 * Deletes a context.
 	 *
-	 * <p>A name created before Philter refused names that cannot be used in a request path (containing
-	 * {@code /}, {@code \}, {@code ;}, {@code %}, or a control character, or {@code .} or {@code ..}) is
-	 * sent in the query string instead, so it can still be removed.</p>
+	 * <p>Philter refuses a name that cannot be used in a request path (containing {@code /}, {@code \}, {@code ;},
+	 * {@code %}, or a control character, or {@code .} or {@code ..}) when it is created, so every context can
+	 * be deleted by path. A name like that is refused with an HTTP 400, thrown as a {@link ClientException}.</p>
 	 *
 	 * @param name The name of the context.
 	 * @param owner The owner of the context. May be {@code null}.
@@ -2036,10 +2021,7 @@ public class PhilterClient {
 	 */
 	public GenericResponse deleteContext(String name, String owner) throws IOException {
 
-		final URI uri = isPathSafe(name)
-				? uri("/api/contexts/" + encode(name), "owner", owner)
-				: uri("/api/contexts", "name", name, "owner", owner);
-		final HttpRequest request = request(uri).DELETE().build();
+		final HttpRequest request = request(uri("/api/contexts/" + encode(name), "owner", owner)).DELETE().build();
 
 		return sendExpectingJson(request, GenericResponse.class);
 
@@ -2492,9 +2474,9 @@ public class PhilterClient {
 	/**
 	 * Deletes (releases) a legal hold.
 	 *
-	 * <p>A reference created before Philter refused references that cannot be used in a request path (containing
-	 * {@code /}, {@code \}, {@code ;}, {@code %}, or a control character, or {@code .} or {@code ..}) is
-	 * sent in the query string instead, so it can still be removed.</p>
+	 * <p>Philter refuses a reference that cannot be used in a request path (containing {@code /}, {@code \}, {@code ;},
+	 * {@code %}, or a control character, or {@code .} or {@code ..}) when it is created, so every hold can
+	 * be deleted by path. A reference like that is refused with an HTTP 400, thrown as a {@link ClientException}.</p>
 	 *
 	 * @param reference The legal hold reference.
 	 * @param owner The owner of the hold. May be {@code null}.
@@ -2502,11 +2484,7 @@ public class PhilterClient {
 	 */
 	public void deleteHold(String reference, String owner) throws IOException {
 
-		final URI uri = isPathSafe(reference)
-				? uri("/api/holds/" + encode(reference), "owner", owner)
-				: uri("/api/holds", "reference", reference, "owner", owner);
-
-		sendExpectingNoContent(request(uri).DELETE().build());
+		sendExpectingNoContent(request(uri("/api/holds/" + encode(reference), "owner", owner)).DELETE().build());
 
 	}
 
@@ -3087,9 +3065,9 @@ public class PhilterClient {
 	/**
 	 * Deletes a custom list.
 	 *
-	 * <p>A name created before Philter refused names that cannot be used in a request path (containing
-	 * {@code /}, {@code \}, {@code ;}, {@code %}, or a control character, or {@code .} or {@code ..}) is
-	 * sent in the query string instead, so it can still be removed.</p>
+	 * <p>Philter refuses a name that cannot be used in a request path (containing {@code /}, {@code \}, {@code ;},
+	 * {@code %}, or a control character, or {@code .} or {@code ..}) when it is created, so every list can
+	 * be deleted by path. A name like that is refused with an HTTP 400, thrown as a {@link ClientException}.</p>
 	 *
 	 * @param list The name of the list.
 	 * @param owner The owner of the list. May be {@code null}.
@@ -3097,11 +3075,7 @@ public class PhilterClient {
 	 */
 	public void deleteList(String list, String owner) throws IOException {
 
-		final URI uri = isPathSafe(list)
-				? uri("/api/lists/" + encode(list), "owner", owner)
-				: uri("/api/lists", "name", list, "owner", owner);
-
-		sendExpectingNoContent(request(uri).DELETE().build());
+		sendExpectingNoContent(request(uri("/api/lists/" + encode(list), "owner", owner)).DELETE().build());
 
 	}
 

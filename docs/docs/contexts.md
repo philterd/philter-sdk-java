@@ -23,7 +23,7 @@ client.deleteContext("tenant-a");
 
 A user can have at most 10 contexts, counting `default`. `createContext` is refused with a `409`, raised as a `ClientException`, whose `getReason()` is `context_limit_reached` at the limit and `context_exists` for a name the user already has. See [Error Handling](error-handling.md#acting-on-the-status).
 
-A context name is used in request paths, so it cannot contain `/`, `\`, `;`, `%`, or a control character, and cannot be `.` or `..`; Philter refuses one that does with an HTTP 400, raised as a `ClientException`. A context created before Philter checked names may still have one. `deleteContext` sends such a name in the query string instead of the path, so it can still be deleted.
+A context name is used in request paths, so it cannot contain `/`, `\`, `;`, `%`, or a control character, and cannot be `.` or `..`; Philter refuses one that does with an HTTP 400, raised as a `ClientException`. Since no context can have such a name, `deleteContext` always names the context in the path.
 
 On `createContext`, a setting passed as `null` takes its default: `false` for both flags, and `document` for the disambiguation scope. On `updateContext`, only the settings given change; one passed as `null` keeps its current value. An update that gives no setting is refused with a `400`.
 

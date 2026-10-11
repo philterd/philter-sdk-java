@@ -1884,8 +1884,8 @@ public class PhilterClientMockTest {
 
     }
 
-    // Names that cannot be used in a request path. Philter refuses them now, but items created before
-    // that may still have one, and a path containing one is refused before it reaches Philter.
+    // Names that cannot be used in a request path. Philter refuses them when they are created, and a path
+    // containing one is refused with a 400.
     private static final List<String> PATH_UNSAFE_NAMES = List.of(
             "a/b", "a\\b", "a;b", "a%b", "a\u0007b", "tab\there", "del\u007f", "c1\u0085", ".", "..");
 
@@ -1893,43 +1893,67 @@ public class PhilterClientMockTest {
     private static final List<String> PATH_SAFE_NAMES = List.of(
             "c1", "tenant a", "v1.2", "...", "a..b", "café", "記録", "a+b&c=d?e#f");
 
+    /** Asserts the last request named {@code name} as the one path segment after {@code prefix}. */
+    private void assertOneSegment(final String prefix, final String name) {
+        Assert.assertEquals(prefix + name, path);
+        Assert.assertTrue(rawPath, rawPath.startsWith(prefix));
+        Assert.assertFalse("one encoded segment: " + rawPath, rawPath.substring(prefix.length()).contains("/"));
+    }
+
     @Test
-    public void deletesUseTheQueryRouteOnlyForNamesThatCannotBeUsedInAPath() throws Exception {
+    public void deletesAlwaysNameTheItemInThePath() throws Exception {
+
+        final PhilterClient c = client();
+        final List<String> names = new ArrayList<>(PATH_UNSAFE_NAMES);
+        names.addAll(PATH_SAFE_NAMES);
+
+        for (final String name : names) {
+
+            verify("DELETE", "/api/contexts/" + name, Map.of(), "{}", () -> c.deleteContext(name));
+            assertOneSegment("/api/contexts/", name);
+            Assert.assertTrue(queryParameters.isEmpty());
+            verify("DELETE", "/api/contexts/" + name, Map.of("owner", OWNER), "{}", () -> c.deleteContext(name, OWNER));
+            Assert.assertEquals(Set.of("owner"), queryParameters.keySet());
+
+            verify("DELETE", "/api/lists/" + name, Map.of(), "", () -> c.deleteList(name));
+            assertOneSegment("/api/lists/", name);
+            Assert.assertTrue(queryParameters.isEmpty());
+            verify("DELETE", "/api/lists/" + name, Map.of("owner", OWNER), "", () -> c.deleteList(name, OWNER));
+            Assert.assertEquals(Set.of("owner"), queryParameters.keySet());
+
+            verify("DELETE", "/api/holds/" + name, Map.of(), "", () -> c.deleteHold(name));
+            assertOneSegment("/api/holds/", name);
+            Assert.assertTrue(queryParameters.isEmpty());
+            verify("DELETE", "/api/holds/" + name, Map.of("owner", OWNER), "", () -> c.deleteHold(name, OWNER));
+            Assert.assertEquals(Set.of("owner"), queryParameters.keySet());
+
+        }
+
+    }
+
+    @Test
+    public void aDotNameIsSentAsItselfRatherThanResolvedAway() throws Exception {
 
         final PhilterClient c = client();
 
-        for (final String name : PATH_UNSAFE_NAMES) {
-
-            verify("DELETE", "/api/contexts", Map.of("name", name), "{}", () -> c.deleteContext(name));
-            Assert.assertEquals(Set.of("name"), queryParameters.keySet());
-            verify("DELETE", "/api/contexts", Map.of("name", name, "owner", OWNER), "{}", () -> c.deleteContext(name, OWNER));
-
-            verify("DELETE", "/api/lists", Map.of("name", name), "", () -> c.deleteList(name));
-            Assert.assertEquals(Set.of("name"), queryParameters.keySet());
-            verify("DELETE", "/api/lists", Map.of("name", name, "owner", OWNER), "", () -> c.deleteList(name, OWNER));
-
-            verify("DELETE", "/api/holds", Map.of("reference", name), "", () -> c.deleteHold(name));
-            Assert.assertEquals(Set.of("reference"), queryParameters.keySet());
-            verify("DELETE", "/api/holds", Map.of("reference", name, "owner", OWNER), "", () -> c.deleteHold(name, OWNER));
-
+        for (final String name : List.of(".", "..")) {
+            verify("GET", "/api/contexts/" + name + "/entries", Map.of(), "[]", () -> c.getContextEntries(name));
+            Assert.assertEquals("/api/contexts/" + name.replace(".", "%2E") + "/entries", rawPath);
         }
 
-        for (final String name : PATH_SAFE_NAMES) {
+    }
 
-            verify("DELETE", "/api/contexts/" + name, Map.of(), "{}", () -> c.deleteContext(name));
-            Assert.assertTrue(queryParameters.isEmpty());
-            verify("DELETE", "/api/contexts/" + name, Map.of("owner", OWNER), "{}", () -> c.deleteContext(name, OWNER));
+    @Test
+    public void aNameThatCannotBeUsedInAPathSurfacesPhiltersRefusal() {
 
-            verify("DELETE", "/api/lists/" + name, Map.of(), "", () -> c.deleteList(name));
-            Assert.assertTrue(queryParameters.isEmpty());
-            verify("DELETE", "/api/lists/" + name, Map.of("owner", OWNER), "", () -> c.deleteList(name, OWNER));
+        respond(400, "{\"message\":\"The request was refused: its path contains a character or segment that is not "
+                + "allowed, such as ;, an encoded %, an empty segment (//), or a . or .. segment.\",\"reason\":\"invalid_request\"}");
 
-            verify("DELETE", "/api/holds/" + name, Map.of(), "", () -> c.deleteHold(name));
-            Assert.assertTrue(queryParameters.isEmpty());
-            verify("DELETE", "/api/holds/" + name, Map.of("owner", OWNER), "", () -> c.deleteHold(name, OWNER));
+        final ClientException ex = Assert.assertThrows(ClientException.class, () -> client().deleteList("a;b"));
 
-        }
-
+        Assert.assertEquals(400, ex.getStatusCode());
+        Assert.assertEquals("invalid_request", ex.getReason());
+        Assert.assertEquals("DELETE", method);
     }
 
     @FunctionalInterface

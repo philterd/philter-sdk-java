@@ -45,4 +45,4 @@ LegalHoldResponse one = client.getHold("matter-2026-014");
 client.deleteHold("matter-2026-014");
 ```
 
-A hold set before Philter checked references may have one that cannot be used in a path. `deleteHold` sends such a reference in the query string instead, so the hold can still be released.
+Since no hold can have a reference that cannot be used in a path, `deleteHold` always names the hold in the path.

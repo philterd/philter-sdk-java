@@ -57,8 +57,8 @@ Responses are typed models. Calls that returned raw JSON have typed alternatives
 is `getManagedPolicies`. Policy JSON, policy diffs, and
 context exports stay strings.
 
-Some of this needs a Philter that includes the matching change: path-unsafe names, which `deleteContext`,
-`deleteList`, and `deleteHold` can still remove (philterd/philter#140); session key listing (#141); managed
+Some of this needs a Philter that includes the matching change: context, list, and hold names that
+can be used in a request path (philterd/philter#140); session key listing (#141); managed
 policy descriptions (#142); policy descriptions and notes in a request body, without which earlier clients
 fail (#144); unverifiable ledger chains (#145); the `policy_managed` reason (#146); unreadable ledger entries
 (#147); `user` holds without a `scopeValue` (#148); an audit event's source (#149); the disambiguation
