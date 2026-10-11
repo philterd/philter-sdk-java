@@ -102,9 +102,21 @@ deployment requires it. The `health()` endpoint does not require authentication.
 
 In addition to filtering, the client covers the full Philter 4.0.0 API: policies (including versions, diffs,
 rollbacks, descriptions and notes, managed policies, and copies), contexts, documents, legal holds, the redaction
-ledger, the audit log and its CSV export, custom lists, redact lists, re-identification, user management, sign-in with
-passwords, session keys, and MFA, webhooks, managing API keys, rotating the output signing key, admin settings, and
-administrator listings of policies, contexts, custom lists, ledger chains, and legal holds across all users.
+ledger, the audit log and its CSV export, custom lists, redact lists, re-identification, user management (including
+roles and email addresses), sign-in with passwords, session keys, and MFA, webhooks, managing API keys, rotating the
+output signing key, admin settings, and administrator listings of policies, contexts, custom lists, ledger chains, and
+legal holds across all users.
+
+An administrator sets or removes a user's email address with `setUserEmail`:
+
+```
+client.setUserEmail("jordan", "jordan@example.com");
+client.setUserEmail("jordan", null); // removes it
+```
+
+An address must have one `@`, something on each side, a dot in the domain, and no whitespace, and be at most 254
+characters. Philter refuses one that does not with an HTTP 400, thrown as a `ClientException`, both here and in
+`createUser`.
 
 ## Testing
 

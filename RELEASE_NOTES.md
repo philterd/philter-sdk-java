@@ -43,9 +43,9 @@ act on another user's data, and paged calls take `offset` and `limit`.
   `purgeLedger`). A chain Philter cannot check has a `getValidationError()` and `null` check results. An
   unreadable entry has a `getReadError()`, and exporting its chain is a 422 `entry_unreadable`. A `user` hold
   needs no `scopeValue`.
-* **Users and sign-in:** user management; `signIn`, `completeSignIn` (MFA), and `signOut`; passwords, MFA
-  enrollment, and `revokeSessionKeys`. `withClientAddress(Supplier<String>)` sends the end user's address as
-  `X-Forwarded-For` on every request, so Philter rate-limits and audits per person.
+* **Users and sign-in:** user management, including `setUserEmail`; `signIn`, `completeSignIn` (MFA), and
+  `signOut`; passwords, MFA enrollment, and `revokeSessionKeys`. `withClientAddress(Supplier<String>)` sends
+  the end user's address as `X-Forwarded-For` on every request, so Philter rate-limits and audits per person.
 * **API keys:** list, create, scope, and revoke keys, including session keys. `listApiKeyScopes` describes
   each scope.
 * **Administration:** admin settings, the webhook, the audit log and its CSV export, signing-key rotation, and
@@ -62,7 +62,8 @@ can be used in a request path (philterd/philter#140); session key listing (#141)
 policy descriptions (#142); policy descriptions and notes in a request body, without which earlier clients
 fail (#144); unverifiable ledger chains (#145); the `policy_managed` reason (#146); unreadable ledger entries
 (#147); `user` holds without a `scopeValue` (#148); an audit event's source (#149); the disambiguation
-scope (#150); and request ids (#156).
+scope (#150); changing a user's email address, and the email rule on `createUser` (#168); and request ids
+(#156).
 
 ### Errors
 

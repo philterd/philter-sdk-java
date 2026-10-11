@@ -3758,8 +3758,9 @@ public class PhilterClient {
 	 * administrator is refused with an HTTP 403 saying an administrator is required. Both are thrown
 	 * as a {@link ClientException} carrying that message.</p>
 	 *
-	 * <p>A missing or reserved username, a role other than {@code user} or {@code admin}, or a password
-	 * shorter than 16 characters or longer than 72 UTF-8 bytes, is an HTTP 400. A username already taken, by an active or a deactivated user, is an HTTP 409. Both are
+	 * <p>A missing or reserved username, a role other than {@code user} or {@code admin}, an email address
+	 * that is not valid (see {@link #setUserEmail(String, String)}), or a password shorter than 16
+	 * characters or longer than 72 UTF-8 bytes, is an HTTP 400. A username already taken, by an active or a deactivated user, is an HTTP 409. Both are
 	 * thrown as a {@link ClientException} carrying Philter's reason.</p>
 	 *
 	 * @param request The {@link CreateUserRequest}.
@@ -3799,6 +3800,44 @@ public class PhilterClient {
 		final HttpRequest request = json(uri("/api/users/" + encode(username) + "/role"))
 				.header("Content-Type", APPLICATION_JSON)
 				.PUT(text(gson.toJson(new SetUserRoleRequest(role))))
+				.build();
+
+		return sendExpectingJson(request, User.class);
+
+	}
+
+	/**
+	 * Sets or removes a user's email address. The address is not how a user is addressed or signs in, so
+	 * changing it changes nothing else.
+	 *
+	 * <p>An address must have one {@code @}, something on each side, a dot in the domain, and no
+	 * whitespace, and be at most 254 characters. Philter trims surrounding whitespace before checking and
+	 * stores the trimmed address. The same rule applies to {@link #createUser(CreateUserRequest)}.</p>
+	 *
+	 * <p>Requires the {@code users:write} scope and an administrator. A key without the scope is refused
+	 * with an HTTP 403 whose message names the scope; a key that has it but does not belong to an
+	 * administrator is refused with an HTTP 403 saying an administrator is required. Both are thrown
+	 * as a {@link ClientException} carrying that message.</p>
+	 *
+	 * <p>An address that is not valid is an HTTP 400, thrown as a {@link ClientException} carrying
+	 * Philter's message, and an unknown username is an HTTP 404. Philter records the change as a
+	 * {@code user_email_changed} audit event, without the address.</p>
+	 *
+	 * @param username The username.
+	 * @param email The new email address, or {@code null}, empty, or blank to remove it.
+	 * @return The user, with its new email address.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public User setUserEmail(String username, String email) throws IOException {
+
+		// Built as a JsonObject rather than serialized from a class, because this client's Gson leaves out
+		// null fields, and a removal is sent as an explicit null.
+		final JsonObject body = new JsonObject();
+		body.addProperty("email", email);
+
+		final HttpRequest request = json(uri("/api/users/" + encode(username) + "/email"))
+				.header("Content-Type", APPLICATION_JSON)
+				.PUT(text(body.toString()))
 				.build();
 
 		return sendExpectingJson(request, User.class);

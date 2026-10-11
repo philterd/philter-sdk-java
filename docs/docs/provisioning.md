@@ -22,7 +22,7 @@ CreatedUserResponse admin = client.createUser("ops", null, "admin");
 
 The email is optional. The role is `user` or `admin`, and defaults to `user`. `createUser(username, email, role, password)` also gives the user a password, which they must change at next sign-in; without one, the user can only use API keys. See [Passwords](sign-in.md#passwords). The new user gets a default policy and context.
 
-A missing or reserved username (`me`), or any other role, is rejected with an HTTP 400. A username already taken, by an active user or a deactivated one holding the name in reserve, returns an HTTP 409. Both surface as a `ClientException` carrying Philter's explanation.
+An email address must have one `@`, something on each side, a dot in the domain, and no whitespace, and be at most 254 characters. A missing or reserved username (`me`), any other role, or an email address that does not follow that rule is rejected with an HTTP 400. A username already taken, by an active user or a deactivated one holding the name in reserve, returns an HTTP 409. Both surface as a `ClientException` carrying Philter's explanation.
 
 ## Reading users
 
@@ -56,12 +56,18 @@ Requires the `users:write` scope. Each call returns the updated `User`.
 ```java
 client.setUserRole("ci", "admin");
 
+// Set or change the email address; null, an empty string, or only spaces removes it.
+client.setUserEmail("ci", "platform-team@example.com");
+client.setUserEmail("ci", null);
+
 // Its API keys stop working; the user and its data are kept.
 client.deactivateUser("ci");
 
 // Its API keys work again.
 client.reactivateUser("ci");
 ```
+
+The email address follows the same rule as when [creating a user](#creating-a-user), after Philter trims surrounding whitespace; one that does not is an HTTP 400 carrying Philter's message. It is not how a user is addressed or signs in, so changing it changes nothing else. Philter records the change as a `user_email_changed` audit event, without the address; see [Auditing](#auditing).
 
 A deactivated user keeps its username in reserve, so it cannot be recreated. Philter refuses, with an HTTP 409, demoting or deactivating the last active administrator, deactivating your own user, deactivating a user that is already deactivated, and reactivating one that is already active. An unknown username is an HTTP 404.
 
@@ -145,4 +151,4 @@ Philter caches each resolved key for up to `API_KEY_CACHE_TTL_SECONDS` (60 by de
 
 ## Auditing
 
-Every change on this page is recorded in Philter's audit log. Creating a user, setting a role, deactivating, and reactivating record `user_created`, `user_role_changed`, `user_deactivated`, and `user_reactivated` events naming the calling administrator as the principal, with the calling API key in the details. An `api_key_created` event names the new key as the principal and the user it belongs to as the object, as a key made in the dashboard does; the caller who asked for it is in the event's details, along with the scopes granted. Changing a key's scopes records `api_key_scopes_changed` with the scopes before and after, and revoking one records `api_key_deleted`.
+Every change on this page is recorded in Philter's audit log. Creating a user, setting a role, setting an email address, deactivating, and reactivating record `user_created`, `user_role_changed`, `user_email_changed`, `user_deactivated`, and `user_reactivated` events naming the calling administrator as the principal, with the calling API key in the details. An `api_key_created` event names the new key as the principal and the user it belongs to as the object, as a key made in the dashboard does; the caller who asked for it is in the event's details, along with the scopes granted. Changing a key's scopes records `api_key_scopes_changed` with the scopes before and after, and revoking one records `api_key_deleted`.

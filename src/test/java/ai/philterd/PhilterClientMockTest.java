@@ -1589,6 +1589,47 @@ public class PhilterClientMockTest {
     }
 
     @Test
+    public void setUserEmailSetsTheAddress() throws Exception {
+
+        respond(200, "{\"username\":\"jordan smith\",\"email\":\"jordan@example.com\",\"role\":\"user\",\"active\":true}");
+
+        final User user = client().setUserEmail("jordan smith", "jordan@example.com");
+
+        Assert.assertEquals("PUT", method);
+        Assert.assertEquals("/api/users/jordan%20smith/email", rawPath);
+        Assert.assertEquals("application/json", header("Content-Type"));
+        Assert.assertEquals("{\"email\":\"jordan@example.com\"}", requestBodyAsString());
+        Assert.assertEquals("jordan@example.com", user.getEmail());
+    }
+
+    @Test
+    public void setUserEmailWithNullSendsAnExplicitNullToRemoveIt() throws Exception {
+
+        respond(200, "{\"username\":\"jordan\",\"role\":\"user\",\"active\":true}");
+
+        final User user = client().setUserEmail("jordan", null);
+
+        Assert.assertEquals("/api/users/jordan/email", path);
+        Assert.assertEquals("{\"email\":null}", requestBodyAsString());
+        Assert.assertNull(user.getEmail());
+    }
+
+    @Test
+    public void setUserEmailRefusalsCarryPhiltersMessageAndStatus() {
+
+        respond(400, "{\"message\":\"The email address is not valid.\",\"reason\":\"invalid_request\",\"field\":\"email\"}");
+        final ClientException invalid = Assert.assertThrows(ClientException.class,
+                () -> client().setUserEmail("jordan", "not-an-address"));
+        Assert.assertEquals(400, invalid.getStatusCode());
+        Assert.assertEquals("The email address is not valid.", invalid.getErrorMessage());
+
+        respond(404, "{\"message\":\"Not found.\",\"reason\":\"not_found\"}");
+        final ClientException unknown = Assert.assertThrows(ClientException.class,
+                () -> client().setUserEmail("nobody", "nobody@example.com"));
+        Assert.assertEquals(404, unknown.getStatusCode());
+    }
+
+    @Test
     public void deactivateAndReactivateUser() throws Exception {
 
         respond(200, "{\"username\":\"ci\",\"role\":\"user\",\"active\":false,"
