@@ -38,4 +38,18 @@ public class GetContextsResponse {
         this.contexts = contexts;
     }
 
+
+    @Expose
+    @SerializedName("total")
+    private long total;
+
+    /** How many there are across every page, counting only those that match the search and filters. */
+    public long getTotal() {
+        return total;
+    }
+
+    public void setTotal(long total) {
+        this.total = total;
+    }
+
 }

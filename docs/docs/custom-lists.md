@@ -17,8 +17,9 @@ client.replaceList("blocked-terms", null, List.of("Acme", "Project X", "Project 
 GetListsResponse list = client.getList("blocked-terms");
 System.out.println(list.getLists() + " " + list.getDescription());
 
-// Every list's name, description, and size, without its terms.
-for (CustomListSummary summary : client.listCustomLists()) {
+// A page of lists, with each one's name, description, and size but not its terms, and the total.
+Page<CustomListSummary> lists = client.listCustomLists(null, new ListOptions().search("blocked"));
+for (CustomListSummary summary : lists.getItems()) {
     System.out.println(summary.getName() + " (" + summary.getSize() + ")");
 }
 

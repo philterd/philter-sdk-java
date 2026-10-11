@@ -27,7 +27,7 @@ A 401's `getReason()` tells apart why the credentials were refused, so a user in
 
 ```java
 try {
-    client.getPolicies();
+    client.listPolicies(null, null);
 } catch (UnauthorizedException e) {
     if (ErrorReasons.SESSION_EXPIRED.equals(e.getReason())) {
         // Show the sign-in page.
@@ -41,7 +41,7 @@ Neither is a subclass of `ClientException`, so a `catch (ClientException e)` doe
 import ai.philterd.philter.model.exceptions.PhilterError;
 
 try {
-    client.getPolicies();
+    client.listPolicies(null, null);
 } catch (RuntimeException e) {
     if (e instanceof PhilterError) {
         PhilterError error = (PhilterError) e;

@@ -21,12 +21,23 @@ are relative to 1.5.0.
   and `withKeepAliveDurationMs(...)` are no-ops; use the `jdk.httpclient.connectionPoolSize` and
   `jdk.httpclient.keepalive.timeout` system properties. `AbstractClient` is removed, and `UNAUTHORIZED` and
   `SERVICE_UNAVAILABLE` moved to `PhilterClient`.
+* Listings read Philter's listing envelope (philterd/philter#160), so the policy, version, hold, and custom list
+  listings need a Philter that includes it; the others read an older response with a `total` of 0.
+  `/api/policies` (own, all users, managed, and deleted), `/versions`, `/api/holds`, and `/api/lists` now return
+  an object with the items and `total`, not a bare array; `/api/contexts` and `/api/documents` add `total`.
+  Custom lists are paged. The methods that returned a plain `List` (`getPolicies`, `getPoliciesAcrossUsers`,
+  `listManagedPolicies(offset, limit)`, `getPolicyVersions`, `getHolds`, `getHoldsAcrossUsers`,
+  `listCustomLists(owner)`, and `listCustomListsAcrossUsers(offset, limit)`) read the new shape and still return
+  one page's items, and are deprecated; `listCustomLists(owner)` still returns every list, reading each page.
+  The deprecated `String` methods, such as `getLists` and `getContexts`, return Philter's new body as it is.
 
 ### Philter 4.0.0 API coverage
 
-The client implements every operation in Philter's OpenAPI specification and every optional query parameter.
-New parameters arrive as overloads, so existing signatures are kept. `owner` overloads let an administrator
-act on another user's data, and paged calls take `offset` and `limit`.
+The client implements every operation in Philter's OpenAPI specification and every optional query parameter. New
+parameters arrive as overloads, so existing signatures are kept. `owner` overloads let an administrator act on
+another user's data. Every listing has an overload taking `ListOptions` (offset, limit, `sort`, `order`,
+`search`, and the users, documents, and API keys filters) and returns its items with `total`, as a `Page<T>` or
+the listing's response type.
 
 * **Filtering:** redact PDFs with `filterToPdf`, or asynchronously with `filterAsync` and `filterToPdfAsync`
   and then `getDocumentState` and `getDocument`, from a `File` or a `byte[]`. `filter` and `explain` take an
@@ -74,10 +85,12 @@ in a request path (philterd/philter#140); session key listing (#141); managed po
 descriptions and notes in a request body, without which earlier clients fail (#144); unverifiable ledger chains
 (#145); the `policy_managed` reason (#146); unreadable ledger entries (#147); `user` holds without a
 `scopeValue` (#148); an audit event's source (#149); the disambiguation scope (#150); reading and replacing one
-redact list (#157); a reason and field on every error (#158); limits and sign-in options (#159); audit event
-usernames and user ids (#161); policy templates (#164); webhook tests, delivery history, and keeping the secret
-(#165); deleted policies and version authors (#166); changing a user's email address, and the email rule on
-`createUser` (#168); session client details and signing out other sessions (#169); and request ids (#156).
+redact list (#157); a reason and field on every error (#158); the listing envelopes, sorting, and search (#160),
+which the policy, version, hold, and custom list listings need to parse at all; limits and sign-in options
+(#159); audit event usernames and user ids (#161); policy templates (#164); webhook tests, delivery history, and
+keeping the secret (#165); deleted policies and version authors (#166); changing a user's email address, and the
+email rule on `createUser` (#168); session client details and signing out other sessions (#169); and request ids
+(#156).
 
 ### Errors
 

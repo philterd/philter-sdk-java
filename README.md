@@ -146,6 +146,17 @@ terms.add("Project X");
 client.replaceRedactList(RedactList.ALWAYS, terms, current.getRevision());
 ```
 
+Listings return a page of items and the total, and take a `ListOptions` to page, sort, search, and filter:
+
+```
+Page<String> page = client.listPolicies(null, new ListOptions().limit(50).sort("created").descending().search("claims"));
+System.out.println(page.getItems() + " of " + page.getTotal());
+```
+
+This client reads the listing shape Philter returns since philterd/philter#160: an object with the items and `total`.
+`GET /api/policies`, `/api/holds`, `/api/lists`, and policy versions used to return bare arrays, so their listing methods
+need a Philter that includes that change. The older methods that return a plain `List` still work and are deprecated.
+
 Every refusal carries a stable reason. Act on it with the `ErrorReasons` constants rather than on the message or the
 status alone; `getField()` names the invalid field when Philter reports one:
 

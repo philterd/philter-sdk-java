@@ -5,8 +5,8 @@ A policy defines which entity types are detected and how each is redacted. Manag
 ```java
 import java.util.List;
 
-// The first page of policy names. See Owners and Pagination for the rest.
-List<String> policies = client.getPolicies();
+// The first page of policy names, and how many there are. See Owners and Pagination to sort, search, and page.
+Page<String> policies = client.listPolicies(null, null);
 
 // Retrieve a policy's JSON.
 String policyJson = client.getPolicy("default");
@@ -66,8 +66,8 @@ Philter ships built-in managed policies, whose names begin with `managed_`. They
 ```java
 import ai.philterd.philter.model.ManagedPolicySummary;
 
-// The first page of managed policies, each with its name and description, paged like getPolicies.
-for (ManagedPolicySummary policy : client.listManagedPolicies()) {
+// The first page of managed policies, each with its name and description, paged like listPolicies.
+for (ManagedPolicySummary policy : client.listManagedPolicies(null).getItems()) {
     System.out.println(policy.getName() + ": " + policy.getDescription());
 }
 
@@ -90,7 +90,8 @@ import ai.philterd.philter.model.PolicyVersionSummary;
 import ai.philterd.philter.model.PolicyRollbackResponse;
 import ai.philterd.philter.model.PolicyDiff;
 
-for (PolicyVersionSummary v : client.getPolicyVersions("my-policy")) {
+// Newest first, a page at a time; getTotal() counts the retained revisions.
+for (PolicyVersionSummary v : client.listPolicyVersions("my-policy", null, null).getItems()) {
     // The author is the username whose change produced the revision, or null when it is not known.
     System.out.println("revision " + v.getRevision() + " @ " + v.getCapturedTimestamp() + " by " + v.getAuthor());
 }
@@ -129,7 +130,7 @@ for (DeletedPolicy deleted : page.getPolicies()) {
 
 `getDeletedAt()` is an `Instant`, and it and `getDeletedBy()` are `null` for a policy deleted before Philter recorded deletions. `getTotal()` counts every deleted policy whose history is kept, across pages.
 
-Read a deleted policy's history by its name, as for a live one, with `getPolicyVersions` and `getPolicyVersion`. To restore it, save the revision you want under the name with `savePolicy`; the restored policy continues the same revision numbers. `rollbackPolicy` only applies to a live policy.
+Read a deleted policy's history by its name, as for a live one, with `listPolicyVersions` and `getPolicyVersion`. To restore it, save the revision you want under the name with `savePolicy`; the restored policy continues the same revision numbers. `rollbackPolicy` only applies to a live policy.
 
 ```java
 String json = client.getPolicyVersion("claims-2025", 4);

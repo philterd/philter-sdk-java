@@ -56,6 +56,8 @@ import ai.philterd.philter.model.GetApiKeysResponse;
 import ai.philterd.philter.model.GetAuditLogResponse;
 import ai.philterd.philter.model.GetListsResponse;
 import ai.philterd.philter.model.GetUsersResponse;
+import ai.philterd.philter.model.ListOptions;
+import ai.philterd.philter.model.Page;
 import ai.philterd.philter.model.RedactList;
 import ai.philterd.philter.model.RedactListTerms;
 import ai.philterd.philter.model.Limits;
@@ -114,6 +116,8 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Supplier;
@@ -172,13 +176,6 @@ public class PhilterClient {
 	private static final String APPLICATION_JSON = "application/json";
 	private static final String TEXT_PLAIN = "text/plain";
 
-	private static final Type STRING_LIST = new TypeToken<List<String>>() {}.getType();
-	private static final Type POLICY_VERSION_LIST = new TypeToken<List<PolicyVersionSummary>>() {}.getType();
-	private static final Type LEGAL_HOLD_LIST = new TypeToken<List<LegalHoldResponse>>() {}.getType();
-	private static final Type OWNED_LEGAL_HOLD_LIST = new TypeToken<List<OwnedLegalHoldResponse>>() {}.getType();
-	private static final Type OWNED_NAME_LIST = new TypeToken<List<OwnedName>>() {}.getType();
-	private static final Type CUSTOM_LIST_SUMMARY_LIST = new TypeToken<List<CustomListSummary>>() {}.getType();
-	private static final Type MANAGED_POLICY_SUMMARY_LIST = new TypeToken<List<ManagedPolicySummary>>() {}.getType();
 
 	private final HttpClient httpClient;
 	private final URI endpoint;
@@ -414,6 +411,42 @@ public class PhilterClient {
 	 */
 	public String getLastRequestId() {
 		return lastRequestId.get();
+	}
+
+	/**
+	 * The query parameters a listing sends: {@code leading}, then the {@link ListOptions} that are set. A setting
+	 * left unset is not sent, so Philter's default applies.
+	 */
+	private static Object[] listParameters(final ListOptions options, final Object... leading) {
+		final ListOptions o = options == null ? new ListOptions() : options;
+		final List<Object> parameters = new ArrayList<>(Arrays.asList(leading));
+		Collections.addAll(parameters, "offset", o.getOffset(), "limit", o.getLimit(), "sort", o.getSort(),
+				"order", o.getOrder(), "q", o.getSearch(), "role", o.getRole(), "active", o.getActive(),
+				"status", o.getStatus(), "session", o.getSession());
+		return parameters.toArray();
+	}
+
+	/**
+	 * Sends a listing request and reads Philter's listing envelope: the items under {@code itemsField}, and
+	 * {@code total}. A response without {@code total} counts the items on the page.
+	 */
+	private <T> Page<T> sendExpectingPage(final HttpRequest request, final String itemsField, final Type itemType)
+			throws IOException {
+
+		final JsonElement body = JsonParser.parseString(sendExpectingString(request));
+		if(body == null || !body.isJsonObject()) {
+			throw new ClientException("The listing response is not an object with " + itemsField + " and total.", 0,
+					null, null, getLastRequestId());
+		}
+
+		final JsonObject envelope = body.getAsJsonObject();
+		final JsonElement items = envelope.get(itemsField);
+		final List<T> list = items == null || items.isJsonNull() ? new ArrayList<>()
+				: gson.fromJson(items, TypeToken.getParameterized(List.class, itemType).getType());
+		final JsonElement total = envelope.get("total");
+
+		return new Page<>(list, total == null || total.isJsonNull() ? list.size() : total.getAsLong());
+
 	}
 
 	/**
@@ -1159,7 +1192,9 @@ public class PhilterClient {
 	 * Gets a list of policy names.
 	 * @return A list of policy names.
 	 * @throws IOException Thrown if the call can not be executed.
+	 * @deprecated Use {@link #listPolicies(String, ListOptions)}, which returns a page with the total and takes sorting and search.
 	 */
+	@Deprecated
 	public List<String> getPolicies() throws IOException {
 		return getPolicies(null, null, null);
 	}
@@ -1171,15 +1206,51 @@ public class PhilterClient {
 	 * @param limit The pagination limit. May be {@code null}.
 	 * @return A list of policy names.
 	 * @throws IOException Thrown if the call can not be executed.
+	 * @deprecated Use {@link #listPolicies(String, ListOptions)}, which returns a page with the total and takes sorting and search.
 	 */
+	@Deprecated
 	public List<String> getPolicies(String owner, Integer offset, Integer limit) throws IOException {
+		return listPolicies(owner, new ListOptions().offset(offset).limit(limit)).getItems();
+	}
 
-		final HttpRequest request = json(uri("/api/policies", "owner", owner, "offset", offset, "limit", limit))
-				.GET()
-				.build();
+	/**
+	 * Lists the caller's policy names, a page at a time, with the total. Sort by {@code name} (the default),
+	 * {@code created}, or {@code updated}; {@link ListOptions#search(String)} matches the name.
+	 * @param owner The owner. May be {@code null} for the caller's own. Another user's requires an
+	 * administrator and {@code ADMIN_CROSS_USER_ACCESS_ENABLED=true}; otherwise Philter answers HTTP 404.
+	 * @param options Paging, sorting, and search. May be {@code null} for Philter's defaults.
+	 * @return A page of policy names.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public Page<String> listPolicies(String owner, ListOptions options) throws IOException {
+		return sendExpectingPage(json(uri("/api/policies", listParameters(options, "owner", owner))).GET().build(),
+				"policies", String.class);
+	}
 
-		return sendExpectingJson(request, STRING_LIST);
+	/**
+	 * Lists every user's policies, a page at a time, each naming its owner, with the total. Sort by {@code name}
+	 * (the default), {@code created}, or {@code updated}; {@link ListOptions#search(String)} matches the name.
+	 * Requires an administrator and {@code ADMIN_CROSS_USER_ACCESS_ENABLED=true}; otherwise Philter answers HTTP
+	 * 404.
+	 * @param options Paging, sorting, and search. May be {@code null} for Philter's defaults.
+	 * @return A page of policy names and their owners.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public Page<OwnedName> listPoliciesAcrossUsers(ListOptions options) throws IOException {
+		return sendExpectingPage(json(uri("/api/policies", listParameters(options, "all_users", Boolean.TRUE)))
+				.GET().build(), "policies", OwnedName.class);
+	}
 
+	/**
+	 * Lists the built-in managed policies, a page at a time, each with its description, with the total. They
+	 * sort by {@code name} only; {@link ListOptions#search(String)} matches the name.
+	 * @param options Paging, sorting, and search. May be {@code null} for Philter's defaults.
+	 * @return A page of managed policies.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public Page<ManagedPolicySummary> listManagedPolicies(ListOptions options) throws IOException {
+		return sendExpectingPage(json(uri("/api/policies", listParameters(options, "managed", Boolean.TRUE)))
+				.GET().build(), "policies", ManagedPolicySummary.class);
 	}
 
 	/**
@@ -1187,7 +1258,9 @@ public class PhilterClient {
 	 * {@link #getPoliciesAcrossUsers(Integer, Integer)}.
 	 * @return Each policy's name and owner.
 	 * @throws IOException Thrown if the call can not be executed.
+	 * @deprecated Use {@link #listPoliciesAcrossUsers(ListOptions)}, which returns a page with the total and takes sorting and search.
 	 */
+	@Deprecated
 	public List<OwnedName> getPoliciesAcrossUsers() throws IOException {
 		return getPoliciesAcrossUsers(null, null);
 	}
@@ -1205,15 +1278,11 @@ public class PhilterClient {
 	 * @param limit The most items to return, up to 100. May be {@code null} for Philter's default of 25.
 	 * @return Each policy's name and owner.
 	 * @throws IOException Thrown if the call can not be executed.
+	 * @deprecated Use {@link #listPoliciesAcrossUsers(ListOptions)}, which returns a page with the total and takes sorting and search.
 	 */
+	@Deprecated
 	public List<OwnedName> getPoliciesAcrossUsers(Integer offset, Integer limit) throws IOException {
-
-		final HttpRequest request = json(uri("/api/policies", "all_users", true, "offset", offset, "limit", limit))
-				.GET()
-				.build();
-
-		return sendExpectingJson(request, OWNED_NAME_LIST);
-
+		return listPoliciesAcrossUsers(new ListOptions().offset(offset).limit(limit)).getItems();
 	}
 
 	/**
@@ -1253,7 +1322,9 @@ public class PhilterClient {
 	 * {@code policies:read} scope. See {@link #listManagedPolicies(Integer, Integer)}.
 	 * @return Each managed policy's name and description.
 	 * @throws IOException Thrown if the call can not be executed.
+	 * @deprecated Use {@link #listManagedPolicies(ListOptions)}, which returns a page with the total and takes sorting and search.
 	 */
+	@Deprecated
 	public List<ManagedPolicySummary> listManagedPolicies() throws IOException {
 		return listManagedPolicies(null, null);
 	}
@@ -1270,15 +1341,11 @@ public class PhilterClient {
 	 * @param limit The most policies to return, up to 100. May be {@code null} for Philter's default of 25.
 	 * @return Each managed policy's name and description. A policy with no description has an empty one.
 	 * @throws IOException Thrown if the call can not be executed.
+	 * @deprecated Use {@link #listManagedPolicies(ListOptions)}, which returns a page with the total and takes sorting and search.
 	 */
+	@Deprecated
 	public List<ManagedPolicySummary> listManagedPolicies(Integer offset, Integer limit) throws IOException {
-
-		final HttpRequest request = json(uri("/api/policies", "managed", true, "offset", offset, "limit", limit))
-				.GET()
-				.build();
-
-		return sendExpectingJson(request, MANAGED_POLICY_SUMMARY_LIST);
-
+		return listManagedPolicies(new ListOptions().offset(offset).limit(limit)).getItems();
 	}
 
 	/**
@@ -1698,9 +1765,22 @@ public class PhilterClient {
 	 */
 	public GetDeletedPoliciesResponse getDeletedPolicies(String owner, Integer offset, Integer limit)
 			throws IOException {
+		return getDeletedPolicies(owner, new ListOptions().offset(offset).limit(limit));
+	}
 
-		final HttpRequest request = json(uri("/api/policies", "deleted", Boolean.TRUE, "owner", owner,
-				"offset", offset, "limit", limit))
+	/**
+	 * As {@link #getDeletedPolicies(String, Integer, Integer)}, with paging, the order, and search. They sort by
+	 * {@code name} only; {@link ListOptions#search(String)} matches the name.
+	 * @param owner The owner. May be {@code null} for the caller's own. Another user's requires an
+	 * administrator and {@code ADMIN_CROSS_USER_ACCESS_ENABLED=true}; otherwise Philter answers HTTP 404.
+	 * @param options Paging, sorting, and search. May be {@code null} for Philter's defaults.
+	 * @return The page of deleted policies and the total.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public GetDeletedPoliciesResponse getDeletedPolicies(String owner, ListOptions options) throws IOException {
+
+		final HttpRequest request = json(uri("/api/policies", listParameters(options, "deleted", Boolean.TRUE,
+				"owner", owner)))
 				.GET()
 				.build();
 
@@ -1713,7 +1793,9 @@ public class PhilterClient {
 	 * @param policyName The name of the policy.
 	 * @return A list of {@link PolicyVersionSummary}.
 	 * @throws IOException Thrown if the call can not be executed.
+	 * @deprecated Use {@link #listPolicyVersions(String, String, ListOptions)}, which returns a page with the total and takes sorting and search.
 	 */
+	@Deprecated
 	public List<PolicyVersionSummary> getPolicyVersions(String policyName) throws IOException {
 		return getPolicyVersions(policyName, null, null, null);
 	}
@@ -1726,17 +1808,28 @@ public class PhilterClient {
 	 * @param limit The pagination limit. May be {@code null}.
 	 * @return A list of {@link PolicyVersionSummary}.
 	 * @throws IOException Thrown if the call can not be executed.
+	 * @deprecated Use {@link #listPolicyVersions(String, String, ListOptions)}, which returns a page with the total and takes sorting and search.
 	 */
+	@Deprecated
 	public List<PolicyVersionSummary> getPolicyVersions(String policyName, String owner, Integer offset, Integer limit)
 			throws IOException {
+		return listPolicyVersions(policyName, owner, new ListOptions().offset(offset).limit(limit)).getItems();
+	}
 
-		final HttpRequest request = json(uri("/api/policies/" + encode(policyName) + "/versions",
-				"owner", owner, "offset", offset, "limit", limit))
-				.GET()
-				.build();
-
-		return sendExpectingJson(request, POLICY_VERSION_LIST);
-
+	/**
+	 * Lists a policy's retained revisions, newest first, a page at a time, with the total. They sort by
+	 * {@code revision} only; {@link ListOptions#ascending()} lists the oldest first.
+	 * @param policyName The name of the policy, live or deleted.
+	 * @param owner The owner. May be {@code null} for the caller's own. Another user's requires an
+	 * administrator and {@code ADMIN_CROSS_USER_ACCESS_ENABLED=true}; otherwise Philter answers HTTP 404.
+	 * @param options Paging, sorting, and search. May be {@code null} for Philter's defaults.
+	 * @return A page of revisions.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public Page<PolicyVersionSummary> listPolicyVersions(String policyName, String owner, ListOptions options)
+			throws IOException {
+		return sendExpectingPage(json(uri("/api/policies/" + encode(policyName) + "/versions",
+				listParameters(options, "owner", owner))).GET().build(), "versions", PolicyVersionSummary.class);
 	}
 
 	/**
@@ -2005,6 +2098,20 @@ public class PhilterClient {
 		return gson.fromJson(getContexts(owner, offset, limit), GetContextsResponse.class);
 	}
 
+	/**
+	 * Lists the caller's context names, a page at a time, with the total. Sort by {@code name} (the default) or
+	 * {@code created}; {@link ListOptions#search(String)} matches the name.
+	 * @param owner The owner. May be {@code null} for the caller's own. Another user's requires an
+	 * administrator and {@code ADMIN_CROSS_USER_ACCESS_ENABLED=true}; otherwise Philter answers HTTP 404.
+	 * @param options Paging, sorting, and search. May be {@code null} for Philter's defaults.
+	 * @return The context names and the total.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public GetContextsResponse listContexts(String owner, ListOptions options) throws IOException {
+		return sendExpectingJson(json(uri("/api/contexts", listParameters(options, "owner", owner))).GET().build(),
+				GetContextsResponse.class);
+	}
+
 
 	/**
 	 * Gets the first page of every user's contexts, each naming its owner. See
@@ -2059,6 +2166,20 @@ public class PhilterClient {
 	 */
 	public GetContextsAcrossUsersResponse listContextsAcrossUsers(Integer offset, Integer limit) throws IOException {
 		return gson.fromJson(getContextsAcrossUsers(offset, limit), GetContextsAcrossUsersResponse.class);
+	}
+
+	/**
+	 * Lists every user's contexts, a page at a time, each naming its owner, with the total. Sort by {@code name}
+	 * (the default) or {@code created}; {@link ListOptions#search(String)} matches the name.
+	 * Requires an administrator and {@code ADMIN_CROSS_USER_ACCESS_ENABLED=true}; otherwise Philter answers HTTP
+	 * 404.
+	 * @param options Paging, sorting, and search. May be {@code null} for Philter's defaults.
+	 * @return The contexts and the total.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public GetContextsAcrossUsersResponse listContextsAcrossUsers(ListOptions options) throws IOException {
+		return sendExpectingJson(json(uri("/api/contexts", listParameters(options, "all_users", Boolean.TRUE)))
+				.GET().build(), GetContextsAcrossUsersResponse.class);
 	}
 
 
@@ -2331,6 +2452,22 @@ public class PhilterClient {
 		return gson.fromJson(getContextEntries(name, owner, offset, limit), GetContextEntriesResponse.class);
 	}
 
+	/**
+	 * Lists a context's entries, a page at a time, with the total. Sort by {@code created} (the default, newest
+	 * first) or {@code reads}. The original values are never returned.
+	 * @param name The name of the context.
+	 * @param owner The owner. May be {@code null} for the caller's own. Another user's requires an
+	 * administrator and {@code ADMIN_CROSS_USER_ACCESS_ENABLED=true}; otherwise Philter answers HTTP 404.
+	 * @param options Paging, sorting, and search. May be {@code null} for Philter's defaults.
+	 * @return The entries and the total.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public GetContextEntriesResponse listContextEntries(String name, String owner, ListOptions options)
+			throws IOException {
+		return sendExpectingJson(json(uri("/api/contexts/" + encode(name) + "/entries",
+				listParameters(options, "owner", owner))).GET().build(), GetContextEntriesResponse.class);
+	}
+
 
 	/**
 	 * Deletes all entries for a context.
@@ -2549,6 +2686,21 @@ public class PhilterClient {
 		return gson.fromJson(getDocuments(owner, offset, limit), GetDocumentsResponse.class);
 	}
 
+	/**
+	 * Lists the caller's asynchronously redacted documents, a page at a time, with the total. Sort by
+	 * {@code submitted} (the default, newest first) or {@code fileName}; {@link ListOptions#status(String)} lists
+	 * only documents with that status.
+	 * @param owner The owner. May be {@code null} for the caller's own. Another user's requires an
+	 * administrator and {@code ADMIN_CROSS_USER_ACCESS_ENABLED=true}; otherwise Philter answers HTTP 404.
+	 * @param options Paging, sorting, and the status filter. May be {@code null} for Philter's defaults.
+	 * @return The documents and the total.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public GetDocumentsResponse listDocuments(String owner, ListOptions options) throws IOException {
+		return sendExpectingJson(json(uri("/api/documents", listParameters(options, "owner", owner))).GET().build(),
+				GetDocumentsResponse.class);
+	}
+
 
 	/**
 	 * Gets a stored document by ID.
@@ -2650,7 +2802,9 @@ public class PhilterClient {
 	 * Gets the legal holds.
 	 * @return A list of {@link LegalHoldResponse}.
 	 * @throws IOException Thrown if the call can not be executed.
+	 * @deprecated Use {@link #listHolds(String, ListOptions)}, which returns a page with the total and takes sorting and search.
 	 */
+	@Deprecated
 	public List<LegalHoldResponse> getHolds() throws IOException {
 		return getHolds(null, null, null);
 	}
@@ -2662,15 +2816,40 @@ public class PhilterClient {
 	 * @param limit The pagination limit. May be {@code null}.
 	 * @return A list of {@link LegalHoldResponse}.
 	 * @throws IOException Thrown if the call can not be executed.
+	 * @deprecated Use {@link #listHolds(String, ListOptions)}, which returns a page with the total and takes sorting and search.
 	 */
+	@Deprecated
 	public List<LegalHoldResponse> getHolds(String owner, Integer offset, Integer limit) throws IOException {
+		return listHolds(owner, new ListOptions().offset(offset).limit(limit)).getItems();
+	}
 
-		final HttpRequest request = json(uri("/api/holds", "owner", owner, "offset", offset, "limit", limit))
-				.GET()
-				.build();
+	/**
+	 * Lists the caller's active legal holds, a page at a time, with the total. Sort by {@code set} (the default,
+	 * newest first) or {@code reference}; {@link ListOptions#search(String)} matches the reference.
+	 * @param owner The owner. May be {@code null} for the caller's own. Another user's requires an
+	 * administrator and {@code ADMIN_CROSS_USER_ACCESS_ENABLED=true}; otherwise Philter answers HTTP 404.
+	 * @param options Paging, sorting, and search. May be {@code null} for Philter's defaults.
+	 * @return A page of holds.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public Page<LegalHoldResponse> listHolds(String owner, ListOptions options) throws IOException {
+		return sendExpectingPage(json(uri("/api/holds", listParameters(options, "owner", owner))).GET().build(),
+				"holds", LegalHoldResponse.class);
+	}
 
-		return sendExpectingJson(request, LEGAL_HOLD_LIST);
-
+	/**
+	 * Lists every user's active legal holds, a page at a time, each naming its owner, with the total. Sort by
+	 * {@code set} (the default, newest first) or {@code reference}; {@link ListOptions#search(String)} matches the
+	 * reference.
+	 * Requires an administrator and {@code ADMIN_CROSS_USER_ACCESS_ENABLED=true}; otherwise Philter answers HTTP
+	 * 404.
+	 * @param options Paging, sorting, and search. May be {@code null} for Philter's defaults.
+	 * @return A page of holds and their owners.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public Page<OwnedLegalHoldResponse> listHoldsAcrossUsers(ListOptions options) throws IOException {
+		return sendExpectingPage(json(uri("/api/holds", listParameters(options, "all_users", Boolean.TRUE)))
+				.GET().build(), "holds", OwnedLegalHoldResponse.class);
 	}
 
 	/**
@@ -2678,7 +2857,9 @@ public class PhilterClient {
 	 * {@link #getHoldsAcrossUsers(Integer, Integer)}.
 	 * @return The holds, most recently set first, each with its owner.
 	 * @throws IOException Thrown if the call can not be executed.
+	 * @deprecated Use {@link #listHoldsAcrossUsers(ListOptions)}, which returns a page with the total and takes sorting and search.
 	 */
+	@Deprecated
 	public List<OwnedLegalHoldResponse> getHoldsAcrossUsers() throws IOException {
 		return getHoldsAcrossUsers(null, null);
 	}
@@ -2694,15 +2875,11 @@ public class PhilterClient {
 	 * @param limit The most items to return, up to 100. May be {@code null} for Philter's default of 25.
 	 * @return The holds, most recently set first, each with its owner.
 	 * @throws IOException Thrown if the call can not be executed.
+	 * @deprecated Use {@link #listHoldsAcrossUsers(ListOptions)}, which returns a page with the total and takes sorting and search.
 	 */
+	@Deprecated
 	public List<OwnedLegalHoldResponse> getHoldsAcrossUsers(Integer offset, Integer limit) throws IOException {
-
-		final HttpRequest request = json(uri("/api/holds", "all_users", true, "offset", offset, "limit", limit))
-				.GET()
-				.build();
-
-		return sendExpectingJson(request, OWNED_LEGAL_HOLD_LIST);
-
+		return listHoldsAcrossUsers(new ListOptions().offset(offset).limit(limit)).getItems();
 	}
 
 	/**
@@ -2863,6 +3040,21 @@ public class PhilterClient {
 		return gson.fromJson(getLedger(query, owner, offset, limit), GetLedgerResponse.class);
 	}
 
+	/**
+	 * Lists redaction-ledger chains, a page at a time, with the total matching. Sort by {@code created} (the
+	 * default, newest first) or {@code filename}; {@link ListOptions#search(String)} matches a document ID or
+	 * file name.
+	 * @param owner The owner. May be {@code null} for the caller's own. Another user's requires an
+	 * administrator and {@code ADMIN_CROSS_USER_ACCESS_ENABLED=true}; otherwise Philter answers HTTP 404.
+	 * @param options Paging, sorting, and search. May be {@code null} for Philter's defaults.
+	 * @return The chains and the total.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public GetLedgerResponse listLedgerChains(String owner, ListOptions options) throws IOException {
+		return sendExpectingJson(json(uri("/api/ledger", listParameters(options, "owner", owner))).GET().build(),
+				GetLedgerResponse.class);
+	}
+
 
 	/**
 	 * Gets the first page of every user's redaction-ledger chains, each naming its owner. See
@@ -2921,6 +3113,21 @@ public class PhilterClient {
 	 */
 	public GetLedgerResponse listLedgerChainsAcrossUsers(Integer offset, Integer limit) throws IOException {
 		return gson.fromJson(getLedgerAcrossUsers(offset, limit), GetLedgerResponse.class);
+	}
+
+	/**
+	 * Lists every user's redaction-ledger chains, a page at a time, with the total. Sort by {@code created} (the
+	 * default, newest first) or {@code filename}; {@link ListOptions#search(String)} matches a document ID or
+	 * file name.
+	 * Requires an administrator and {@code ADMIN_CROSS_USER_ACCESS_ENABLED=true}; otherwise Philter answers HTTP
+	 * 404.
+	 * @param options Paging, sorting, and search. May be {@code null} for Philter's defaults.
+	 * @return The chains and the total.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public GetLedgerResponse listLedgerChainsAcrossUsers(ListOptions options) throws IOException {
+		return sendExpectingJson(json(uri("/api/ledger", listParameters(options, "all_users", Boolean.TRUE)))
+				.GET().build(), GetLedgerResponse.class);
 	}
 
 
@@ -3197,7 +3404,9 @@ public class PhilterClient {
 	 * {@link #getList(String)}. See {@link #listCustomLists(String)}.
 	 * @return Each list's name, description, and size.
 	 * @throws IOException Thrown if the call can not be executed.
+	 * @deprecated Use {@link #listCustomLists(String, ListOptions)}, which returns a page with the total and takes sorting and search.
 	 */
+	@Deprecated
 	public List<CustomListSummary> listCustomLists() throws IOException {
 		return listCustomLists(null);
 	}
@@ -3209,9 +3418,50 @@ public class PhilterClient {
 	 * administrator and {@code ADMIN_CROSS_USER_ACCESS_ENABLED=true}; otherwise Philter answers HTTP 404.
 	 * @return Each list's name, description, and size.
 	 * @throws IOException Thrown if the call can not be executed.
+	 * @deprecated Use {@link #listCustomLists(String, ListOptions)}, which returns a page with the total and takes sorting and search.
 	 */
+	@Deprecated
 	public List<CustomListSummary> listCustomLists(String owner) throws IOException {
-		return gson.fromJson(getLists(owner), CUSTOM_LIST_SUMMARY_LIST);
+
+		// Philter pages custom lists now; this method has always returned every list, so it reads every page.
+		final List<CustomListSummary> lists = new ArrayList<>();
+		final int pageSize = 100;
+		Page<CustomListSummary> page;
+		do {
+			page = listCustomLists(owner, new ListOptions().offset(lists.size()).limit(pageSize));
+			lists.addAll(page.getItems());
+		} while (!page.getItems().isEmpty() && lists.size() < page.getTotal());
+		return lists;
+
+	}
+
+	/**
+	 * Lists the caller's custom lists, a page at a time, with their descriptions and sizes and the total. They sort
+	 * by {@code name}; {@link ListOptions#search(String)} matches the name. Get a list's terms with
+	 * {@link #getList(String)}.
+	 * @param owner The owner. May be {@code null} for the caller's own. Another user's requires an
+	 * administrator and {@code ADMIN_CROSS_USER_ACCESS_ENABLED=true}; otherwise Philter answers HTTP 404.
+	 * @param options Paging, sorting, and search. May be {@code null} for Philter's defaults.
+	 * @return A page of lists.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public Page<CustomListSummary> listCustomLists(String owner, ListOptions options) throws IOException {
+		return sendExpectingPage(json(uri("/api/lists", listParameters(options, "owner", owner))).GET().build(),
+				"lists", CustomListSummary.class);
+	}
+
+	/**
+	 * Lists every user's custom lists, a page at a time, each naming its owner, with the total. They sort by
+	 * {@code name}; {@link ListOptions#search(String)} matches the name.
+	 * Requires an administrator and {@code ADMIN_CROSS_USER_ACCESS_ENABLED=true}; otherwise Philter answers HTTP
+	 * 404.
+	 * @param options Paging, sorting, and search. May be {@code null} for Philter's defaults.
+	 * @return A page of lists and their owners.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public Page<CustomListSummary> listCustomListsAcrossUsers(ListOptions options) throws IOException {
+		return sendExpectingPage(json(uri("/api/lists", listParameters(options, "all_users", Boolean.TRUE)))
+				.GET().build(), "lists", CustomListSummary.class);
 	}
 
 
@@ -3255,7 +3505,9 @@ public class PhilterClient {
 	 * {@code ADMIN_CROSS_USER_ACCESS_ENABLED=true}; otherwise Philter answers HTTP 404. See {@link #listCustomListsAcrossUsers(Integer, Integer)}.
 	 * @return Each list's name, description, size, and owner.
 	 * @throws IOException Thrown if the call can not be executed.
+	 * @deprecated Use {@link #listCustomListsAcrossUsers(ListOptions)}, which returns a page with the total and takes sorting and search.
 	 */
+	@Deprecated
 	public List<CustomListSummary> listCustomListsAcrossUsers() throws IOException {
 		return listCustomListsAcrossUsers(null, null);
 	}
@@ -3267,9 +3519,11 @@ public class PhilterClient {
 	 * @param limit The most items to return, up to 100. May be {@code null} for Philter's default of 25.
 	 * @return Each list's name, description, size, and owner.
 	 * @throws IOException Thrown if the call can not be executed.
+	 * @deprecated Use {@link #listCustomListsAcrossUsers(ListOptions)}, which returns a page with the total and takes sorting and search.
 	 */
+	@Deprecated
 	public List<CustomListSummary> listCustomListsAcrossUsers(Integer offset, Integer limit) throws IOException {
-		return gson.fromJson(getListsAcrossUsers(offset, limit), CUSTOM_LIST_SUMMARY_LIST);
+		return listCustomListsAcrossUsers(new ListOptions().offset(offset).limit(limit)).getItems();
 	}
 
 
@@ -3717,6 +3971,24 @@ public class PhilterClient {
 
 		return sendExpectingJson(request, GetAuditLogResponse.class);
 
+	}
+
+	/**
+	 * As {@link #getAuditLog(String, Instant, Instant, String, Integer, Integer)}, with paging and the order.
+	 * Events sort by {@code timestamp} only, newest first; {@link ListOptions#ascending()} lists the oldest first.
+	 * @param event One event type, or {@code null} for all.
+	 * @param from The earliest timestamp, inclusive, or {@code null}.
+	 * @param to The latest timestamp, exclusive, or {@code null}.
+	 * @param owner The username of the acting user, or {@code null} for every user.
+	 * @param options Paging and the order. May be {@code null} for Philter's defaults.
+	 * @return The page of events and the total number matching the filters.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public GetAuditLogResponse getAuditLog(String event, Instant from, Instant to, String owner, ListOptions options)
+			throws IOException {
+		return sendExpectingJson(json(uri("/api/audit", listParameters(options, "event", event,
+				"from", from == null ? null : from.toString(), "to", to == null ? null : to.toString(), "owner", owner)))
+				.GET().build(), GetAuditLogResponse.class);
 	}
 
 	/**
@@ -4168,6 +4440,20 @@ public class PhilterClient {
 
 		return sendExpectingJson(request, GetUsersResponse.class);
 
+	}
+
+	/**
+	 * Gets a page of users, with the total. Sort by {@code username} (the default) or {@code created};
+	 * {@link ListOptions#search(String)} matches the username, {@link ListOptions#role(String)} lists only users
+	 * with that role, and {@link ListOptions#active(Boolean)} only active or only deactivated users. Requires the
+	 * {@code users:read} scope and an administrator.
+	 * @param options Paging, sorting, search, and the role and active filters. May be {@code null} for Philter's
+	 * defaults.
+	 * @return The page of users and the total matching.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public GetUsersResponse getUsers(ListOptions options) throws IOException {
+		return sendExpectingJson(json(uri("/api/users", listParameters(options))).GET().build(), GetUsersResponse.class);
 	}
 
 	/**
@@ -4746,6 +5032,20 @@ public class PhilterClient {
 
 	}
 
+	/**
+	 * As {@link #getWebhookDeliveries(String, Integer, Integer)}, with paging and the order. Deliveries sort by
+	 * {@code created} only, newest first; {@link ListOptions#ascending()} lists the oldest first.
+	 * @param owner The owner. May be {@code null} for the caller's own. Another user's requires an
+	 * administrator and {@code ADMIN_CROSS_USER_ACCESS_ENABLED=true}; otherwise Philter answers HTTP 404.
+	 * @param options Paging and the order. May be {@code null} for Philter's defaults.
+	 * @return The page of deliveries and the total.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public GetWebhookDeliveriesResponse getWebhookDeliveries(String owner, ListOptions options) throws IOException {
+		return sendExpectingJson(json(uri("/api/webhook/deliveries", listParameters(options, "owner", owner)))
+				.GET().build(), GetWebhookDeliveriesResponse.class);
+	}
+
 	// API keys.
 
 	/**
@@ -4804,6 +5104,21 @@ public class PhilterClient {
 
 		return sendExpectingJson(request, GetApiKeysResponse.class);
 
+	}
+
+	/**
+	 * Gets a page of a user's active API keys, with the total. They sort by {@code created} only, oldest first;
+	 * {@link ListOptions#descending()} lists the newest first, and {@link ListOptions#session(Boolean)} only
+	 * session keys or only long-lived keys. See {@link #getApiKeys(String, Integer, Integer)} for the scope and
+	 * administrator rules.
+	 * @param owner The username whose keys to list. May be {@code null} for the calling key's user.
+	 * @param options Paging, the order, and the session filter. May be {@code null} for Philter's defaults.
+	 * @return The page of keys and the total.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public GetApiKeysResponse getApiKeys(String owner, ListOptions options) throws IOException {
+		final String path = owner == null ? "/api/api-keys" : "/api/users/" + encode(owner) + "/api-keys";
+		return sendExpectingJson(json(uri(path, listParameters(options))).GET().build(), GetApiKeysResponse.class);
 	}
 
 	/**

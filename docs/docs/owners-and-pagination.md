@@ -4,14 +4,14 @@ Philter scopes its data to the user whose API key made the request. Every call i
 
 ## Acting on another user's data
 
-Endpoints that accept an `owner` have an overload taking that owner's username. It is the last argument everywhere except `reidentifyValues(owner, request)`, where it comes first.
+Endpoints that accept an `owner` have an overload taking that owner's username. It is the last argument everywhere except the listings that take `ListOptions`, where it comes just before the options, and `reidentifyValues(owner, request)`, where it comes first.
 
 ```java
 // Your own policies.
-List<String> mine = client.getPolicies();
+Page<String> mine = client.listPolicies(null, null);
 
 // Another user's policies, as an administrator.
-List<String> theirs = client.getPolicies("someone@example.com", null, null);
+Page<String> theirs = client.listPolicies("someone@example.com", null);
 
 String policy = client.getPolicy("default", "someone@example.com");
 ```
@@ -20,34 +20,66 @@ Naming your own username always works. Reaching another user's data requires bot
 
 Passing `null` for an owner is the same as omitting it: the call acts on your own data.
 
-`getApiKeys(owner, offset, limit)` (and its overload with a `session` filter) is the exception: listing another user's API keys requires an administrator key, but not `ADMIN_CROSS_USER_ACCESS_ENABLED`. Changing and revoking keys take a key ID rather than an owner. See [Users and API Keys](provisioning.md).
+`getApiKeys` is the exception: listing another user's API keys requires an administrator key, but not `ADMIN_CROSS_USER_ACCESS_ENABLED`. Changing and revoking keys take a key ID rather than an owner. See [Users and API Keys](provisioning.md).
+
+## Listings: paging, sorting, search, and filters
+
+Every listing returns a page of items and `getTotal()`, how many items it has across every page, counting only those that match the search and filters. Pass a `ListOptions` to choose the page, the order, a search, and the listing's filters; every setting is optional, and `null` options use Philter's defaults: the first 25 items in the listing's default order.
+
+```java
+import ai.philterd.philter.model.ListOptions;
+import ai.philterd.philter.model.Page;
+
+// The third page of 50 policies whose name contains "claims", newest first.
+Page<String> page = client.listPolicies(null,
+        new ListOptions().offset(100).limit(50).sort("created").descending().search("claims"));
+long total = page.getTotal();
+for (String name : page.getItems()) {
+    System.out.println(name);
+}
+```
+
+- `offset(n)` and `limit(n)` choose the page: the limit defaults to 25 and is at most 100.
+- `sort(field)` orders by one of the listing's fields, below. An unknown field is an HTTP 400 naming the fields it accepts, raised as a `ClientException` whose `getField()` is `sort`.
+- `ascending()` and `descending()` set the order. Left out, the default sort keeps its default direction, and any other sort is ascending.
+- `search(text)` keeps items whose searched field contains the text, ignoring case, matched as plain text. It is sent as `q`.
+- The filters apply to one listing each: `role(...)` and `active(...)` to users, `status(...)` to documents, and `session(...)` to API keys.
+
+| Method | Returns | `sort` (default first) | `search` matches | Filters |
+|--------|---------|------------------------|------------------|---------|
+| `listPolicies(owner, options)` | `Page<String>` | `name`, `created`, `updated` | name | |
+| `listPoliciesAcrossUsers(options)` | `Page<OwnedName>` | `name`, `created`, `updated` | name | |
+| `listManagedPolicies(options)` | `Page<ManagedPolicySummary>` | `name` | name | |
+| `getDeletedPolicies(owner, options)` | `GetDeletedPoliciesResponse` | `name` | name | |
+| `listPolicyVersions(name, owner, options)` | `Page<PolicyVersionSummary>` | `revision` (newest first) | | |
+| `listContexts(owner, options)` | `GetContextsResponse` | `name`, `created` | name | |
+| `listContextsAcrossUsers(options)` | `GetContextsAcrossUsersResponse` | `name`, `created` | name | |
+| `listContextEntries(name, owner, options)` | `GetContextEntriesResponse` | `created` (newest first), `reads` | | |
+| `listCustomLists(owner, options)` | `Page<CustomListSummary>` | `name` | name | |
+| `listCustomListsAcrossUsers(options)` | `Page<CustomListSummary>` | `name` | name | |
+| `listHolds(owner, options)` | `Page<LegalHoldResponse>` | `set` (newest first), `reference` | reference | |
+| `listHoldsAcrossUsers(options)` | `Page<OwnedLegalHoldResponse>` | `set` (newest first), `reference` | reference | |
+| `listDocuments(owner, options)` | `GetDocumentsResponse` | `submitted` (newest first), `fileName` | | `status` |
+| `listLedgerChains(owner, options)` | `GetLedgerResponse` | `created` (newest first), `filename` | document ID or file name | |
+| `listLedgerChainsAcrossUsers(options)` | `GetLedgerResponse` | `created` (newest first), `filename` | document ID or file name | |
+| `getUsers(options)` | `GetUsersResponse` | `username`, `created` | username | `role`, `active` |
+| `getApiKeys(owner, options)` | `GetApiKeysResponse` | `created` (oldest first) | | `session` |
+| `getAuditLog(event, from, to, owner, options)` | `GetAuditLogResponse` | `timestamp` (newest first), order only | | |
+| `getWebhookDeliveries(owner, options)` | `GetWebhookDeliveriesResponse` | `created` (newest first), order only | | |
+
+Items with the same sort value keep a stable order, so paging does not skip or repeat them.
 
 ## Listing across all users
 
-An administrator can list every user's policies, contexts, custom lists, ledger chains, and legal holds in one call. Each item names its owner. The same two conditions apply as for `owner`: an administrator key and `ADMIN_CROSS_USER_ACCESS_ENABLED=true`, otherwise a 404 raised as a `ClientException`.
+An administrator can list every user's policies, contexts, custom lists, ledger chains, and legal holds in one call, with the `...AcrossUsers(options)` methods above. Each item names its owner. The same two conditions apply as for `owner`: an administrator key and `ADMIN_CROSS_USER_ACCESS_ENABLED=true`, otherwise a 404 raised as a `ClientException`. Managed policies are not included in `listPoliciesAcrossUsers`.
 
 ```java
-// Typed: each item has getName() and getOwner().
-List<OwnedName> policies = client.getPoliciesAcrossUsers();
-
-// Typed: LegalHoldResponse plus getOwner().
-List<OwnedLegalHoldResponse> holds = client.getHoldsAcrossUsers(0, 100);
-
-// Each item names its owner.
-GetContextsAcrossUsersResponse contexts = client.listContextsAcrossUsers();
-List<CustomListSummary> lists = client.listCustomListsAcrossUsers();
-GetLedgerResponse chains = client.listLedgerChainsAcrossUsers();
+Page<OwnedName> policies = client.listPoliciesAcrossUsers(new ListOptions().search("claims"));
+Page<OwnedLegalHoldResponse> holds = client.listHoldsAcrossUsers(new ListOptions().limit(100));
 ```
 
-All five are paged with `offset` and `limit` (default 25, at most 100), including `listCustomListsAcrossUsers`, although the per-user `listCustomLists` is not. Managed policies are not included in `getPoliciesAcrossUsers`, and `listLedgerChainsAcrossUsers` cannot filter by query.
+## Older listing methods
 
-## Paging through results
+The listing methods that returned a plain `List` (`getPolicies`, `getPoliciesAcrossUsers`, `listManagedPolicies(offset, limit)`, `getPolicyVersions`, `getHolds`, `getHoldsAcrossUsers`, `listCustomLists(owner)`, and `listCustomListsAcrossUsers(offset, limit)`) still work and are deprecated: they return one page's items without the total, and take no sorting or search. `listCustomLists(owner)` returns every list, reading each page in turn, as it did before Philter paged custom lists. The listings that already returned a typed page, such as `listContexts(owner, offset, limit)` and `getUsers(offset, limit)`, keep their `offset` and `limit` overloads and now carry the total.
 
-Seven per-user calls are paged, taking `offset` and `limit` alongside `owner`: `getPolicies`, `getPolicyVersions`, `listContexts`, `listContextEntries`, `listDocuments`, `getHolds`, and `listLedgerChains`. Philter defaults to an offset of 0 and a limit of 25, so the short form of each returns only the first 25 results.
-
-```java
-// The third page of 50 policies.
-List<String> policies = client.getPolicies(null, 100, 50);
-```
-
-Pass `null` for either value to use the server's default. `listManagedPolicies(offset, limit)` is paged the same way, though it takes no `owner`. `getApiKeys(owner, offset, limit)` and `getAuditLog(event, from, to, owner, offset, limit)` are paged too. `exportAuditLog` is also paged with `offset` and `limit`, but with its own defaults and a truncation flag; see [Audit Log](audit-log.md). The other per-user collection calls, `listCustomLists` and `listRedactLists`, are not paged and take only an `owner`.
+`exportAuditLog` is paged with `offset` and `limit` too, but with its own defaults and a truncation flag; see [Audit Log](audit-log.md). `listRedactLists` is not a listing: it returns the two redact lists.

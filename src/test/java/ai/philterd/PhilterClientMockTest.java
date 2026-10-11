@@ -68,6 +68,9 @@ import ai.philterd.philter.model.StatusResponse;
 import ai.philterd.philter.model.UpdateAdminSettingsRequest;
 import ai.philterd.philter.model.User;
 import ai.philterd.philter.model.Webhook;
+import ai.philterd.philter.model.GetContextsResponse;
+import ai.philterd.philter.model.Page;
+import ai.philterd.philter.model.ListOptions;
 import ai.philterd.philter.model.RedactListTerms;
 import ai.philterd.philter.model.RedactList;
 import ai.philterd.philter.model.SignInOptions;
@@ -517,7 +520,7 @@ public class PhilterClientMockTest {
     @Test
     public void authorizationHeaderIsSent() throws Exception {
 
-        respond(200, "[]");
+        respond(200, "{}");
 
         clientBuilder().withApiKey("secret-key").build().getPolicies();
 
@@ -527,7 +530,7 @@ public class PhilterClientMockTest {
     @Test
     public void noAuthorizationHeaderWhenApiKeyAbsent() throws Exception {
 
-        respond(200, "[]");
+        respond(200, "{}");
 
         client().getPolicies();
 
@@ -797,7 +800,7 @@ public class PhilterClientMockTest {
     @Test
     public void getPolicies() throws Exception {
 
-        respond(200, "[\"default\",\"strict\"]");
+        respond(200, "{\"policies\":[\"default\",\"strict\"],\"total\":2}");
 
         final List<String> policies = client().getPolicies();
 
@@ -931,7 +934,7 @@ public class PhilterClientMockTest {
         Assert.assertEquals("Common PII including names, emails, phone numbers, and SSNs", managed.get(0).getDescription());
         Assert.assertEquals("managed_healthcare_phi", managed.get(2).getName());
 
-        respond(200, "[]");
+        respond(200, "{}");
         Assert.assertTrue(client().listManagedPolicies().isEmpty());
         Assert.assertEquals(Map.of("managed", "true"), queryParameters);
     }
@@ -1126,7 +1129,7 @@ public class PhilterClientMockTest {
     @Test
     public void getPolicyVersions() throws Exception {
 
-        respond(200, "[{\"capturedTimestamp\":\"2026-01-01T00:00:00Z\",\"contentHash\":\"hash1\",\"revision\":1}]");
+        respond(200, "{\"versions\":[{\"capturedTimestamp\":\"2026-01-01T00:00:00Z\",\"contentHash\":\"hash1\",\"revision\":1}],\"total\":1}");
 
         final List<PolicyVersionSummary> versions = client().getPolicyVersions("default");
 
@@ -1139,10 +1142,10 @@ public class PhilterClientMockTest {
     @Test
     public void aPolicyVersionNamesItsAuthorWhenKnown() throws Exception {
 
-        respond(200, "[{\"capturedTimestamp\":\"2026-01-02T00:00:00Z\",\"contentHash\":\"hash2\",\"revision\":2,"
+        respond(200, "{\"versions\":[{\"capturedTimestamp\":\"2026-01-02T00:00:00Z\",\"contentHash\":\"hash2\",\"revision\":2,"
                 + "\"author\":\"jordan\"},"
                 + "{\"capturedTimestamp\":\"2026-01-01T00:00:00Z\",\"contentHash\":\"hash1\",\"revision\":1,\"author\":null},"
-                + "{\"capturedTimestamp\":\"2025-12-01T00:00:00Z\",\"contentHash\":\"hash0\",\"revision\":0}]");
+                + "{\"capturedTimestamp\":\"2025-12-01T00:00:00Z\",\"contentHash\":\"hash0\",\"revision\":0}],\"total\":3}");
 
         final List<PolicyVersionSummary> versions = client().getPolicyVersions("default");
 
@@ -2060,7 +2063,7 @@ public class PhilterClientMockTest {
         verify("GET", "/api/documents/d1/status", Map.of(), "{}", () -> c.getDocumentStatus("d1"));
 
         // Legal holds.
-        verify("GET", "/api/holds", Map.of(), "[]", c::getHolds);
+        verify("GET", "/api/holds", Map.of(), "{}", c::getHolds);
         verify("GET", "/api/holds/r1", Map.of(), "{}", () -> c.getHold("r1"));
         verify("DELETE", "/api/holds/r1", Map.of(), "", () -> c.deleteHold("r1"));
 
@@ -2483,12 +2486,12 @@ public class PhilterClientMockTest {
 
         final PhilterClient c = client();
 
-        verifyPaged("/api/policies", "[]", () -> c.getPolicies(OWNER, 25, 50));
-        verifyPaged("/api/policies/p1/versions", "[]", () -> c.getPolicyVersions("p1", OWNER, 25, 50));
+        verifyPaged("/api/policies", "{}", () -> c.getPolicies(OWNER, 25, 50));
+        verifyPaged("/api/policies/p1/versions", "{}", () -> c.getPolicyVersions("p1", OWNER, 25, 50));
         verifyPaged("/api/contexts", "[]", () -> c.getContexts(OWNER, 25, 50));
         verifyPaged("/api/contexts/c1/entries", "[]", () -> c.getContextEntries("c1", OWNER, 25, 50));
         verifyPaged("/api/documents", "[]", () -> c.getDocuments(OWNER, 25, 50));
-        verifyPaged("/api/holds", "[]", () -> c.getHolds(OWNER, 25, 50));
+        verifyPaged("/api/holds", "{}", () -> c.getHolds(OWNER, 25, 50));
         verifyPaged("/api/ledger", "[]", () -> c.getLedger("term", OWNER, 25, 50));
         verifyPaged("/api/audit", "{}", () -> c.getAuditLog(null, null, null, OWNER, 25, 50));
     }
@@ -3772,8 +3775,8 @@ public class PhilterClientMockTest {
     @Test
     public void getPoliciesAcrossUsersMapsNameAndOwner() throws Exception {
 
-        respond(200, "[{\"name\":\"default\",\"owner\":\"alice@example.com\"},"
-                + "{\"name\":\"default\",\"owner\":\"bob@example.com\"}]");
+        respond(200, "{\"policies\":[{\"name\":\"default\",\"owner\":\"alice@example.com\"},"
+                + "{\"name\":\"default\",\"owner\":\"bob@example.com\"}],\"total\":2}");
 
         final List<OwnedName> policies = client().getPoliciesAcrossUsers(25, 50);
 
@@ -3787,8 +3790,8 @@ public class PhilterClientMockTest {
     @Test
     public void getHoldsAcrossUsersMapsTheHoldAndItsOwner() throws Exception {
 
-        respond(200, "[{\"reference\":\"case-1\",\"scopeType\":\"document\",\"scopeValue\":\"doc-1\","
-                + "\"reason\":\"Litigation\",\"setAt\":\"2026-10-05T12:00:00Z\",\"owner\":\"alice@example.com\"}]");
+        respond(200, "{\"holds\":[{\"reference\":\"case-1\",\"scopeType\":\"document\",\"scopeValue\":\"doc-1\","
+                + "\"reason\":\"Litigation\",\"setAt\":\"2026-10-05T12:00:00Z\",\"owner\":\"alice@example.com\"}],\"total\":1}");
 
         final List<OwnedLegalHoldResponse> holds = client().getHoldsAcrossUsers(25, 50);
 
@@ -3836,7 +3839,7 @@ public class PhilterClientMockTest {
         calls.put("/api/holds", c::getHoldsAcrossUsers);
 
         for (final Map.Entry<String, Action> call : calls.entrySet()) {
-            respond(200, call.getKey().equals("/api/contexts") || call.getKey().equals("/api/ledger") ? "{}" : "[]");
+            respond(200, "{}");
             call.getValue().run();
             Assert.assertEquals(call.getKey(), path);
             Assert.assertEquals("query on " + call.getKey(), Map.of("all_users", "true"), queryParameters);
@@ -3898,7 +3901,7 @@ public class PhilterClientMockTest {
     @Test
     public void paginationParametersAreSent() throws Exception {
 
-        respond(200, "[]");
+        respond(200, "{}");
 
         client().getPolicies("acme", 25, 50);
 
@@ -3910,7 +3913,7 @@ public class PhilterClientMockTest {
     @Test
     public void optionalParametersAreOmittedWhenNull() throws Exception {
 
-        respond(200, "[]");
+        respond(200, "{}");
 
         client().getPolicies();
 
@@ -4042,7 +4045,7 @@ public class PhilterClientMockTest {
     @Test
     public void endpointWithTrailingSlashWorks() throws Exception {
 
-        respond(200, "[]");
+        respond(200, "{}");
 
         new PhilterClient.PhilterClientBuilder()
                 .withEndpoint("http://localhost:" + server.getAddress().getPort() + "/")
@@ -4055,7 +4058,7 @@ public class PhilterClientMockTest {
     @Test
     public void endpointPathPrefixIsNotPreserved() throws Exception {
 
-        respond(200, "[]");
+        respond(200, "{}");
 
         new PhilterClient.PhilterClientBuilder()
                 .withEndpoint("http://localhost:" + server.getAddress().getPort() + "/philter")
@@ -4070,7 +4073,7 @@ public class PhilterClientMockTest {
     @Test
     public void emptyApiKeySendsNoAuthorizationHeader() throws Exception {
 
-        respond(200, "[]");
+        respond(200, "{}");
 
         clientBuilder().withApiKey("").build().getPolicies();
 
@@ -4081,7 +4084,7 @@ public class PhilterClientMockTest {
     public void oneClientIsUsableFromManyThreads() throws Exception {
 
         // The documentation tells callers to build one client and share it.
-        respond(200, "[\"default\"]");
+        respond(200, "{\"policies\":[\"default\"],\"total\":1}");
 
         final PhilterClient client = client();
         final ExecutorService pool = Executors.newFixedThreadPool(8);
@@ -4328,7 +4331,7 @@ public class PhilterClientMockTest {
         Assert.assertNull("nothing sent yet", client.getLastRequestId());
 
         responseHeaders.put("X-Request-Id", REQUEST_ID);
-        respond(200, "[]");
+        respond(200, "{}");
         client.getPolicies();
         Assert.assertEquals(REQUEST_ID, client.getLastRequestId());
 
@@ -4340,7 +4343,7 @@ public class PhilterClientMockTest {
 
         // Another thread's call with the same client does not change this thread's.
         responseHeaders.put("X-Request-Id", "other-thread");
-        respond(200, "[]");
+        respond(200, "{}");
         final ExecutorService other = Executors.newSingleThreadExecutor();
         try {
             Assert.assertEquals("other-thread", other.submit(() -> {
@@ -4362,7 +4365,7 @@ public class PhilterClientMockTest {
     public void aCallThatGetsNoResponseLeavesNoRequestId() throws Exception {
 
         responseHeaders.put("X-Request-Id", REQUEST_ID);
-        respond(200, "[]");
+        respond(200, "{}");
         final PhilterClient client = client();
         client.getPolicies();
         Assert.assertEquals(REQUEST_ID, client.getLastRequestId());
@@ -4802,6 +4805,199 @@ public class PhilterClientMockTest {
             final ClientException ex = Assert.assertThrows(ClientException.class, () -> client().getPolicies());
             Assert.assertEquals(entry.getValue(), ex.getReason());
         }
+    }
+
+
+    // ----- Listings: envelopes, total, sorting, search, and filters -----
+
+    private static final ListOptions SORTED_AND_SEARCHED =
+            new ListOptions().offset(25).limit(50).sort("name").descending().search("claims");
+
+    /** The parameters SORTED_AND_SEARCHED sends, with any others. */
+    private static Map<String, String> sortedAndSearched(final String... others) {
+        final Map<String, String> expected = new HashMap<>(Map.of("offset", "25", "limit", "50", "sort", "name",
+                "order", "desc", "q", "claims"));
+        for (int i = 0; i < others.length; i += 2) {
+            expected.put(others[i], others[i + 1]);
+        }
+        return expected;
+    }
+
+    @Test
+    public void listPoliciesReadsTheEnvelopeAndSendsSortingAndSearch() throws Exception {
+
+        respond(200, "{\"policies\":[\"claims-2025\",\"claims-2026\"],\"total\":7}");
+
+        final Page<String> page = client().listPolicies(OWNER, SORTED_AND_SEARCHED);
+
+        Assert.assertEquals("/api/policies", path);
+        Assert.assertEquals(sortedAndSearched("owner", OWNER), queryParameters);
+        Assert.assertEquals(List.of("claims-2025", "claims-2026"), page.getItems());
+        Assert.assertEquals(7, page.getTotal());
+
+        respond(200, "{\"policies\":[{\"name\":\"default\",\"owner\":\"alice\"}],\"total\":3}");
+        final Page<OwnedName> across = client().listPoliciesAcrossUsers(SORTED_AND_SEARCHED);
+        Assert.assertEquals(sortedAndSearched("all_users", "true"), queryParameters);
+        Assert.assertEquals("alice", across.getItems().get(0).getOwner());
+        Assert.assertEquals(3, across.getTotal());
+
+        respond(200, recorded("policies-managed.json"));
+        final Page<ManagedPolicySummary> managed = client().listManagedPolicies(new ListOptions().search("pii"));
+        Assert.assertEquals(Map.of("managed", "true", "q", "pii"), queryParameters);
+        Assert.assertEquals(3, managed.getItems().size());
+        Assert.assertEquals(3, managed.getTotal());
+
+        respond(200, "{\"policies\":[],\"total\":0}");
+        client().getDeletedPolicies(OWNER, SORTED_AND_SEARCHED);
+        Assert.assertEquals(sortedAndSearched("deleted", "true", "owner", OWNER), queryParameters);
+    }
+
+    @Test
+    public void listPolicyVersionsReadsTheEnvelope() throws Exception {
+
+        respond(200, "{\"versions\":[{\"revision\":4,\"contentHash\":\"h4\",\"author\":\"jordan\"}],\"total\":4}");
+
+        final Page<PolicyVersionSummary> page = client().listPolicyVersions("claims", null,
+                new ListOptions().limit(1).ascending());
+
+        Assert.assertEquals("/api/policies/claims/versions", path);
+        Assert.assertEquals(Map.of("limit", "1", "order", "asc"), queryParameters);
+        Assert.assertEquals(4, page.getItems().get(0).getRevision());
+        Assert.assertEquals(4, page.getTotal());
+    }
+
+    @Test
+    public void listHoldsAndCustomListsReadTheirEnvelopes() throws Exception {
+
+        respond(200, "{\"holds\":[{\"reference\":\"case-1\",\"scopeType\":\"user\",\"setAt\":\"2026-10-05T12:00:00Z\"}],"
+                + "\"total\":2}");
+        final Page<LegalHoldResponse> holds = client().listHolds(OWNER, new ListOptions().sort("reference").search("case"));
+        Assert.assertEquals("/api/holds", path);
+        Assert.assertEquals(Map.of("owner", OWNER, "sort", "reference", "q", "case"), queryParameters);
+        Assert.assertEquals("case-1", holds.getItems().get(0).getReference());
+        Assert.assertEquals(2, holds.getTotal());
+
+        respond(200, "{\"holds\":[{\"reference\":\"case-2\",\"owner\":\"alice\"}],\"total\":1}");
+        final Page<OwnedLegalHoldResponse> allHolds = client().listHoldsAcrossUsers(null);
+        Assert.assertEquals(Map.of("all_users", "true"), queryParameters);
+        Assert.assertEquals("alice", allHolds.getItems().get(0).getOwner());
+
+        respond(200, recorded("lists.json"));
+        final Page<CustomListSummary> lists = client().listCustomLists(null, SORTED_AND_SEARCHED);
+        Assert.assertEquals("/api/lists", path);
+        Assert.assertEquals(sortedAndSearched(), queryParameters);
+        Assert.assertEquals("customer-names", lists.getItems().get(0).getName());
+        Assert.assertEquals(1, lists.getTotal());
+
+        respond(200, recorded("lists-all-users.json"));
+        final Page<CustomListSummary> allLists = client().listCustomListsAcrossUsers(new ListOptions().limit(5));
+        Assert.assertEquals(Map.of("all_users", "true", "limit", "5"), queryParameters);
+        Assert.assertTrue(allLists.getItems().get(0).getOwner().endsWith("@example.com"));
+    }
+
+    @Test
+    public void listCustomListsWithoutOptionsStillReadsEveryList() throws Exception {
+
+        final StringBuilder first = new StringBuilder("{\"lists\":[");
+        for (int i = 0; i < 100; i++) {
+            first.append(i == 0 ? "" : ",").append("{\"name\":\"list-").append(i).append("\",\"size\":1}");
+        }
+        first.append("],\"total\":101}");
+        queuedResponses.add(Map.entry(200, first.toString().getBytes(StandardCharsets.UTF_8)));
+        queuedResponses.add(Map.entry(200, "{\"lists\":[{\"name\":\"list-100\",\"size\":1}],\"total\":101}"
+                .getBytes(StandardCharsets.UTF_8)));
+        requests.clear();
+
+        final List<CustomListSummary> lists = client().listCustomLists();
+
+        Assert.assertEquals(101, lists.size());
+        Assert.assertEquals("list-100", lists.get(100).getName());
+        Assert.assertEquals(2, requests.size());
+        Assert.assertEquals("0", requests.get(0).queryParameters.get("offset"));
+        Assert.assertEquals("100", requests.get(1).queryParameters.get("offset"));
+    }
+
+    @Test
+    public void typedListingsSendSortingSearchAndTheirFilters() throws Exception {
+
+        respond(200, "{\"contexts\":[\"tenant-a\"],\"total\":12}");
+        final GetContextsResponse contexts = client().listContexts(OWNER, SORTED_AND_SEARCHED);
+        Assert.assertEquals(sortedAndSearched("owner", OWNER), queryParameters);
+        Assert.assertEquals(12, contexts.getTotal());
+
+        respond(200, "{\"contexts\":[],\"total\":5}");
+        Assert.assertEquals(5, client().listContextsAcrossUsers(SORTED_AND_SEARCHED).getTotal());
+        Assert.assertEquals(sortedAndSearched("all_users", "true"), queryParameters);
+
+        respond(200, "{\"entries\":[],\"total\":0}");
+        client().listContextEntries("tenant-a", null, new ListOptions().sort("reads"));
+        Assert.assertEquals("/api/contexts/tenant-a/entries", path);
+        Assert.assertEquals(Map.of("sort", "reads"), queryParameters);
+
+        respond(200, "{\"pendingRedactedDocuments\":[],\"total\":9}");
+        final GetDocumentsResponse documents = client().listDocuments(OWNER,
+                new ListOptions().status("FAILED").sort("fileName"));
+        Assert.assertEquals(Map.of("owner", OWNER, "status", "FAILED", "sort", "fileName"), queryParameters);
+        Assert.assertEquals(9, documents.getTotal());
+
+        respond(200, "{\"chains\":[],\"total\":0}");
+        client().listLedgerChains(OWNER, new ListOptions().search("invoice"));
+        Assert.assertEquals(Map.of("owner", OWNER, "q", "invoice"), queryParameters);
+        client().listLedgerChainsAcrossUsers(new ListOptions().search("invoice"));
+        Assert.assertEquals(Map.of("all_users", "true", "q", "invoice"), queryParameters);
+
+        respond(200, "{\"users\":[],\"total\":4}");
+        client().getUsers(new ListOptions().role("admin").active(true).search("jo").sort("created"));
+        Assert.assertEquals("/api/users", path);
+        Assert.assertEquals(Map.of("role", "admin", "active", "true", "q", "jo", "sort", "created"), queryParameters);
+
+        respond(200, "{\"apiKeys\":[],\"total\":0}");
+        client().getApiKeys(null, new ListOptions().session(true).descending());
+        Assert.assertEquals("/api/api-keys", path);
+        Assert.assertEquals(Map.of("session", "true", "order", "desc"), queryParameters);
+        client().getApiKeys("jordan", null);
+        Assert.assertEquals("/api/users/jordan/api-keys", path);
+
+        respond(200, "{\"events\":[],\"total\":0}");
+        client().getAuditLog("policy_deleted", null, null, OWNER, new ListOptions().ascending().limit(10));
+        Assert.assertEquals(Map.of("event", "policy_deleted", "owner", OWNER, "order", "asc", "limit", "10"),
+                queryParameters);
+
+        respond(200, "{\"deliveries\":[],\"total\":0}");
+        client().getWebhookDeliveries(null, new ListOptions().ascending());
+        Assert.assertEquals(Map.of("order", "asc"), queryParameters);
+    }
+
+    @Test
+    public void anUnknownSortIsA400WithPhiltersMessage() {
+
+        respond(400, "{\"message\":\"sort must be one of name, created, updated.\",\"reason\":\"invalid_request\","
+                + "\"field\":\"sort\"}");
+
+        final ClientException ex = Assert.assertThrows(ClientException.class,
+                () -> client().listPolicies(null, new ListOptions().sort("size")));
+
+        Assert.assertEquals(400, ex.getStatusCode());
+        Assert.assertEquals("sort must be one of name, created, updated.", ex.getErrorMessage());
+        Assert.assertEquals("sort", ex.getField());
+    }
+
+    @Test
+    public void aListingThatIsNotAnEnvelopeIsAClientException() {
+
+        respond(200, "[\"default\"]");
+
+        final ClientException ex = Assert.assertThrows(ClientException.class, () -> client().listPolicies(null, null));
+
+        Assert.assertTrue(ex.getMessage(), ex.getMessage().contains("policies and total"));
+    }
+
+    @Test
+    public void aListingWithoutATotalCountsThePage() throws Exception {
+
+        respond(200, "{\"policies\":[\"a\",\"b\"]}");
+
+        Assert.assertEquals(2, client().listPolicies(null, null).getTotal());
     }
 
 }
