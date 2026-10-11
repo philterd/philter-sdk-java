@@ -19,8 +19,6 @@ import com.google.gson.annotations.Expose;
 import com.google.gson.annotations.SerializedName;
 
 import java.time.Instant;
-import java.time.OffsetDateTime;
-import java.time.format.DateTimeParseException;
 
 /**
  * A deleted policy whose version history Philter keeps. Read its history with
@@ -68,14 +66,7 @@ public class DeletedPolicy {
      * or when Philter's value cannot be read as a timestamp ({@link #getDeletedAtText()} then has it).
      */
     public Instant getDeletedAt() {
-        if (deletedAt == null || deletedAt.isBlank()) {
-            return null;
-        }
-        try {
-            return OffsetDateTime.parse(deletedAt).toInstant();
-        } catch (final DateTimeParseException ex) {
-            return null;
-        }
+        return Timestamps.parse(deletedAt);
     }
 
     /** When the policy was deleted, as Philter sent it, or {@code null}. */

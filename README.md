@@ -118,6 +118,18 @@ for (DeletedPolicy deleted : client.getDeletedPolicies().getPolicies()) {
 client.savePolicy("claims-2025", client.getPolicyVersion("claims-2025", 4));
 ```
 
+A webhook delivers the result of each asynchronous redaction. `testWebhook` sends it a test event now and reports how
+the receiver answered, and `getWebhookDeliveries` shows each delivery's status and last error:
+
+```
+WebhookTestResult test = client.testWebhook();
+System.out.println(test.isDelivered() ? "delivered" : test.getStatusCode() + ": " + test.getError());
+
+for (WebhookDelivery delivery : client.getWebhookDeliveries().getDeliveries()) {
+    System.out.println(delivery.getEvent() + " " + delivery.getStatus() + " " + delivery.getLastError());
+}
+```
+
 An administrator sets or removes a user's email address with `setUserEmail`:
 
 ```

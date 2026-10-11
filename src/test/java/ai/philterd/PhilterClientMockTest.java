@@ -68,6 +68,10 @@ import ai.philterd.philter.model.StatusResponse;
 import ai.philterd.philter.model.UpdateAdminSettingsRequest;
 import ai.philterd.philter.model.User;
 import ai.philterd.philter.model.Webhook;
+import ai.philterd.philter.model.WebhookTestResult;
+import ai.philterd.philter.model.WebhookEvents;
+import ai.philterd.philter.model.WebhookDelivery;
+import ai.philterd.philter.model.GetWebhookDeliveriesResponse;
 import ai.philterd.philter.model.exceptions.ClientException;
 import ai.philterd.philter.model.exceptions.ServiceUnavailableException;
 import ai.philterd.philter.model.exceptions.SignInLockedException;
@@ -2346,6 +2350,8 @@ public class PhilterClientMockTest {
         verifyOwner("/api/webhook", "{}", () -> c.setWebhook("https://hooks.example.com/philter",
                 "a-shared-secret-of-at-least-16-characters", OWNER));
         verifyOwner("/api/webhook", "", () -> c.removeWebhook(OWNER));
+        verifyOwner("/api/webhook/test", "{}", () -> c.testWebhook(OWNER));
+        verifyOwner("/api/webhook/deliveries", "{}", () -> c.getWebhookDeliveries(OWNER, null, null));
     }
 
     @Test
@@ -2984,6 +2990,120 @@ public class PhilterClientMockTest {
 
         Assert.assertEquals("PUT", method);
         Assert.assertEquals(OWNER, queryParameter("owner"));
+    }
+
+    @Test
+    public void setWebhookWithANullSecretKeepsTheSecretBySendingNone() throws Exception {
+
+        respond(200, "{\"url\":\"https://hooks.example.com/v2\",\"secretSet\":true}");
+
+        final Webhook webhook = client().setWebhook("https://hooks.example.com/v2", null);
+
+        Assert.assertEquals("{\"url\":\"https://hooks.example.com/v2\"}", requestBodyAsString());
+        Assert.assertTrue(webhook.isSecretSet());
+    }
+
+    @Test
+    public void testWebhookReturnsADeliveredTest() throws Exception {
+
+        respond(200, "{\"delivered\":true,\"statusCode\":204,\"error\":null,\"durationMillis\":118,"
+                + "\"deliveryId\":\"6a0f1c2e9b1d4e3f2a1b0c9d\"}");
+
+        final WebhookTestResult result = client().testWebhook();
+
+        Assert.assertEquals("POST", method);
+        Assert.assertEquals("/api/webhook/test", path);
+        Assert.assertTrue(queryParameters.isEmpty());
+        Assert.assertEquals(0, requestBody.length);
+        Assert.assertTrue(result.isDelivered());
+        Assert.assertEquals(Integer.valueOf(204), result.getStatusCode());
+        Assert.assertNull(result.getError());
+        Assert.assertEquals(118, result.getDurationMillis());
+        Assert.assertEquals("6a0f1c2e9b1d4e3f2a1b0c9d", result.getDeliveryId());
+    }
+
+    @Test
+    public void aRefusedOrUnreachableReceiverIsAResultNotAnException() throws Exception {
+
+        respond(200, "{\"delivered\":false,\"statusCode\":401,\"error\":\"The receiver answered HTTP 401.\","
+                + "\"durationMillis\":40,\"deliveryId\":\"a1\"}");
+        final WebhookTestResult refused = client().testWebhook(OWNER);
+        Assert.assertEquals(OWNER, queryParameter("owner"));
+        Assert.assertFalse(refused.isDelivered());
+        Assert.assertEquals(Integer.valueOf(401), refused.getStatusCode());
+        Assert.assertEquals("The receiver answered HTTP 401.", refused.getError());
+
+        respond(200, "{\"delivered\":false,\"statusCode\":null,\"error\":\"Connection refused.\","
+                + "\"durationMillis\":3,\"deliveryId\":\"a2\"}");
+        final WebhookTestResult unreachable = client().testWebhook();
+        Assert.assertFalse(unreachable.isDelivered());
+        Assert.assertNull(unreachable.getStatusCode());
+    }
+
+    @Test
+    public void testWebhookWithNoWebhookSetIsA409() {
+
+        respond(409, "{\"message\":\"No webhook is set, so there is nothing to test.\",\"reason\":\"webhook_not_set\"}");
+
+        final ClientException ex = Assert.assertThrows(ClientException.class, () -> client().testWebhook());
+
+        Assert.assertEquals(409, ex.getStatusCode());
+        Assert.assertEquals("No webhook is set, so there is nothing to test.", ex.getErrorMessage());
+        Assert.assertEquals("webhook_not_set", ex.getReason());
+    }
+
+    @Test
+    public void getWebhookDeliveriesReadsThePageWithItsDates() throws Exception {
+
+        respond(200, "{\"deliveries\":["
+                + "{\"id\":\"d2\",\"documentId\":\"doc-2\",\"event\":\"DOCUMENT_REDACTION_FAILED\","
+                + "\"url\":\"https://hooks.example.com/philter\",\"status\":\"PENDING\",\"attempts\":2,"
+                + "\"lastError\":\"The receiver answered HTTP 503.\",\"createdAt\":\"2026-10-05T12:00:00.000+00:00\","
+                + "\"updatedAt\":\"2026-10-05T12:01:00.000+00:00\",\"nextAttemptAt\":\"2026-10-05T12:05:00.000+00:00\","
+                + "\"deliveredAt\":null},"
+                + "{\"id\":\"d1\",\"documentId\":\"doc-1\",\"event\":\"DOCUMENT_REDACTION_COMPLETE\","
+                + "\"url\":\"https://hooks.example.com/philter\",\"status\":\"DELIVERED\",\"attempts\":1,"
+                + "\"lastError\":null,\"createdAt\":\"2026-10-04T09:00:00Z\",\"updatedAt\":\"2026-10-04T09:00:01Z\","
+                + "\"nextAttemptAt\":null,\"deliveredAt\":\"2026-10-04T09:00:01Z\"}"
+                + "],\"total\":7}");
+
+        final GetWebhookDeliveriesResponse page = client().getWebhookDeliveries(OWNER, 2, 2);
+
+        Assert.assertEquals("GET", method);
+        Assert.assertEquals("/api/webhook/deliveries", path);
+        Assert.assertEquals(OWNER, queryParameter("owner"));
+        Assert.assertEquals("2", queryParameter("offset"));
+        Assert.assertEquals("2", queryParameter("limit"));
+        Assert.assertEquals(7, page.getTotal());
+
+        final WebhookDelivery pending = page.getDeliveries().get(0);
+        Assert.assertEquals("d2", pending.getId());
+        Assert.assertEquals("doc-2", pending.getDocumentId());
+        Assert.assertEquals(WebhookEvents.DOCUMENT_REDACTION_FAILED, pending.getEvent());
+        Assert.assertEquals(WebhookDelivery.PENDING, pending.getStatus());
+        Assert.assertEquals(2, pending.getAttempts());
+        Assert.assertEquals("The receiver answered HTTP 503.", pending.getLastError());
+        Assert.assertEquals(Instant.parse("2026-10-05T12:00:00Z"), pending.getCreatedAt());
+        Assert.assertEquals(Instant.parse("2026-10-05T12:01:00Z"), pending.getUpdatedAt());
+        Assert.assertEquals(Instant.parse("2026-10-05T12:05:00Z"), pending.getNextAttemptAt());
+        Assert.assertNull(pending.getDeliveredAt());
+
+        final WebhookDelivery delivered = page.getDeliveries().get(1);
+        Assert.assertEquals(WebhookDelivery.DELIVERED, delivered.getStatus());
+        Assert.assertEquals(WebhookEvents.DOCUMENT_REDACTION_COMPLETE, delivered.getEvent());
+        Assert.assertNull(delivered.getNextAttemptAt());
+        Assert.assertNull(delivered.getLastError());
+        Assert.assertEquals(Instant.parse("2026-10-04T09:00:01Z"), delivered.getDeliveredAt());
+        Assert.assertEquals("2026-10-04T09:00:01Z", delivered.getDeliveredAtText());
+    }
+
+    @Test
+    public void getWebhookDeliveriesWithoutArgumentsSendsNoParameters() throws Exception {
+
+        respond(200, "{\"deliveries\":[],\"total\":0}");
+
+        Assert.assertEquals(0, client().getWebhookDeliveries().getTotal());
+        Assert.assertTrue(queryParameters.isEmpty());
     }
 
     @Test

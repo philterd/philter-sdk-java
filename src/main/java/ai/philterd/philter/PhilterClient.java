@@ -56,6 +56,9 @@ import ai.philterd.philter.model.GetApiKeysResponse;
 import ai.philterd.philter.model.GetAuditLogResponse;
 import ai.philterd.philter.model.GetListsResponse;
 import ai.philterd.philter.model.GetUsersResponse;
+import ai.philterd.philter.model.GetWebhookDeliveriesResponse;
+import ai.philterd.philter.model.WebhookDelivery;
+import ai.philterd.philter.model.WebhookTestResult;
 import ai.philterd.philter.model.GetDeletedPoliciesResponse;
 import ai.philterd.philter.model.LegalHoldRequest;
 import ai.philterd.philter.model.LegalHoldResponse;
@@ -4135,7 +4138,8 @@ public class PhilterClient {
 	/**
 	 * Sets the caller's webhook. See {@link #setWebhook(String, String, String)}.
 	 * @param url The URL Philter will POST results to.
-	 * @param secret The shared secret Philter signs each delivery with. At least 16 characters.
+	 * @param secret The shared secret Philter signs each delivery with, at least 16 characters, or
+	 * {@code null} to keep the secret already set.
 	 * @return The webhook URL and whether a secret is set.
 	 * @throws IOException Thrown if the call can not be executed.
 	 */
@@ -4144,19 +4148,22 @@ public class PhilterClient {
 	}
 
 	/**
-	 * Sets a user's webhook, replacing any URL and secret already set. Philter POSTs the result of each
-	 * asynchronous redaction to the URL, signed with the secret.
+	 * Sets a user's webhook URL and secret. Philter POSTs the result of each asynchronous redaction to the
+	 * URL, signed with the secret. Pass a {@code null} secret to change the URL and keep the secret already
+	 * set; the request then has no {@code secret} field. Check the webhook with {@link #testWebhook(String)}.
 	 *
 	 * <p>Requires the {@code webhooks:write} scope. Does not require an administrator, except to set
 	 * another user's webhook with {@code owner}.</p>
 	 *
-	 * <p>Philter rejects a missing URL or secret, a URL that is not {@code http} or {@code https},
+	 * <p>Philter rejects a missing URL, a missing secret when none is set yet, a URL that is not {@code http}
+	 * or {@code https},
 	 * a host the administrator's webhook destination allowlist does not permit (with no allowlist,
 	 * a private or loopback address), and a secret shorter than 16 characters. Each is an HTTP 400,
 	 * thrown as a {@link ClientException} carrying Philter's reason. Nothing is saved.</p>
 	 *
 	 * @param url The URL Philter will POST results to.
-	 * @param secret The shared secret Philter signs each delivery with. At least 16 characters.
+	 * @param secret The shared secret Philter signs each delivery with, at least 16 characters, or
+	 * {@code null} to keep the secret already set.
 	 * @param owner The user whose webhook this is. May be {@code null} for the caller's own. Another
 	 * user's requires an administrator and {@code ADMIN_CROSS_USER_ACCESS_ENABLED=true} on the Philter
 	 * deployment; otherwise, or for an owner that does not exist, Philter answers HTTP 404, thrown as a
@@ -4198,6 +4205,92 @@ public class PhilterClient {
 	 */
 	public void removeWebhook(String owner) throws IOException {
 		sendExpectingNoContent(request(uri("/api/webhook", "owner", owner)).DELETE().build());
+	}
+
+	/**
+	 * Tests the caller's webhook. See {@link #testWebhook(String)}.
+	 * @return How the test went.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public WebhookTestResult testWebhook() throws IOException {
+		return testWebhook(null);
+	}
+
+	/**
+	 * Sends one signed {@link ai.philterd.philter.model.WebhookEvents#WEBHOOK_TEST} event to a user's
+	 * webhook now, so a receiver's URL and signature check can be tried without redacting a document.
+	 * It is signed and checked against the destination allowlist as a real delivery is. The test is sent
+	 * once, not retried, and is not added to the delivery history.
+	 *
+	 * <p>Philter waits for the receiver up to its webhook connect and response timeouts
+	 * ({@code WEBHOOK_CONNECT_TIMEOUT_SECONDS} and {@code WEBHOOK_RESPONSE_TIMEOUT_SECONDS}, 5 and 10
+	 * seconds by default) before it answers, so a client timeout ({@link PhilterClientBuilder#withTimeout(long)})
+	 * shorter than their sum can end the call with an {@link IOException} instead of a result.</p>
+	 *
+	 * <p>A receiver that refused the test, or could not be reached, is not an error: the result has
+	 * {@link WebhookTestResult#isDelivered()} {@code false}, the receiver's status if it answered, and
+	 * why it was not delivered. With no webhook set, Philter answers HTTP 409 with the reason
+	 * {@code webhook_not_set}, thrown as a {@link ClientException}.</p>
+	 *
+	 * <p>Requires the {@code webhooks:write} scope. Does not require an administrator, except to test
+	 * another user's webhook with {@code owner}. Philter records each test as a {@code webhook_tested}
+	 * audit event.</p>
+	 *
+	 * @param owner The user whose webhook this is. May be {@code null} for the caller's own. Another
+	 * user's requires an administrator and {@code ADMIN_CROSS_USER_ACCESS_ENABLED=true} on the Philter
+	 * deployment; otherwise, or for an owner that does not exist, Philter answers HTTP 404, thrown as a
+	 * {@link ClientException}.
+	 * @return How the test went.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public WebhookTestResult testWebhook(String owner) throws IOException {
+
+		final HttpRequest request = json(uri("/api/webhook/test", "owner", owner))
+				.POST(HttpRequest.BodyPublishers.noBody())
+				.build();
+
+		return sendExpectingJson(request, WebhookTestResult.class);
+
+	}
+
+	/**
+	 * Gets the first page of the caller's webhook deliveries. See
+	 * {@link #getWebhookDeliveries(String, Integer, Integer)}.
+	 * @return The page of deliveries and the total.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public GetWebhookDeliveriesResponse getWebhookDeliveries() throws IOException {
+		return getWebhookDeliveries(null, null, null);
+	}
+
+	/**
+	 * Gets a page of a user's webhook deliveries, newest first: each event Philter queued for the webhook,
+	 * its status ({@link WebhookDelivery#PENDING}, {@link WebhookDelivery#PROCESSING},
+	 * {@link WebhookDelivery#DELIVERED}, or {@link WebhookDelivery#FAILED}), how many attempts were made,
+	 * and the last error. Use it to see why a receiver did not get an event.
+	 *
+	 * <p>Requires the {@code webhooks:read} scope. Does not require an administrator, except to read
+	 * another user's deliveries with {@code owner}.</p>
+	 *
+	 * @param owner The user whose webhook this is. May be {@code null} for the caller's own. Another
+	 * user's requires an administrator and {@code ADMIN_CROSS_USER_ACCESS_ENABLED=true} on the Philter
+	 * deployment; otherwise, or for an owner that does not exist, Philter answers HTTP 404, thrown as a
+	 * {@link ClientException}.
+	 * @param offset The number of deliveries to skip. May be {@code null} for {@code 0}.
+	 * @param limit The most deliveries to return, up to 100. May be {@code null} for Philter's default of 25.
+	 * @return The page of deliveries and the total.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public GetWebhookDeliveriesResponse getWebhookDeliveries(String owner, Integer offset, Integer limit)
+			throws IOException {
+
+		final HttpRequest request = json(uri("/api/webhook/deliveries", "owner", owner, "offset", offset,
+				"limit", limit))
+				.GET()
+				.build();
+
+		return sendExpectingJson(request, GetWebhookDeliveriesResponse.class);
+
 	}
 
 	// API keys.
