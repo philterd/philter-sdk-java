@@ -100,12 +100,23 @@ Philter 4.0.0 expects an `Authorization` header on nearly every endpoint. Provid
 `withApiKey(...)`; the value is sent verbatim, so include any scheme prefix (for example `"Bearer "`) if your
 deployment requires it. The `health()` endpoint does not require authentication.
 
-In addition to filtering, the client covers the full Philter 4.0.0 API: policies (including versions, diffs,
-rollbacks, descriptions and notes, managed policies, and copies), contexts, documents, legal holds, the redaction
-ledger, the audit log and its CSV export, custom lists, redact lists, re-identification, user management (including
-roles and email addresses), sign-in with passwords, session keys, and MFA, webhooks, managing API keys, rotating the
-output signing key, admin settings, and administrator listings of policies, contexts, custom lists, ledger chains, and
-legal holds across all users.
+In addition to filtering, the client covers the full Philter 4.0.0 API: policies (including versions and their
+authors, diffs, rollbacks, deleted policies, descriptions and notes, managed policies, and copies), contexts,
+documents, legal holds, the redaction ledger, the audit log and its CSV export, custom lists, redact lists,
+re-identification, user management (including roles and email addresses), sign-in with passwords, session keys, and
+MFA, webhooks, managing API keys, rotating the output signing key, admin settings, and administrator listings of
+policies, contexts, custom lists, ledger chains, and legal holds across all users.
+
+Deleting a policy keeps its revision history. `getDeletedPolicies` lists the deleted policies, and a deleted policy's
+history is read by its name like a live one's. To restore one, save the revision you want under its name:
+
+```
+for (DeletedPolicy deleted : client.getDeletedPolicies().getPolicies()) {
+    System.out.println(deleted.getName() + " (revision " + deleted.getLatestRevision() + ")");
+}
+
+client.savePolicy("claims-2025", client.getPolicyVersion("claims-2025", 4));
+```
 
 An administrator sets or removes a user's email address with `setUserEmail`:
 

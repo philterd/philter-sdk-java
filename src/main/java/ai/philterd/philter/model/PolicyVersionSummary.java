@@ -35,6 +35,10 @@ public class PolicyVersionSummary {
     @SerializedName("revision")
     private int revision;
 
+    @Expose
+    @SerializedName("author")
+    private String author;
+
     public String getCapturedTimestamp() {
         return capturedTimestamp;
     }
@@ -57,6 +61,19 @@ public class PolicyVersionSummary {
 
     public void setRevision(int revision) {
         this.revision = revision;
+    }
+
+    /**
+     * The username of the user whose change produced this revision, or {@code null} when it is not known:
+     * for a revision made before Philter recorded authors, for a managed policy, or for a revision first
+     * captured when the policy was used to redact.
+     */
+    public String getAuthor() {
+        return author;
+    }
+
+    public void setAuthor(String author) {
+        this.author = author;
     }
 
 }

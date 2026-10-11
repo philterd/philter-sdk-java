@@ -61,6 +61,8 @@ import ai.philterd.philter.model.ManagedPolicySummary;
 import ai.philterd.philter.model.PolicyDetails;
 import ai.philterd.philter.model.PolicyRollbackResponse;
 import ai.philterd.philter.model.PolicyVersionSummary;
+import ai.philterd.philter.model.GetDeletedPoliciesResponse;
+import ai.philterd.philter.model.DeletedPolicy;
 import ai.philterd.philter.model.ReidentifyRequest;
 import ai.philterd.philter.model.StatusResponse;
 import ai.philterd.philter.model.UpdateAdminSettingsRequest;
@@ -1043,6 +1045,74 @@ public class PhilterClientMockTest {
         Assert.assertEquals(1, versions.get(0).getRevision());
         Assert.assertEquals("hash1", versions.get(0).getContentHash());
         Assert.assertEquals("/api/policies/default/versions", path);
+    }
+
+    @Test
+    public void aPolicyVersionNamesItsAuthorWhenKnown() throws Exception {
+
+        respond(200, "[{\"capturedTimestamp\":\"2026-01-02T00:00:00Z\",\"contentHash\":\"hash2\",\"revision\":2,"
+                + "\"author\":\"jordan\"},"
+                + "{\"capturedTimestamp\":\"2026-01-01T00:00:00Z\",\"contentHash\":\"hash1\",\"revision\":1,\"author\":null},"
+                + "{\"capturedTimestamp\":\"2025-12-01T00:00:00Z\",\"contentHash\":\"hash0\",\"revision\":0}]");
+
+        final List<PolicyVersionSummary> versions = client().getPolicyVersions("default");
+
+        Assert.assertEquals("jordan", versions.get(0).getAuthor());
+        Assert.assertNull("null author", versions.get(1).getAuthor());
+        Assert.assertNull("absent author, from an older Philter", versions.get(2).getAuthor());
+    }
+
+    @Test
+    public void getDeletedPoliciesReadsThePageAndItsTotal() throws Exception {
+
+        respond(200, "{\"policies\":["
+                + "{\"name\":\"claims-2025\",\"latestRevision\":4,\"deletedAt\":\"2026-10-02T15:20:41.000+00:00\",\"deletedBy\":\"jordan\"},"
+                + "{\"name\":\"old\",\"latestRevision\":2,\"deletedAt\":null,\"deletedBy\":null},"
+                + "{\"name\":\"zulu\",\"latestRevision\":1,\"deletedAt\":\"2026-10-03T08:00:00Z\"}"
+                + "],\"total\":3}");
+
+        final GetDeletedPoliciesResponse page = client().getDeletedPolicies(OWNER, 25, 50);
+
+        Assert.assertEquals("GET", method);
+        Assert.assertEquals("/api/policies", path);
+        Assert.assertEquals("true", queryParameter("deleted"));
+        Assert.assertEquals(OWNER, queryParameter("owner"));
+        Assert.assertEquals("25", queryParameter("offset"));
+        Assert.assertEquals("50", queryParameter("limit"));
+
+        Assert.assertEquals(3, page.getTotal());
+        final DeletedPolicy claims = page.getPolicies().get(0);
+        Assert.assertEquals("claims-2025", claims.getName());
+        Assert.assertEquals(4, claims.getLatestRevision());
+        Assert.assertEquals(Instant.parse("2026-10-02T15:20:41Z"), claims.getDeletedAt());
+        Assert.assertEquals("jordan", claims.getDeletedBy());
+
+        final DeletedPolicy old = page.getPolicies().get(1);
+        Assert.assertNull(old.getDeletedAt());
+        Assert.assertNull(old.getDeletedAtText());
+        Assert.assertNull(old.getDeletedBy());
+
+        Assert.assertEquals(Instant.parse("2026-10-03T08:00:00Z"), page.getPolicies().get(2).getDeletedAt());
+        Assert.assertNull(page.getPolicies().get(2).getDeletedBy());
+    }
+
+    @Test
+    public void getDeletedPoliciesWithoutArgumentsSendsOnlyDeleted() throws Exception {
+
+        respond(200, "{\"policies\":[],\"total\":0}");
+
+        Assert.assertTrue(client().getDeletedPolicies().getPolicies().isEmpty());
+        Assert.assertEquals(Set.of("deleted"), queryParameters.keySet());
+    }
+
+    @Test
+    public void aDeletionTimeThatIsNotATimestampIsKeptAsText() {
+
+        final DeletedPolicy policy = new DeletedPolicy();
+        policy.setDeletedAt("yesterday");
+
+        Assert.assertNull(policy.getDeletedAt());
+        Assert.assertEquals("yesterday", policy.getDeletedAtText());
     }
 
     @Test

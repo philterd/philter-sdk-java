@@ -79,7 +79,8 @@ import ai.philterd.philter.model.PolicyVersionSummary;
 import ai.philterd.philter.model.PolicyRollbackResponse;
 
 for (PolicyVersionSummary v : client.getPolicyVersions("my-policy")) {
-    System.out.println("revision " + v.getRevision() + " @ " + v.getCapturedTimestamp());
+    // The author is the username whose change produced the revision, or null when it is not known.
+    System.out.println("revision " + v.getRevision() + " @ " + v.getCapturedTimestamp() + " by " + v.getAuthor());
 }
 
 String revisionJson = client.getPolicyVersion("my-policy", 2);   // a specific revision
@@ -90,6 +91,32 @@ System.out.println("rolled back to revision " + rollback.getRevision());
 ```
 
 A rollback is refused with a `404` if the policy or the revision does not exist, and `getErrorMessage()` says which, for example `Revision 99 does not exist.` It is refused with a `409` whose `getReason()` is `policy_managed` for a managed policy, and `policy_changed` if the policy changed concurrently, in which case reload it and retry.
+
+`getAuthor()` is `null` for a revision made before Philter recorded authors, for a managed policy, and for a revision first captured when the policy was used to redact.
+
+## Deleted policies
+
+Deleting a policy keeps its revision history. `getDeletedPolicies` lists the deleted policies whose history is kept, sorted by name, with each one's latest revision and when and by whom it was deleted. It requires `policies:read`; an administrator can pass another user's username as `owner`.
+
+```java
+import ai.philterd.philter.model.DeletedPolicy;
+import ai.philterd.philter.model.GetDeletedPoliciesResponse;
+
+GetDeletedPoliciesResponse page = client.getDeletedPolicies(null, 0, 25);
+for (DeletedPolicy deleted : page.getPolicies()) {
+    System.out.println(deleted.getName() + " revision " + deleted.getLatestRevision()
+            + " deleted " + deleted.getDeletedAt() + " by " + deleted.getDeletedBy());
+}
+```
+
+`getDeletedAt()` is an `Instant`, and it and `getDeletedBy()` are `null` for a policy deleted before Philter recorded deletions. `getTotal()` counts every deleted policy whose history is kept, across pages.
+
+Read a deleted policy's history by its name, as for a live one, with `getPolicyVersions` and `getPolicyVersion`. To restore it, save the revision you want under the name with `savePolicy`; the restored policy continues the same revision numbers. `rollbackPolicy` only applies to a live policy.
+
+```java
+String json = client.getPolicyVersion("claims-2025", 4);
+client.savePolicy("claims-2025", json);
+```
 
 ## Compiling PhiSQL
 

@@ -56,6 +56,7 @@ import ai.philterd.philter.model.GetApiKeysResponse;
 import ai.philterd.philter.model.GetAuditLogResponse;
 import ai.philterd.philter.model.GetListsResponse;
 import ai.philterd.philter.model.GetUsersResponse;
+import ai.philterd.philter.model.GetDeletedPoliciesResponse;
 import ai.philterd.philter.model.LegalHoldRequest;
 import ai.philterd.philter.model.LegalHoldResponse;
 import ai.philterd.philter.model.OwnedLegalHoldResponse;
@@ -1570,6 +1571,54 @@ public class PhilterClient {
 	 */
 	public void deletePolicy(String policyName, String owner) throws IOException {
 		sendExpectingNoContent(request(uri("/api/policies/" + encode(policyName), "owner", owner)).DELETE().build());
+	}
+
+	/**
+	 * Lists the first page of the caller's deleted policies whose version history is kept. See
+	 * {@link #getDeletedPolicies(String, Integer, Integer)}.
+	 * @return The page of deleted policies and the total.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public GetDeletedPoliciesResponse getDeletedPolicies() throws IOException {
+		return getDeletedPolicies(null, null, null);
+	}
+
+	/**
+	 * Lists deleted policies whose version history Philter keeps, sorted by name, each with its latest
+	 * revision and when and by whom it was deleted. Requires the {@code policies:read} scope.
+	 *
+	 * <p>Deleting a policy keeps its history. Read a deleted policy's history by its name with
+	 * {@link #getPolicyVersions(String)} and a revision with {@link #getPolicyVersion(String, int)}. To
+	 * restore it, save the revision you want under the name with {@link #savePolicy(String, String)}; the
+	 * restored policy starts at a new revision, and its history continues.</p>
+	 *
+	 * <pre>{@code
+	 * for (DeletedPolicy deleted : client.getDeletedPolicies().getPolicies()) {
+	 *     System.out.println(deleted.getName() + " (revision " + deleted.getLatestRevision() + ")");
+	 * }
+	 *
+	 * // Restore one, as it was when it was deleted.
+	 * client.savePolicy("claims-2025", client.getPolicyVersion("claims-2025", 4));
+	 * }</pre>
+	 *
+	 * @param owner The username of another user whose deleted policies to list, for an administrator.
+	 * May be {@code null} for the caller's own. An owner that does not exist, or the caller may not reach,
+	 * is an HTTP 404.
+	 * @param offset The number of deleted policies to skip. May be {@code null} for {@code 0}.
+	 * @param limit The most to return, up to 100. May be {@code null} for Philter's default of 25.
+	 * @return The page of deleted policies and the total.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public GetDeletedPoliciesResponse getDeletedPolicies(String owner, Integer offset, Integer limit)
+			throws IOException {
+
+		final HttpRequest request = json(uri("/api/policies", "deleted", Boolean.TRUE, "owner", owner,
+				"offset", offset, "limit", limit))
+				.GET()
+				.build();
+
+		return sendExpectingJson(request, GetDeletedPoliciesResponse.class);
+
 	}
 
 	/**

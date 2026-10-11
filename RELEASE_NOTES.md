@@ -31,8 +31,8 @@ act on another user's data, and paged calls take `offset` and `limit`.
 * **Filtering:** redact PDFs with `filterToPdf`, or asynchronously with `filterAsync` and `filterToPdfAsync`
   and then `getDocumentState` and `getDocument`, from a `File` or a `byte[]`. `filter` and `explain` take an
   optional filename and can return a signed response (`X-Philter-Signature`).
-* **Policies:** versions, diffs, rollback, PhiSQL compilation, descriptions and notes, managed policies
-  (`listManagedPolicies`), and `copyPolicy`. Writes to a managed policy are a 409 `policy_managed`, and
+* **Policies:** versions (each with its `author`), diffs, rollback, deleted policies (`getDeletedPolicies`),
+  PhiSQL compilation, descriptions and notes, managed policies (`listManagedPolicies`), and `copyPolicy`. Writes to a managed policy are a 409 `policy_managed`, and
   deleting `default` a 409 `policy_default`. A description or notes given to `savePolicy` or `replacePolicy`
   are sent in a second, non-atomic request.
 * **Contexts:** settings, including the disambiguation scope (`DisambiguationScope`); per-filter-type counts;
@@ -62,8 +62,8 @@ can be used in a request path (philterd/philter#140); session key listing (#141)
 policy descriptions (#142); policy descriptions and notes in a request body, without which earlier clients
 fail (#144); unverifiable ledger chains (#145); the `policy_managed` reason (#146); unreadable ledger entries
 (#147); `user` holds without a `scopeValue` (#148); an audit event's source (#149); the disambiguation
-scope (#150); changing a user's email address, and the email rule on `createUser` (#168); and request ids
-(#156).
+scope (#150); deleted policies and version authors (#166); changing a user's email address, and the email
+rule on `createUser` (#168); and request ids (#156).
 
 ### Errors
 
