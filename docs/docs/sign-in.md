@@ -142,7 +142,11 @@ client.removeUserMfa("jordan");
 int revoked = client.revokeSessionKeys("jordan");
 ```
 
-Pass `session` to `getApiKeys` to list only one kind of key; the total then counts only those. `SignInResponse.getId()` is the session key's ID as the listing gives it, so a user interface can recognize its own key among the user's sessions:
+Pass `session` to `getApiKeys` to list only one kind of key; the total then counts only those.
+
+### Your sessions
+
+A person can see where they are signed in and sign out the sessions they do not recognize. Each session key carries the client that signed in: `getClientAddress()` and `getUserAgent()` (such as a browser, at most 256 characters). `isCurrent()` is `true` for the key making the request, so a user interface can mark the session it is using. Philter keeps the address and user agent only while the session lasts, and they are `null` for long-lived keys.
 
 ```java
 import ai.philterd.philter.model.ApiKey;
@@ -152,10 +156,17 @@ import ai.philterd.philter.model.GetApiKeysResponse;
 // long-lived keys, and null both.
 GetApiKeysResponse sessions = session.getApiKeys(null, null, null, true);
 for (ApiKey key : sessions.getApiKeys()) {
-    boolean current = key.getId().equals(result.getId());
-    System.out.println(key.getPrefix() + (current ? " (this session)" : ""));
+    System.out.println(key.getUserAgent() + " from " + key.getClientAddress() + ", last used "
+            + key.getLastUsedAt() + (key.isCurrent() ? " (this session)" : ""));
 }
+
+// Sign out everywhere else, and stay signed in here.
+long revoked = session.signOutOtherSessions();
 ```
+
+`signOutOtherSessions()` revokes every session key your user holds except the one making the request. Called with a long-lived key, it revokes all of the user's session keys. Long-lived keys are never affected. It requires `api-keys:write` but not an administrator, because it only ends your own sessions. To end one session, revoke its key with `revokeApiKey`.
+
+`SignInResponse.getId()` is also the session key's ID as the listing gives it, another way to recognize the current session.
 
 `setApiKeyScopes` and `revokeApiKey` refuse the key making the request with an HTTP 409, so a session key cannot change its own scopes; it ends itself with `signOut()`.
 

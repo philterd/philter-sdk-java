@@ -137,6 +137,17 @@ for (WebhookDelivery delivery : client.getWebhookDeliveries().getDeliveries()) {
 }
 ```
 
+A person signed in with a session key can see their sessions, with the address and user agent each signed in from,
+and sign out the others:
+
+```
+for (ApiKey key : client.getApiKeys(null, null, null, true).getApiKeys()) {
+    String marker = key.isCurrent() ? " (this one)" : "";
+    System.out.println(key.getUserAgent() + " from " + key.getClientAddress() + marker);
+}
+long revoked = client.signOutOtherSessions();
+```
+
 An administrator sets or removes a user's email address with `setUserEmail`:
 
 ```

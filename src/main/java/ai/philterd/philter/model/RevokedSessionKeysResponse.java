@@ -25,13 +25,14 @@ public class RevokedSessionKeysResponse {
 
     @Expose
     @SerializedName("revoked")
-    private int revoked;
+    private long revoked;
 
-    public int getRevoked() {
+    /** How many session keys were revoked. */
+    public long getRevoked() {
         return revoked;
     }
 
-    public void setRevoked(int revoked) {
+    public void setRevoked(long revoked) {
         this.revoked = revoked;
     }
 

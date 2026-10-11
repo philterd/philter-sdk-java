@@ -62,6 +62,18 @@ public class ApiKey {
     @SerializedName("lastUsedAt")
     private String lastUsedAt;
 
+    @Expose
+    @SerializedName("clientAddress")
+    private String clientAddress;
+
+    @Expose
+    @SerializedName("userAgent")
+    private String userAgent;
+
+    @Expose
+    @SerializedName("current")
+    private boolean current;
+
     /** The key's ID, used to change its scopes or revoke it. */
     public String getId() {
         return id;
@@ -144,6 +156,40 @@ public class ApiKey {
 
     public void setLastUsedAt(String lastUsedAt) {
         this.lastUsedAt = lastUsedAt;
+    }
+
+    /**
+     * Session keys only: the address of the client that signed in, so a person can tell their sessions
+     * apart. Philter keeps it only while the session lasts. {@code null} for a long-lived key.
+     */
+    public String getClientAddress() {
+        return clientAddress;
+    }
+
+    public void setClientAddress(String clientAddress) {
+        this.clientAddress = clientAddress;
+    }
+
+    /**
+     * Session keys only: the user agent (such as a browser) of the client that signed in, at most 256
+     * characters. Philter keeps it only while the session lasts. {@code null} for a long-lived key, or when
+     * the client sent none.
+     */
+    public String getUserAgent() {
+        return userAgent;
+    }
+
+    public void setUserAgent(String userAgent) {
+        this.userAgent = userAgent;
+    }
+
+    /** Whether this is the key making the request, such as the session this client signed in with. */
+    public boolean isCurrent() {
+        return current;
+    }
+
+    public void setCurrent(boolean current) {
+        this.current = current;
     }
 
 }

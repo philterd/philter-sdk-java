@@ -3652,6 +3652,44 @@ public class PhilterClient {
 		sendExpectingNoContent(request(uri("/api/api-keys/current")).DELETE().build());
 	}
 
+	/**
+	 * Signs out every other session: revokes every session key the caller's user holds except the key
+	 * this client was built with, so a person can end the sessions they do not recognize and stay signed
+	 * in here. Called with a long-lived key, it revokes all of the user's session keys. Long-lived keys are
+	 * not affected. Session keys are checked on every request, so the revocation applies at once.
+	 *
+	 * <p>List the sessions first with {@link #getApiKeys(String, Integer, Integer, Boolean)} and
+	 * {@code session} {@code true}: each {@link ApiKey} has its {@link ApiKey#getClientAddress()},
+	 * {@link ApiKey#getUserAgent()}, {@link ApiKey#getLastUsedAt()}, and whether it
+	 * {@link ApiKey#isCurrent() is the current one}. To end one session, revoke its key with
+	 * {@link #revokeApiKey(String)}.</p>
+	 *
+	 * <pre>{@code
+	 * for (ApiKey session : client.getApiKeys(null, null, null, true).getApiKeys()) {
+	 *     System.out.println(session.getUserAgent() + " from " + session.getClientAddress()
+	 *             + (session.isCurrent() ? " (this session)" : ""));
+	 * }
+	 * long revoked = client.signOutOtherSessions();
+	 * }</pre>
+	 *
+	 * <p>Requires the {@code api-keys:write} scope. Does not require an administrator, because it only
+	 * ends the caller's own sessions.</p>
+	 *
+	 * @return The number of session keys revoked.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public long signOutOtherSessions() throws IOException {
+
+		final HttpRequest request = json(uri("/api/users/me/session-keys"))
+				.DELETE()
+				.build();
+
+		final RevokedSessionKeysResponse response = sendExpectingJson(request, RevokedSessionKeysResponse.class);
+
+		return response.getRevoked();
+
+	}
+
 	// Admin settings.
 
 	/**
@@ -4554,7 +4592,7 @@ public class PhilterClient {
 
 		final RevokedSessionKeysResponse response = sendExpectingJson(request, RevokedSessionKeysResponse.class);
 
-		return response.getRevoked();
+		return Math.toIntExact(response.getRevoked());
 
 	}
 

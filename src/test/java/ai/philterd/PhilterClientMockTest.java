@@ -2668,6 +2668,47 @@ public class PhilterClientMockTest {
     }
 
     @Test
+    public void signOutOtherSessionsReturnsTheCount() throws Exception {
+
+        respond(200, "{\"revoked\":3}");
+
+        final long revoked = client().signOutOtherSessions();
+
+        Assert.assertEquals(3L, revoked);
+        Assert.assertEquals("DELETE", method);
+        Assert.assertEquals("/api/users/me/session-keys", path);
+        Assert.assertTrue(queryParameters.isEmpty());
+        Assert.assertEquals(0, requestBody.length);
+    }
+
+    @Test
+    public void sessionsCarryTheirClientAndWhetherTheyAreCurrent() throws Exception {
+
+        respond(200, "{\"apiKeys\":["
+                + "{\"id\":\"k1\",\"prefix\":\"sk_A...\",\"scopes\":[\"redact\"],\"session\":true,"
+                + "\"clientAddress\":\"203.0.113.7\",\"userAgent\":\"Mozilla/5.0 (X11; Linux x86_64)\",\"current\":true},"
+                + "{\"id\":\"k2\",\"prefix\":\"sk_B...\",\"scopes\":[\"redact\"],\"session\":true,"
+                + "\"clientAddress\":\"198.51.100.4\",\"userAgent\":null,\"current\":false},"
+                + "{\"id\":\"k3\",\"prefix\":\"sk_C...\",\"scopes\":[\"redact\"],\"session\":false}"
+                + "],\"total\":3}");
+
+        final List<ApiKey> keys = client().getApiKeys(null, null, null, null).getApiKeys();
+
+        Assert.assertEquals("203.0.113.7", keys.get(0).getClientAddress());
+        Assert.assertEquals("Mozilla/5.0 (X11; Linux x86_64)", keys.get(0).getUserAgent());
+        Assert.assertTrue(keys.get(0).isCurrent());
+
+        Assert.assertEquals("198.51.100.4", keys.get(1).getClientAddress());
+        Assert.assertNull("a client that sent no user agent", keys.get(1).getUserAgent());
+        Assert.assertFalse(keys.get(1).isCurrent());
+
+        // A long-lived key, or a response from an older Philter, has none of them.
+        Assert.assertNull(keys.get(2).getClientAddress());
+        Assert.assertNull(keys.get(2).getUserAgent());
+        Assert.assertFalse(keys.get(2).isCurrent());
+    }
+
+    @Test
     public void getApiKeysMapsSessionKeyFields() throws Exception {
 
         respond(200, "{\"apiKeys\":[{\"id\":\"6a0f1c2e9b1d4e3f2a1b0c9d\",\"prefix\":\"sk_AbCdEfGhI...\","

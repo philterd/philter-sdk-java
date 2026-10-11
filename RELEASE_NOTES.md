@@ -45,10 +45,11 @@ act on another user's data, and paged calls take `offset` and `limit`.
   unreadable entry has a `getReadError()`, and exporting its chain is a 422 `entry_unreadable`. A `user` hold
   needs no `scopeValue`.
 * **Users and sign-in:** user management, including `setUserEmail`; `signIn`, `completeSignIn` (MFA), and
-  `signOut`; passwords, MFA enrollment, and `revokeSessionKeys`. `withClientAddress(Supplier<String>)` sends
-  the end user's address as `X-Forwarded-For` on every request, so Philter rate-limits and audits per person.
-* **API keys:** list, create, scope, and revoke keys, including session keys. `listApiKeyScopes` describes
-  each scope.
+  `signOut`; passwords, MFA enrollment, `revokeSessionKeys`, and `signOutOtherSessions`.
+  `withClientAddress(Supplier<String>)` sends the end user's address as `X-Forwarded-For` on every request, so
+  Philter rate-limits and audits per person.
+* **API keys:** list, create, scope, and revoke keys, including session keys, each with the client address and
+  user agent that signed in and whether it is the current key. `listApiKeyScopes` describes each scope.
 * **Administration:** admin settings, the webhook (with `testWebhook`, `getWebhookDeliveries`, and changing the
   URL while keeping the secret), the audit log and its CSV export, signing-key rotation, and listings across all
   users. `AuditEvent.getUsername()` names the user who acted, and users have their `getId()`, which audit events
@@ -67,7 +68,7 @@ descriptions and notes in a request body, without which earlier clients fail (#1
 `scopeValue` (#148); an audit event's source (#149); the disambiguation scope (#150); audit event usernames and
 user ids (#161); policy templates (#164); webhook tests, delivery history, and keeping the secret (#165);
 deleted policies and version authors (#166); changing a user's email address, and the email rule on `createUser`
-(#168); and request ids (#156).
+(#168); session client details and signing out other sessions (#169); and request ids (#156).
 
 ### Errors
 
