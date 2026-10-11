@@ -24,6 +24,10 @@ import com.google.gson.annotations.SerializedName;
 public class User {
 
     @Expose
+    @SerializedName("id")
+    private String id;
+
+    @Expose
     @SerializedName("username")
     private String username;
 
@@ -62,6 +66,19 @@ public class User {
     @Expose
     @SerializedName("mfaLocked")
     private boolean mfaLocked;
+
+    /**
+     * The user's id, a 24-character hex string. Audit events and other records refer to the user by it: an
+     * {@link AuditEvent#getApiKeyId()} that names this user is this id. {@code null} from a Philter version
+     * that does not return it.
+     */
+    public String getId() {
+        return id;
+    }
+
+    public void setId(String id) {
+        this.id = id;
+    }
 
     public String getUsername() {
         return username;

@@ -41,6 +41,10 @@ public class AuditEvent {
     private String apiKeyId;
 
     @Expose
+    @SerializedName("username")
+    private String username;
+
+    @Expose
     @SerializedName("associatedObject")
     private String associatedObject;
 
@@ -83,13 +87,32 @@ public class AuditEvent {
         this.requestId = requestId;
     }
 
-    /** The acting principal. */
+    /**
+     * The id of the acting principal. Despite the name, for most events this is the id of the user who
+     * acted, the same id as {@link User#getId()}, and {@link #getUsername()} is that user's username. For
+     * some events it is the id of something else, such as a policy, a list, or an API key, and then
+     * {@link #getUsername()} is {@code null}.
+     */
     public String getApiKeyId() {
         return apiKeyId;
     }
 
     public void setApiKeyId(String apiKeyId) {
         this.apiKeyId = apiKeyId;
+    }
+
+    /**
+     * The username of the user {@link #getApiKeyId()} names, when the actor is a user, including a user
+     * since deactivated. {@code null} when {@link #getApiKeyId()} names something other than a user, when
+     * the event has no user actor, such as one Philter recorded on its own, and from a Philter version that
+     * does not return it.
+     */
+    public String getUsername() {
+        return username;
+    }
+
+    public void setUsername(String username) {
+        this.username = username;
     }
 
     /** The entity the action concerned. */

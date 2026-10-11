@@ -18,7 +18,8 @@ GetAuditLogResponse page = client.getAuditLog("policy_deleted",
 
 long total = page.getTotal();
 for (AuditEvent e : page.getEvents()) {
-    System.out.println(e.getTimestamp() + " " + e.getEvent() + " " + e.getDetails());
+    // The actor's username, or null when the actor is not a user.
+    System.out.println(e.getTimestamp() + " " + e.getEvent() + " by " + e.getUsername() + ": " + e.getDetails());
 }
 ```
 
@@ -30,6 +31,8 @@ Events are returned most recent first. Every filter may be `null`:
 - `offset` and `limit` - page through the matches (default 25, at most 100). `getTotal()` is the number of events matching the filters.
 
 Every field of an `AuditEvent` except `getTimestamp()` and `getEvent()` is `null` for an event that did not record it. Audit events never carry redacted values.
+
+`getApiKeyId()` is the id of the acting principal. Despite its name, for most events it is the id of the user who acted, the same id as `User.getId()`, and `getUsername()` is that user's username, even for a user since deactivated. For some events the principal is something else, such as a policy, a list, or an API key; `getUsername()` is then `null`, as it is for an event with no user actor and for events from a Philter without philterd/philter#161. The CSV export has no `username` column; its `api_key_id` column holds the same id.
 
 `getSource()` says where an event came from: `api` for an event a request caused, including a redaction the asynchronous worker completes later, or `system` for one Philter recorded on its own, such as at startup or when a session key expires in the background. `getClientIpAddress()` is the address of the client whose request caused the event (the connection's address or, for a request from a trusted proxy, the address its `X-Forwarded-For` names), and `null` for an event with no request behind it. Events recorded by a Philter without philterd/philter#149 have no source, and some hold `api` or `system` in the client address instead. For the list of event types and what each field holds, see Philter's [auditing documentation](https://github.com/philterd/philter/blob/main/docs/docs/auditing.md).
 
@@ -46,7 +49,7 @@ String csv = export.getCsv();          // or getContent() for the bytes
 int rows = export.getRows();
 ```
 
-The CSV has a header row and the columns `timestamp`, `event`, `request_id`, `api_key_id`, `associated_object`, `client_ip_address`, `source`, and `details`, the same fields as an `AuditEvent`. A Philter without philterd/philter#149 has no `source` column.
+The CSV has a header row and the columns `timestamp`, `event`, `request_id`, `api_key_id`, `associated_object`, `client_ip_address`, `source`, and `details`, the same fields as an `AuditEvent` except its `getUsername()`. A Philter without philterd/philter#149 has no `source` column.
 
 `from` and `to` are read in the given time zone, or in the Philter server's time zone when it is `null` or omitted. `getTimeZone()` reports the zone Philter used. Timestamps in the CSV are UTC whatever the zone. A range may span at most 31 days (`to` at most 30 days after `from`).
 

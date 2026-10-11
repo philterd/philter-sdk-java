@@ -13,6 +13,7 @@ import ai.philterd.philter.model.CreatedUserResponse;
 
 CreatedUserResponse user = client.createUser("ci", "ci@example.com");
 
+System.out.println(user.getId());        // 6aa5792a403075186a843960
 System.out.println(user.getUsername());  // ci
 System.out.println(user.getRole());      // user
 
@@ -20,7 +21,7 @@ System.out.println(user.getRole());      // user
 CreatedUserResponse admin = client.createUser("ops", null, "admin");
 ```
 
-The email is optional. The role is `user` or `admin`, and defaults to `user`. `createUser(username, email, role, password)` also gives the user a password, which they must change at next sign-in; without one, the user can only use API keys. See [Passwords](sign-in.md#passwords). The new user gets a default policy and context.
+A user's id, from `getId()` here and on every `User` (including `getCurrentUser()`), is a 24-character hex string. Audit events refer to the user by it, in `AuditEvent.getApiKeyId()`. The email is optional. The role is `user` or `admin`, and defaults to `user`. `createUser(username, email, role, password)` also gives the user a password, which they must change at next sign-in; without one, the user can only use API keys. See [Passwords](sign-in.md#passwords). The new user gets a default policy and context.
 
 An email address must have one `@`, something on each side, a dot in the domain, and no whitespace, and be at most 254 characters. A missing or reserved username (`me`), any other role, or an email address that does not follow that rule is rejected with an HTTP 400. A username already taken, by an active user or a deactivated one holding the name in reserve, returns an HTTP 409. Both surface as a `ClientException` carrying Philter's explanation.
 

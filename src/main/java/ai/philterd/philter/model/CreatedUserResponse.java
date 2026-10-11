@@ -24,12 +24,28 @@ import com.google.gson.annotations.SerializedName;
 public class CreatedUserResponse {
 
     @Expose
+    @SerializedName("id")
+    private String id;
+
+    @Expose
     @SerializedName("username")
     private String username;
 
     @Expose
     @SerializedName("role")
     private String role;
+
+    /**
+     * The new user's id, a 24-character hex string, which audit events and other records refer to the user
+     * by. {@code null} from a Philter version that does not return it.
+     */
+    public String getId() {
+        return id;
+    }
+
+    public void setId(String id) {
+        this.id = id;
+    }
 
     public String getUsername() {
         return username;

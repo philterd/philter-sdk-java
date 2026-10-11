@@ -1556,10 +1556,11 @@ public class PhilterClientMockTest {
     @Test
     public void createUser() throws Exception {
 
-        respond(201, "{\"username\":\"ci\",\"role\":\"user\"}");
+        respond(201, "{\"id\":\"6aa5792a403075186a843960\",\"username\":\"ci\",\"role\":\"user\"}");
 
         final CreatedUserResponse response = client().createUser("ci", "ci@example.com");
 
+        Assert.assertEquals("6aa5792a403075186a843960", response.getId());
         Assert.assertEquals("ci", response.getUsername());
         Assert.assertEquals("user", response.getRole());
 
@@ -1667,6 +1668,24 @@ public class PhilterClientMockTest {
         Assert.assertEquals("/api/users/ci%20user", rawPath);
         Assert.assertEquals("ci", user.getUsername());
         Assert.assertTrue(user.isActive());
+    }
+
+    @Test
+    public void usersCarryTheirId() throws Exception {
+
+        respond(200, "{\"users\":[{\"id\":\"6aa5792a403075186a843960\",\"username\":\"ci\",\"role\":\"user\",\"active\":true},"
+                + "{\"username\":\"older\",\"role\":\"user\",\"active\":true}],\"total\":2}");
+        final List<User> users = client().getUsers().getUsers();
+        Assert.assertEquals("6aa5792a403075186a843960", users.get(0).getId());
+        Assert.assertNull("absent from an older Philter", users.get(1).getId());
+
+        respond(200, "{\"id\":\"6aa5792a403075186a843961\",\"username\":\"jordan\",\"role\":\"admin\",\"active\":true}");
+        Assert.assertEquals("6aa5792a403075186a843961", client().getUser("jordan").getId());
+        Assert.assertEquals("6aa5792a403075186a843961", client().setUserRole("jordan", "admin").getId());
+
+        respond(200, "{\"id\":\"6aa5792a403075186a843962\",\"username\":\"me\",\"role\":\"user\",\"active\":true,"
+                + "\"mfaAvailable\":true,\"mfaRequired\":false}");
+        Assert.assertEquals("6aa5792a403075186a843962", client().getCurrentUser().getId());
     }
 
     @Test
@@ -2192,6 +2211,26 @@ public class PhilterClientMockTest {
         Assert.assertEquals("api_key_created", events.get(2).getEvent());
         Assert.assertNull(events.get(2).getClientIpAddress());
         Assert.assertEquals("system", events.get(2).getSource());
+    }
+
+    @Test
+    public void anAuditEventNamesItsActorWhenTheActorIsAUser() throws Exception {
+
+        respond(200, "{\"events\":["
+                + "{\"timestamp\":\"2026-10-05T12:00:00.000+00:00\",\"event\":\"user_role_changed\","
+                + "\"apiKeyId\":\"6aa5792a403075186a843960\",\"username\":\"jordan\"},"
+                + "{\"timestamp\":\"2026-10-05T11:00:00.000+00:00\",\"event\":\"policy_updated\","
+                + "\"apiKeyId\":\"6aa57a01403075186a843971\"},"
+                + "{\"timestamp\":\"2026-10-05T10:00:00.000+00:00\",\"event\":\"api_key_expired\","
+                + "\"apiKeyId\":\"6aa57a01403075186a843972\",\"username\":null}"
+                + "],\"total\":3}");
+
+        final List<AuditEvent> events = client().getAuditLog().getEvents();
+
+        Assert.assertEquals("6aa5792a403075186a843960", events.get(0).getApiKeyId());
+        Assert.assertEquals("jordan", events.get(0).getUsername());
+        Assert.assertNull("Philter leaves it out when the principal is not a user", events.get(1).getUsername());
+        Assert.assertNull(events.get(2).getUsername());
     }
 
     @Test

@@ -49,10 +49,11 @@ act on another user's data, and paged calls take `offset` and `limit`.
   the end user's address as `X-Forwarded-For` on every request, so Philter rate-limits and audits per person.
 * **API keys:** list, create, scope, and revoke keys, including session keys. `listApiKeyScopes` describes
   each scope.
-* **Administration:** admin settings, the webhook (with `testWebhook`, `getWebhookDeliveries`, and changing the URL
-  while keeping the secret), the audit log and its CSV export, signing-key rotation, and listings across all
-  users. `AuditEvent.getSource()` is `api` for an event a request caused or `system` for
-  one Philter recorded on its own, and `getClientIpAddress()` is only ever the requesting client's address.
+* **Administration:** admin settings, the webhook (with `testWebhook`, `getWebhookDeliveries`, and changing the
+  URL while keeping the secret), the audit log and its CSV export, signing-key rotation, and listings across all
+  users. `AuditEvent.getUsername()` names the user who acted, and users have their `getId()`, which audit events
+  refer to them by. `AuditEvent.getSource()` is `api` for an event a request caused or `system` for one Philter
+  recorded on its own, and `getClientIpAddress()` is only ever the requesting client's address.
 
 Responses are typed models. Calls that returned raw JSON have typed alternatives, such as `listContexts`,
 `getContextDetails`, `listLedgerChains`, and `getLedgerExport`, and the `String` versions are deprecated, as
@@ -63,9 +64,10 @@ Some of this needs a Philter that includes the matching change: context, list, a
 in a request path (philterd/philter#140); session key listing (#141); managed policy descriptions (#142); policy
 descriptions and notes in a request body, without which earlier clients fail (#144); unverifiable ledger chains
 (#145); the `policy_managed` reason (#146); unreadable ledger entries (#147); `user` holds without a
-`scopeValue` (#148); an audit event's source (#149); the disambiguation scope (#150); policy templates (#164);
-webhook tests, delivery history, and keeping the secret (#165); deleted policies and version authors (#166);
-changing a user's email address, and the email rule on `createUser` (#168); and request ids (#156).
+`scopeValue` (#148); an audit event's source (#149); the disambiguation scope (#150); audit event usernames and
+user ids (#161); policy templates (#164); webhook tests, delivery history, and keeping the secret (#165);
+deleted policies and version authors (#166); changing a user's email address, and the email rule on `createUser`
+(#168); and request ids (#156).
 
 ### Errors
 
