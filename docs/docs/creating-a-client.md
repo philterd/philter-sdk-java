@@ -76,6 +76,36 @@ keytool -importcert -noprompt -alias ca -file ca.crt -keystore ca.p12 -storetype
 
 Build the trust store with `keytool -importcert` as shown. A PKCS12 trust store made with `openssl pkcs12 -export -nokeys` reads as empty in Java, because its certificates lack the attribute Java uses to mark trusted certificates, and `build()` refuses it.
 
+### With your own HTTP client builder
+
+The TLS options above cannot be combined with `withHttpClientBuilder`, since your builder carries its own TLS settings. To use the same keystores with your own builder, build the `SSLContext` with `PhilterTls.sslContext` and set it on your builder:
+
+```java
+import ai.philterd.philter.PhilterTls;
+import javax.net.ssl.SSLContext;
+import java.net.http.HttpClient;
+import java.nio.file.Path;
+import java.time.Duration;
+
+SSLContext context = PhilterTls.sslContext(
+        Path.of("/etc/philter-client/client.p12"), keyStorePassword,
+        Path.of("/etc/philter-client/ca.p12"), trustStorePassword);
+
+HttpClient.Builder http = HttpClient.newBuilder()
+        .connectTimeout(Duration.ofSeconds(60))
+        .sslContext(context);
+
+PhilterClient client = new PhilterClient.PhilterClientBuilder()
+        .withEndpoint("https://philter.internal.example.com:8080")
+        .withApiKey("your-api-key")
+        .withHttpClientBuilder(http)
+        .build();
+```
+
+Your builder gets none of the SDK's HTTP client defaults, so set a connect timeout on it as shown: the JDK's builder has none, and follows no redirects unless told to.
+
+`PhilterTls.sslContext` reads the files the same way `withClientCertificate` and `withTrustStore` do, and refuses an unusable file with the same `IllegalArgumentException`. Either store may be `null`, but not both: with no keystore no client certificate is presented, and with no trust store the JVM's default trust applies. The files are read when it is called, so build the context once and share it across clients.
+
 ## Requests on behalf of a person
 
 An application that calls Philter for the people using it, such as a web front end, can pass each person's address with `withClientAddress`. It is sent as `X-Forwarded-For` on every request, so wherever Philter records a request's client address, such as on audit events and for the sign-in rate limit, it records the person's address rather than the application's:

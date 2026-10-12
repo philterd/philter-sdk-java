@@ -112,7 +112,9 @@ PhilterClient client = new PhilterClient.PhilterClientBuilder()
         .build();
 ```
 
-`withSslContext(SSLContext)` takes a context you build instead, for example from PEM files.
+`withSslContext(SSLContext)` takes a context you build instead, for example from PEM files. With your own
+`HttpClient.Builder`, build the context from the same keystores with `PhilterTls.sslContext(...)` and set it on your
+builder.
 
 In addition to filtering, the client covers the full Philter 4.0.0 API: policies (including templates, versions and
 their authors, diffs, rollbacks, deleted policies, descriptions and notes, managed policies, and copies), contexts,

@@ -228,7 +228,7 @@ public class PhilterClient {
 		 * {@code Authorization} header, and the address from {@link #withClientAddress(Supplier)} still
 		 * apply. It cannot be combined with {@link #withClientCertificate(Path, char[])},
 		 * {@link #withTrustStore(Path, char[])}, or {@link #withSslContext(SSLContext)}: set TLS on the
-		 * supplied builder instead.
+		 * supplied builder instead, such as an {@link SSLContext} from {@link PhilterTls#sslContext}.
 		 *
 		 * <p>This replaces the {@code withOkHttpClientBuilder} method of earlier releases.</p>
 		 *
@@ -406,7 +406,7 @@ public class PhilterClient {
 			if(httpClientBuilder != null && (stores || sslContext != null)) {
 				throw new IllegalStateException("withClientCertificate, withTrustStore, and withSslContext configure "
 						+ "the SDK's own HTTP client, so they cannot be combined with withHttpClientBuilder. Set the "
-						+ "SSLContext on the supplied HttpClient.Builder instead.");
+						+ "SSLContext on the supplied HttpClient.Builder instead, for example one from PhilterTls.sslContext.");
 			}
 
 			if(sslContext != null && stores) {
@@ -419,7 +419,7 @@ public class PhilterClient {
 			}
 
 			return stores
-					? TlsContexts.create(clientCertificate, clientCertificatePassword, trustStore, trustStorePassword)
+					? PhilterTls.sslContext(clientCertificate, clientCertificatePassword, trustStore, trustStorePassword)
 					: null;
 
 		}

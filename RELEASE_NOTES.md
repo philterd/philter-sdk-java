@@ -130,7 +130,8 @@ email address, and the email rule on `createUser` (#168); session client details
 * TLS options on the builder, using only the JDK: `withClientCertificate` presents a client certificate for mutual
   TLS, `withTrustStore` trusts a private or self-signed server certificate, and `withSslContext` takes an
   `SSLContext` for anything else. Each keeps the default HTTP client's other settings, and hostname verification
-  stays on.
+  stays on. `PhilterTls.sslContext` builds the same `SSLContext` from keystores for a caller that supplies its own
+  `HttpClient.Builder`.
 * Mocked tests cover the whole client; integration tests run against a live Philter when `PHILTER_ENDPOINT`
   is set.
 

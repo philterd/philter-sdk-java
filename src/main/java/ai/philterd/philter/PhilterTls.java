@@ -27,21 +27,69 @@ import java.security.KeyStore;
 import java.util.Collections;
 
 /**
- * Builds the {@link SSLContext} for {@link PhilterClient.PhilterClientBuilder#withClientCertificate} and
- * {@link PhilterClient.PhilterClientBuilder#withTrustStore} with the JDK alone.
+ * Builds an {@link SSLContext} from keystore files with the JDK alone, as
+ * {@link PhilterClient.PhilterClientBuilder#withClientCertificate(Path, char[])} and
+ * {@link PhilterClient.PhilterClientBuilder#withTrustStore(Path, char[])} do.
+ *
+ * <p>Use it when supplying your own {@link java.net.http.HttpClient.Builder} with
+ * {@link PhilterClient.PhilterClientBuilder#withHttpClientBuilder(java.net.http.HttpClient.Builder)}, which the
+ * builder's TLS options cannot be combined with. Set the context on your builder:</p>
+ *
+ * <pre>{@code
+ * SSLContext context = PhilterTls.sslContext(Path.of("client.p12"), keyStorePassword,
+ *         Path.of("ca.p12"), trustStorePassword);
+ *
+ * HttpClient.Builder http = HttpClient.newBuilder()
+ *         .connectTimeout(Duration.ofSeconds(30))
+ *         .sslContext(context);
+ *
+ * PhilterClient client = new PhilterClient.PhilterClientBuilder()
+ *         .withEndpoint("https://philter.internal.example.com:8080")
+ *         .withHttpClientBuilder(http)
+ *         .build();
+ * }</pre>
+ *
+ * <p>A supplied builder gets none of the SDK's HTTP client defaults, so set what you need on it: the JDK's
+ * builder has no connect timeout and follows no redirects unless told to. Without your own builder, use the
+ * builder's TLS options instead, which keep those defaults.</p>
  */
-final class TlsContexts {
+public final class PhilterTls {
 
-    private TlsContexts() {
+    private PhilterTls() {
     }
 
     /**
-     * An {@link SSLContext} presenting the key in {@code keyStore}, when given, and trusting the certificates in
-     * {@code trustStore}, when given, or the JVM's default trust store when not. A store that cannot be used is
-     * refused with an {@link IllegalArgumentException} naming the file, never the password.
+     * Builds an {@link SSLContext} that presents the client certificate in {@code keyStore}, when given, and trusts
+     * the certificates in {@code trustStore}, when given, or the JVM's default trust store when not. Each file is
+     * a PKCS12 or JKS store, its format detected from its contents, and is read now.
+     *
+     * <p>The client certificate's private key must use the keystore's password, as it does in a PKCS12 file.
+     * Without a {@code keyStore}, no client certificate is presented; the {@code javax.net.ssl.keyStore} system
+     * property is not used.</p>
+     *
+     * @param keyStore The keystore holding the client certificate and its private key. May be {@code null} for
+     * no client certificate.
+     * @param keyStorePassword The keystore's password. Required when {@code keyStore} is given.
+     * @param trustStore The trust store holding the certificates to trust for the server. May be {@code null} for
+     * the JVM's default trust store.
+     * @param trustStorePassword The trust store's password. May be {@code null} for a store without one, in which
+     * case its integrity is not checked.
+     * @return The TLS context.
+     * @throws IllegalArgumentException Thrown if neither store is given, if {@code keyStore} is given without a
+     * password, or if a store is missing, cannot be read with its password, or holds nothing usable (no private
+     * key in the keystore, no trusted certificates in the trust store). A message about a store names its file,
+     * and no message contains a password.
      */
-    static SSLContext create(final Path keyStore, final char[] keyStorePassword, final Path trustStore,
-                             final char[] trustStorePassword) {
+    public static SSLContext sslContext(final Path keyStore, final char[] keyStorePassword, final Path trustStore,
+                                        final char[] trustStorePassword) {
+
+        if (keyStore == null && trustStore == null) {
+            throw new IllegalArgumentException("Give a client certificate keystore, a trust store, or both.");
+        }
+
+        if (keyStore != null && keyStorePassword == null) {
+            throw new IllegalArgumentException("The client certificate keystore " + keyStore + " needs its password.");
+        }
 
         KeyManager[] keyManagers = null;
 

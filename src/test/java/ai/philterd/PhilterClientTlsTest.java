@@ -16,6 +16,7 @@
 package ai.philterd;
 
 import ai.philterd.philter.PhilterClient;
+import ai.philterd.philter.PhilterTls;
 import com.sun.net.httpserver.HttpsConfigurator;
 import com.sun.net.httpserver.HttpsParameters;
 import com.sun.net.httpserver.HttpsServer;
@@ -47,6 +48,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
 
 /**
  * Exercises the client's TLS options against a local HTTPS server, some of whose tests require a client
@@ -340,7 +342,85 @@ public class PhilterClientTlsTest {
         Assert.assertTrue(ex.getMessage(), ex.getMessage().contains("holds no private key"));
     }
 
+    // PhilterTls, for a caller's own HttpClient.Builder.
+
+    @Test
+    public void philterTlsWorksWithACallersOwnHttpClientBuilder() throws Exception {
+
+        startServer(serverKeyStore, true);
+
+        final SSLContext context = PhilterTls.sslContext(clientKeyStore, PASSWORD.toCharArray(),
+                clientTrustStore, PASSWORD.toCharArray());
+
+        final PhilterClient client = builder()
+                .withHttpClientBuilder(ownBuilder(context))
+                .build();
+
+        Assert.assertEquals("UP", client.health().getStatus());
+    }
+
+    @Test
+    public void philterTlsWithATrustStoreAlonePresentsNoClientCertificate() throws Exception {
+
+        final SSLContext context = PhilterTls.sslContext(null, null, clientTrustStore, PASSWORD.toCharArray());
+
+        startServer(serverKeyStore, false);
+        Assert.assertEquals("UP", builder().withHttpClientBuilder(ownBuilder(context))
+                .build().health().getStatus());
+
+        server.stop(0);
+        startServer(serverKeyStore, true);
+        final PhilterClient refused = builder().withHttpClientBuilder(ownBuilder(context))
+                .build();
+        Assert.assertThrows(IOException.class, refused::health);
+    }
+
+    @Test
+    public void philterTlsNeedsAtLeastOneStore() {
+        Assert.assertThrows(IllegalArgumentException.class, () -> PhilterTls.sslContext(null, null, null, null));
+    }
+
+    @Test
+    public void philterTlsNeedsTheKeyStorePassword() {
+
+        final IllegalArgumentException ex = Assert.assertThrows(IllegalArgumentException.class,
+                () -> PhilterTls.sslContext(clientKeyStore, null, null, null));
+        Assert.assertTrue(ex.getMessage(), ex.getMessage().contains(clientKeyStore.toString()));
+    }
+
+    @Test
+    public void philterTlsRefusesUnusableStoresAsTheBuilderDoes() throws Exception {
+
+        final String wrong = "not-the-store-password-42";
+        final Path missing = FOLDER.getRoot().toPath().resolve("missing-for-philter-tls.p12");
+
+        final IllegalArgumentException wrongPassword = Assert.assertThrows(IllegalArgumentException.class,
+                () -> PhilterTls.sslContext(clientKeyStore, wrong.toCharArray(), null, null));
+        Assert.assertEquals(builderRefusal(() -> builder().withClientCertificate(clientKeyStore, wrong.toCharArray())),
+                wrongPassword.getMessage());
+        assertNoPassword(wrongPassword, wrong);
+
+        final IllegalArgumentException missingFile = Assert.assertThrows(IllegalArgumentException.class,
+                () -> PhilterTls.sslContext(null, null, missing, PASSWORD.toCharArray()));
+        Assert.assertEquals(builderRefusal(() -> builder().withTrustStore(missing, PASSWORD.toCharArray())),
+                missingFile.getMessage());
+
+        final IllegalArgumentException noKey = Assert.assertThrows(IllegalArgumentException.class,
+                () -> PhilterTls.sslContext(clientTrustStore, PASSWORD.toCharArray(), null, null));
+        Assert.assertTrue(noKey.getMessage(), noKey.getMessage().contains("holds no private key"));
+    }
+
     // Helpers.
+
+    /** A caller's own HTTP client builder using {@code context}, with a connect timeout as a caller should set. */
+    private static HttpClient.Builder ownBuilder(final SSLContext context) {
+        return HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).sslContext(context);
+    }
+
+    /** The message of the {@link IllegalArgumentException} the builder's {@code build()} throws. */
+    private static String builderRefusal(final Supplier<PhilterClient.PhilterClientBuilder> builder) {
+        return Assert.assertThrows(IllegalArgumentException.class, () -> builder.get().build()).getMessage();
+    }
 
     private PhilterClient.PhilterClientBuilder builder() {
         final int port = server == null ? 8080 : server.getAddress().getPort();
