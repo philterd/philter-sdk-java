@@ -4436,7 +4436,8 @@ public class PhilterClient {
 	 * wait.</p>
 	 *
 	 * <p>An application signing people in should pass each person's address with
-	 * {@link #signIn(String, String, String)}, or they all share its rate limit.</p>
+	 * {@link #signIn(String, String, String)}, or they all share its rate limit, and their user agent with
+	 * {@link #signIn(String, String, String, String)}, or all their sessions show the application's.</p>
 	 *
 	 * @param username The username.
 	 * @param password The password.
@@ -4471,7 +4472,34 @@ public class PhilterClient {
 	 * @throws IOException Thrown if the call can not be executed.
 	 */
 	public SignInResponse signIn(String username, String password, String clientAddress) throws IOException {
-		return sendSignIn("/api/sign-in", new SignInRequest(username, password), clientAddress);
+		return signIn(username, password, clientAddress, null);
+	}
+
+	/**
+	 * Signs a person in on behalf of an application, passing the person's own address and user agent.
+	 * Otherwise the same as {@link #signIn(String, String, String)}, which describes the address.
+	 *
+	 * <p>Philter records the user agent of the request that signs in with the session key it issues, keeping
+	 * at most 256 characters, and returns it from {@link ApiKey#getUserAgent()} so a person can tell their
+	 * sessions apart. Without one, every session an application signs in shows the application's own user
+	 * agent. Pass the user agent of the person's browser, such as the {@code User-Agent} header of their
+	 * request to the application. It is sent as the sign-in request's {@code User-Agent}; Philter does not
+	 * check it, so it is only a description of the device.</p>
+	 *
+	 * @param username The username.
+	 * @param password The password.
+	 * @param clientAddress The person's IP address, as for {@link #signIn(String, String, String)}.
+	 * @param userAgent The person's user agent. {@code null}, empty, or only spaces sends this client's own
+	 * user agent, as {@link #signIn(String, String, String)} does. Surrounding spaces are trimmed, and
+	 * characters outside printable ASCII, such as line breaks, are left out, so it cannot add a header.
+	 * @return The session key, or an MFA challenge.
+	 * @throws IllegalArgumentException If {@code clientAddress} is not one address; see
+	 * {@link #signIn(String, String, String)}. Nothing is sent.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public SignInResponse signIn(String username, String password, String clientAddress, String userAgent)
+			throws IOException {
+		return sendSignIn("/api/sign-in", new SignInRequest(username, password), clientAddress, userAgent);
 	}
 
 	/**
@@ -4485,7 +4513,8 @@ public class PhilterClient {
 	 * 403, thrown as a {@link ClientException}, until an administrator unlocks it. A client address over
 	 * the sign-in rate limit is refused with a
 	 * {@link ai.philterd.philter.model.exceptions.SignInRateLimitedException}. An application signing
-	 * people in passes each person's address with {@link #completeSignIn(String, String, String)}.</p>
+	 * people in passes each person's address with {@link #completeSignIn(String, String, String)}, and their
+	 * user agent with {@link #completeSignIn(String, String, String, String)}.</p>
 	 *
 	 * @param challenge The challenge from {@link SignInResponse#getChallenge()}.
 	 * @param code The code from the person's authenticator app.
@@ -4513,17 +4542,42 @@ public class PhilterClient {
 	 * @throws IOException Thrown if the call can not be executed.
 	 */
 	public SignInResponse completeSignIn(String challenge, String code, String clientAddress) throws IOException {
-		return sendSignIn("/api/sign-in/mfa", new SignInMfaRequest(challenge, code), clientAddress);
+		return completeSignIn(challenge, code, clientAddress, null);
 	}
 
-	private SignInResponse sendSignIn(final String path, final Object body, final String clientAddress)
+	/**
+	 * Completes an MFA sign-in on behalf of an application, passing the person's own address and user agent.
+	 * Otherwise the same as {@link #completeSignIn(String, String, String)}. The session key is issued by this
+	 * request, so it is this request's user agent that Philter records with it. See
+	 * {@link #signIn(String, String, String, String)} for which user agent to pass.
+	 *
+	 * @param challenge The challenge from {@link SignInResponse#getChallenge()}.
+	 * @param code The code from the person's authenticator app.
+	 * @param clientAddress The person's IP address, as for {@link #completeSignIn(String, String, String)}.
+	 * @param userAgent The person's user agent, as for {@link #signIn(String, String, String, String)}.
+	 * @return The session key.
+	 * @throws IllegalArgumentException If {@code clientAddress} is not one address; see
+	 * {@link #signIn(String, String, String)}. Nothing is sent.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public SignInResponse completeSignIn(String challenge, String code, String clientAddress, String userAgent)
 			throws IOException {
+		return sendSignIn("/api/sign-in/mfa", new SignInMfaRequest(challenge, code), clientAddress, userAgent);
+	}
 
-		final HttpRequest request = request(uri(path), clientAddress)
+	private SignInResponse sendSignIn(final String path, final Object body, final String clientAddress,
+									  final String userAgent) throws IOException {
+
+		final HttpRequest.Builder builder = request(uri(path), clientAddress)
 				.header("Accept", APPLICATION_JSON)
-				.header("Content-Type", APPLICATION_JSON)
-				.POST(text(gson.toJson(body)))
-				.build();
+				.header("Content-Type", APPLICATION_JSON);
+
+		final String sentUserAgent = userAgent(userAgent);
+		if (sentUserAgent != null) {
+			builder.header("User-Agent", sentUserAgent);
+		}
+
+		final HttpRequest request = builder.POST(text(gson.toJson(body))).build();
 
 		final HttpResponse<String> response = send(request, HttpResponse.BodyHandlers.ofString());
 
@@ -4532,6 +4586,29 @@ public class PhilterClient {
 		}
 
 		return gson.fromJson(response.body(), SignInResponse.class);
+
+	}
+
+	/**
+	 * The {@code User-Agent} value for a person's user agent, or {@code null} to send the client's own: printable
+	 * ASCII only, so a line break cannot start another header, and trimmed.
+	 */
+	private static String userAgent(final String userAgent) {
+
+		if (userAgent == null) {
+			return null;
+		}
+
+		final StringBuilder kept = new StringBuilder(userAgent.length());
+		for (int i = 0; i < userAgent.length(); i++) {
+			final char c = userAgent.charAt(i);
+			if (c >= 0x20 && c <= 0x7e) {
+				kept.append(c);
+			}
+		}
+
+		final String value = kept.toString().strip();
+		return value.isEmpty() ? null : value;
 
 	}
 

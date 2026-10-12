@@ -173,7 +173,10 @@ public class ApiKey {
     /**
      * Session keys only: the user agent (such as a browser) of the client that signed in, at most 256
      * characters. Philter keeps it only while the session lasts. {@code null} for a long-lived key, or when
-     * the client sent none.
+     * the client sent none. An application that signs people in on their behalf passes each person's user
+     * agent with {@code PhilterClient.signIn(String, String, String, String)} and
+     * {@code PhilterClient.completeSignIn(String, String, String, String)}; otherwise its sessions show the
+     * application's own user agent.
      */
     public String getUserAgent() {
         return userAgent;

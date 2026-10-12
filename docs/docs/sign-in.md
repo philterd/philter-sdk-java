@@ -97,13 +97,18 @@ Philter rate-limits sign-ins by client address (`SIGN_IN_RATE_LIMIT_PER_MINUTE`)
 // load balancer, use the client address it resolves from that balancer's header, not the balancer's.
 String personAddress = httpRequest.getRemoteAddr();
 
-SignInResponse result = client.signIn(username, password, personAddress);
+// The person's browser, from their request to the application.
+String personUserAgent = httpRequest.getHeader("User-Agent");
+
+SignInResponse result = client.signIn(username, password, personAddress, personUserAgent);
 if (result.isMfaRequired()) {
-    result = client.completeSignIn(result.getChallenge(), code, personAddress);
+    result = client.completeSignIn(result.getChallenge(), code, personAddress, personUserAgent);
 }
 ```
 
 The address is sent as `X-Forwarded-For`. Philter uses it only when the request comes from an address in its `TRUSTED_PROXIES`, which by default are the loopback, private, link-local, and IPv6 unique-local ranges; otherwise, and for a value that is not an IP address, it uses the address of the connection. A port is allowed and ignored. Pass an address the application determined itself, not one the person's browser supplied, such as their own `X-Forwarded-For`, which they can set to anything. A `null` or empty address, or one of only spaces, sends the client's [`withClientAddress`](creating-a-client.md#requests-on-behalf-of-a-person) value instead, or no header without one; a given address is sent instead of that value. Surrounding spaces are trimmed, and an address containing a comma, a control character such as a line break, a character outside ASCII, or a space within it is refused with an `IllegalArgumentException` before anything is sent.
+
+Philter also records the user agent of the request that issues a session key, so a person can tell their [sessions](#your-sessions) apart. Without the person's user agent, every session the application signs in shows the application's own client (`Java-http-client/...`). The four-argument `signIn` and `completeSignIn` send the given user agent as the sign-in request's `User-Agent`. Pass it on both calls of an MFA sign-in, since the key is issued by the second. A `null` or empty user agent, or one of only spaces, sends the client's own, as the shorter overloads do. Surrounding spaces are trimmed, and characters outside printable ASCII, such as line breaks, are left out, so a user agent cannot add a header. Philter keeps at most 256 characters of it and does not check it, so it describes the device rather than proving anything about it. Only the sign-in requests send it; later requests with the session key send the client's own.
 
 ## Passwords
 
@@ -165,7 +170,7 @@ Pass `session` to `getApiKeys` to list only one kind of key; the total then coun
 
 ### Your sessions
 
-A person can see where they are signed in and sign out the sessions they do not recognize. Each session key carries the client that signed in: `getClientAddress()` and `getUserAgent()` (such as a browser, at most 256 characters). `isCurrent()` is `true` for the key making the request, so a user interface can mark the session it is using. Philter keeps the address and user agent only while the session lasts, and they are `null` for long-lived keys.
+A person can see where they are signed in and sign out the sessions they do not recognize. Each session key carries the client that signed in: `getClientAddress()` and `getUserAgent()` (such as a browser, at most 256 characters). For sessions an application signs in on a person's behalf, these are the address and user agent it passed; see [Signing in on behalf of a person](#signing-in-on-behalf-of-a-person). `isCurrent()` is `true` for the key making the request, so a user interface can mark the session it is using. Philter keeps the address and user agent only while the session lasts, and they are `null` for long-lived keys.
 
 ```java
 import ai.philterd.philter.model.ApiKey;

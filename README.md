@@ -232,6 +232,13 @@ for (ApiKey key : client.getApiKeys(null, null, null, true).getApiKeys()) {
 long revoked = client.signOutOtherSessions();
 ```
 
+An application that signs people in on their behalf passes each person's address and user agent, so each session
+shows the person's own browser rather than the application's client:
+
+```
+SignInResponse result = client.signIn(username, password, personAddress, personUserAgent);
+```
+
 An administrator sets or removes a user's email address with `setUserEmail`:
 
 ```

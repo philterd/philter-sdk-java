@@ -2917,6 +2917,72 @@ public class PhilterClientMockTest {
         Assert.assertNull(header("X-Forwarded-For"));
     }
 
+    private static final String FIREFOX = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:131.0) Gecko/20100101 Firefox/131.0";
+
+    @Test
+    public void signInSendsThePersonsUserAgent() throws Exception {
+
+        respond(200, recorded("sign-in.json"));
+        client().signIn("rec-user", "the-users-password", "203.0.113.7", FIREFOX);
+        Assert.assertEquals("/api/sign-in", path);
+        Assert.assertEquals(FIREFOX, header("User-Agent"));
+        Assert.assertEquals("203.0.113.7", header("X-Forwarded-For"));
+
+        respond(200, recorded("sign-in-mfa.json"));
+        client().completeSignIn("CHiY2d02S9qSQdysevjYMT6VyMvzkQ-vIJqIHB_109Q", "123456", "203.0.113.7", FIREFOX);
+        Assert.assertEquals("/api/sign-in/mfa", path);
+        Assert.assertEquals(FIREFOX, header("User-Agent"));
+
+        // Surrounding whitespace is trimmed.
+        respond(200, recorded("sign-in.json"));
+        client().signIn("rec-user", "the-users-password", null, "  " + FIREFOX + " ");
+        Assert.assertEquals(FIREFOX, header("User-Agent"));
+    }
+
+    @Test
+    public void signInWithoutAUserAgentSendsTheClientsOwn() throws Exception {
+
+        for (final String none : new String[]{null, "", "   ", "\r\n"}) {
+
+            respond(200, recorded("sign-in.json"));
+            client().signIn("rec-user", "the-users-password", null, none);
+            Assert.assertTrue(String.valueOf(none), header("User-Agent").startsWith("Java-http-client/"));
+
+            respond(200, recorded("sign-in-mfa.json"));
+            client().completeSignIn("CHiY2d02S9qSQdysevjYMT6VyMvzkQ-vIJqIHB_109Q", "123456", null, none);
+            Assert.assertTrue(String.valueOf(none), header("User-Agent").startsWith("Java-http-client/"));
+        }
+
+        // The existing methods send the client's own, as before.
+        respond(200, recorded("sign-in.json"));
+        client().signIn("rec-user", "the-users-password", "203.0.113.7");
+        Assert.assertTrue(header("User-Agent").startsWith("Java-http-client/"));
+        respond(200, recorded("sign-in-mfa.json"));
+        client().completeSignIn("CHiY2d02S9qSQdysevjYMT6VyMvzkQ-vIJqIHB_109Q", "123456");
+        Assert.assertTrue(header("User-Agent").startsWith("Java-http-client/"));
+    }
+
+    @Test
+    public void aUserAgentCannotAddAHeader() throws Exception {
+
+        respond(200, recorded("sign-in.json"));
+        client().signIn("rec-user", "the-users-password", null, "Agent/1.0\r\nX-Injected: 1\u0000 caf\u00e9");
+        Assert.assertEquals("Agent/1.0X-Injected: 1 caf", header("User-Agent"));
+        Assert.assertNull(header("X-Injected"));
+    }
+
+    @Test
+    public void onlySignInSendsThePersonsUserAgent() throws Exception {
+
+        respond(200, recorded("sign-in.json"));
+        client().signIn("rec-user", "the-users-password", null, FIREFOX);
+        Assert.assertEquals(FIREFOX, header("User-Agent"));
+
+        respond(200, recorded("api-keys.json"));
+        client().getApiKeys();
+        Assert.assertTrue(header("User-Agent").startsWith("Java-http-client/"));
+    }
+
     @Test
     public void signInRefusesAClientAddressThatIsNotOneAddressBeforeSending() {
 

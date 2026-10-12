@@ -66,6 +66,8 @@ the listing's response type.
   empty when password sign-in is off), `signIn`, `completeSignIn` (MFA), and `signOut`; passwords, MFA
   enrollment, `revokeSessionKeys`, and `signOutOtherSessions`. `withClientAddress(Supplier<String>)` sends the
   end user's address as `X-Forwarded-For` on every request, so Philter rate-limits and audits per person.
+  `signIn` and `completeSignIn` overloads also take the person's user agent, sent as the sign-in request's
+  `User-Agent`, so each session shows the person's browser rather than the application's client.
 * **API keys:** list, create, scope, and revoke keys, including session keys, each with the client address and
   user agent that signed in and whether it is the current key. `listApiKeyScopes` describes each scope.
 * **Limits:** `getLimits` returns the limits and rules Philter enforces (request and page sizes, password, name,
