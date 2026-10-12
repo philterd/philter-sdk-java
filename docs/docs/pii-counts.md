@@ -1,6 +1,6 @@
 # PII Counts
 
-Philter can record how often each PII type is found, per context and UTC day, for differential-privacy reporting with [Philter Diffuse](https://github.com/philterd/philter-diffuse). `getPiiCounts` reads those counts through Philter's API, so a reporting tool needs an API key rather than a connection to Philter's database. The counts are counts only: they never carry any PII. These methods need Philter 4.0 or later.
+Philter can record how often each PII type is found, per context and UTC day. `getPiiCounts` reads those counts through Philter's API, so a reporting tool needs an API key rather than a connection to Philter's database. [Philter Diffuse](https://github.com/philterd/philter-diffuse) uses them for differential-privacy reporting, and they work equally well for any similar purpose, such as a dashboard of PII trends or monitoring how often each type turns up in a context. The counts are counts only: they never carry any PII. These methods need Philter 4.0 or later.
 
 Reading the counts requires an administrator and an API key holding the `pii-counts:read` scope, since the counts cover the whole deployment. Each call is recorded in the audit log as a `pii_counts_retrieved` event.
 

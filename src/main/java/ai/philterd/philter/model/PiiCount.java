@@ -24,8 +24,8 @@ import java.time.format.DateTimeParseException;
 import java.util.Map;
 
 /**
- * The PII type counts Philter recorded for one context on one UTC day, for differential-privacy reporting with
- * Philter Diffuse. Counts only: never any PII.
+ * The PII type counts Philter recorded for one context on one UTC day, for reporting such as differential-privacy
+ * reporting with Philter Diffuse. Counts only: never any PII.
  */
 public class PiiCount {
 

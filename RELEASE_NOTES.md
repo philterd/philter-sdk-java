@@ -80,9 +80,9 @@ the listing's response type.
   `getId()`, which audit events refer to them by. `AuditEvent.getSource()` is `api` for an event a request
   caused or `system` for one Philter recorded on its own, and `getClientIpAddress()` is only ever the requesting
   client's address.
-* **PII counts:** `getPiiCounts` reads the PII type counts Philter records for Philter Diffuse, per context and
-  UTC day, filtered by date range and context, and `getAllPiiCounts` reads every page.
-  `GetPiiCountsResponse.isRecordingEnabled()` tells "no data" from "not recording". Requires the
+* **PII counts:** `getPiiCounts` reads the PII type counts Philter records, per context and UTC day, for
+  Philter Diffuse or any similar reporting, filtered by date range and context, and `getAllPiiCounts` reads
+  every page. `GetPiiCountsResponse.isRecordingEnabled()` tells "no data" from "not recording". Requires the
   `pii-counts:read` scope and an administrator.
 
 Responses are typed models. Calls that returned raw JSON have typed alternatives, and the `String` versions are

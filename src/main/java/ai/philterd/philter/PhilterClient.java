@@ -4357,9 +4357,10 @@ public class PhilterClient {
 	}
 
 	/**
-	 * Gets a page of the PII type counts Philter records for differential-privacy reporting with Philter
-	 * Diffuse, one entry per context and UTC day, most recent day first and then by context. It returns counts
-	 * only, never any PII. Needs Philter 4.0 or later.
+	 * Gets a page of the PII type counts Philter records, one entry per context and UTC day, most recent day
+	 * first and then by context. Philter Diffuse reads them for differential-privacy reporting, and any caller
+	 * can use them for similar reporting, such as dashboards or trend monitoring. It returns counts only, never
+	 * any PII. Needs Philter 4.0 or later.
 	 *
 	 * <p>Philter records counts only while its {@code diffuseCountsEnabled} admin setting is on.
 	 * {@link GetPiiCountsResponse#isRecordingEnabled()} says whether it is: when it is {@code false}, an empty
