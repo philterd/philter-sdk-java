@@ -100,6 +100,20 @@ Philter 4.0.0 expects an `Authorization` header on nearly every endpoint. Provid
 `withApiKey(...)`; the value is sent verbatim, so include any scheme prefix (for example `"Bearer "`) if your
 deployment requires it. The `health()` endpoint does not require authentication.
 
+To present a client certificate for mutual TLS, or to trust a server certificate from a private certificate
+authority, give the builder a PKCS12 or JKS keystore and trust store. Hostname verification stays on:
+
+```
+PhilterClient client = new PhilterClient.PhilterClientBuilder()
+        .withEndpoint("https://philter.internal.example.com:8080")
+        .withApiKey("your-api-key")
+        .withClientCertificate(Path.of("client.p12"), keyStorePassword)
+        .withTrustStore(Path.of("ca.p12"), trustStorePassword)
+        .build();
+```
+
+`withSslContext(SSLContext)` takes a context you build instead, for example from PEM files.
+
 In addition to filtering, the client covers the full Philter 4.0.0 API: policies (including templates, versions and
 their authors, diffs, rollbacks, deleted policies, descriptions and notes, managed policies, and copies), contexts,
 documents, legal holds, the redaction ledger, the audit log and its CSV export, PII counts (for Philter Diffuse and

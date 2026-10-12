@@ -15,7 +15,8 @@ are relative to 1.5.0.
 * `filter` and `explain` no longer take a document ID. Philter returns it in the `x-document-id` header.
 * `savePolicy(json)` is replaced by `savePolicy(name, json)`, which only creates: a name in use is a 409
   `policy_exists`. Overwrite with `replacePolicy`. `Policy(policyName)` is renamed `getPolicy(policyName)`.
-* Removed `status()` (use `health()`), mTLS client certificates (`withSslConfiguration(...)`), and alerts.
+* Removed `status()` (use `health()`) and alerts. `withSslConfiguration(...)` is replaced by
+  `withClientCertificate(...)` and `withTrustStore(...)`, which use only the JDK.
 * The JDK's `java.net.http.HttpClient` replaces Retrofit and OkHttp. `withHttpClientBuilder(HttpClient.Builder)`
   replaces `withOkHttpClientBuilder(...)` and does not get the connect timeout. `withMaxIdleConnections(...)`
   and `withKeepAliveDurationMs(...)` are no-ops; use the `jdk.httpclient.connectionPoolSize` and
@@ -126,6 +127,10 @@ email address, and the email rule on `createUser` (#168); session client details
 * Targets Java 11 bytecode. The only runtime dependencies are Gson and `commons-lang3`. Published to Maven
   Central, with snapshots from `main`.
 * The default HTTP client uses HTTP/1.1, follows redirects, and honors the proxy system properties.
+* TLS options on the builder, using only the JDK: `withClientCertificate` presents a client certificate for mutual
+  TLS, `withTrustStore` trusts a private or self-signed server certificate, and `withSslContext` takes an
+  `SSLContext` for anything else. Each keeps the default HTTP client's other settings, and hostname verification
+  stays on.
 * Mocked tests cover the whole client; integration tests run against a live Philter when `PHILTER_ENDPOINT`
   is set.
 

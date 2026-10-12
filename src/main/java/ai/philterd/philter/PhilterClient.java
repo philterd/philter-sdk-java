@@ -103,6 +103,7 @@ import com.google.gson.JsonParseException;
 import com.google.gson.JsonParser;
 import com.google.gson.reflect.TypeToken;
 
+import javax.net.ssl.SSLContext;
 import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Type;
@@ -114,6 +115,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -122,6 +124,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Supplier;
 
@@ -202,6 +205,11 @@ public class PhilterClient {
 		private long timeout = DEFAULT_TIMEOUT_SEC;
 		private String apiKey;
 		private Supplier<String> clientAddress;
+		private Path clientCertificate;
+		private char[] clientCertificatePassword;
+		private Path trustStore;
+		private char[] trustStorePassword;
+		private SSLContext sslContext;
 
 		/**
 		 * Sets the base URL of the Philter instance, for example {@code https://localhost:8080}. Required.
@@ -214,11 +222,13 @@ public class PhilterClient {
 		}
 
 		/**
-		 * Supplies a pre-configured {@link HttpClient.Builder}, for cases such as proxies, a custom
-		 * executor, or a bespoke {@link javax.net.ssl.SSLContext}. When given, the connect timeout is
-		 * not applied to the client and should be configured on the supplied builder instead; the
-		 * per-request timeout from {@link #withTimeout(long)}, the {@code Authorization} header, and the
-		 * address from {@link #withClientAddress(Supplier)} still apply.
+		 * Supplies a pre-configured {@link HttpClient.Builder}, for cases such as proxies or a custom
+		 * executor. When given, the connect timeout is not applied to the client and should be configured
+		 * on the supplied builder instead; the per-request timeout from {@link #withTimeout(long)}, the
+		 * {@code Authorization} header, and the address from {@link #withClientAddress(Supplier)} still
+		 * apply. It cannot be combined with {@link #withClientCertificate(Path, char[])},
+		 * {@link #withTrustStore(Path, char[])}, or {@link #withSslContext(SSLContext)}: set TLS on the
+		 * supplied builder instead.
 		 *
 		 * <p>This replaces the {@code withOkHttpClientBuilder} method of earlier releases.</p>
 		 *
@@ -227,6 +237,75 @@ public class PhilterClient {
 		 */
 		public PhilterClientBuilder withHttpClientBuilder(HttpClient.Builder httpClientBuilder) {
 			this.httpClientBuilder = httpClientBuilder;
+			return this;
+		}
+
+		/**
+		 * Presents a client certificate for mutual TLS, from a PKCS12 or JKS keystore holding the
+		 * certificate and its private key. The format is detected from the file. The client presents it
+		 * when the server asks for one, such as a load balancer, ingress, or service mesh in front of
+		 * Philter that requires client certificates.
+		 *
+		 * <p>The private key's password must be the keystore's password, as it is in a PKCS12 file. The
+		 * password is copied, so the caller may clear its array afterwards. The keystore is read by
+		 * {@link #build()}, which throws an {@link IllegalArgumentException} naming the file (never the
+		 * password) when it is missing, cannot be read with the password, or holds no private key.</p>
+		 *
+		 * <p>Without {@link #withTrustStore(Path, char[])}, the server's certificate is checked against
+		 * the JVM's default trust store. The {@code javax.net.ssl.keyStore} system property is not used.
+		 * Hostname verification stays on. Cannot be combined with {@link #withSslContext(SSLContext)} or
+		 * {@link #withHttpClientBuilder(HttpClient.Builder)}.</p>
+		 *
+		 * @param keyStore The keystore file holding the client's certificate and private key.
+		 * @param password The keystore's password.
+		 * @return This builder.
+		 */
+		public PhilterClientBuilder withClientCertificate(Path keyStore, char[] password) {
+			this.clientCertificate = Objects.requireNonNull(keyStore, "keyStore");
+			this.clientCertificatePassword = Objects.requireNonNull(password, "password").clone();
+			return this;
+		}
+
+		/**
+		 * Trusts the certificates in a PKCS12 or JKS trust store for the server, in place of the JVM's
+		 * default trust store. Use it for a Philter, or a proxy in front of it, whose certificate comes
+		 * from a private certificate authority or is self-signed, such as the certificate the Philter
+		 * Docker image generates. The format is detected from the file.
+		 *
+		 * <p>The password is copied, so the caller may clear its array afterwards. The trust store is read
+		 * by {@link #build()}, which throws an {@link IllegalArgumentException} naming the file (never the
+		 * password) when it is missing, cannot be read, or holds no trusted certificates.</p>
+		 *
+		 * <p>Hostname verification stays on: the server's certificate must also name the endpoint's host.
+		 * Without {@link #withClientCertificate(Path, char[])}, no client certificate is presented; the
+		 * {@code javax.net.ssl.keyStore} system property is not used. Cannot be combined with {@link #withSslContext(SSLContext)} or
+		 * {@link #withHttpClientBuilder(HttpClient.Builder)}.</p>
+		 *
+		 * @param trustStore The trust store file.
+		 * @param password The trust store's password. May be {@code null} for a store without one, in
+		 * which case its integrity is not checked.
+		 * @return This builder.
+		 */
+		public PhilterClientBuilder withTrustStore(Path trustStore, char[] password) {
+			this.trustStore = Objects.requireNonNull(trustStore, "trustStore");
+			this.trustStorePassword = password == null ? null : password.clone();
+			return this;
+		}
+
+		/**
+		 * Uses the given {@link SSLContext} for TLS, for anything {@link #withClientCertificate(Path, char[])}
+		 * and {@link #withTrustStore(Path, char[])} do not cover, such as a key in a hardware module or
+		 * certificates the application loads from PEM files. The SDK's other defaults, such as the connect
+		 * timeout, still apply. Hostname verification stays on.
+		 *
+		 * <p>Cannot be combined with {@link #withClientCertificate(Path, char[])},
+		 * {@link #withTrustStore(Path, char[])}, or {@link #withHttpClientBuilder(HttpClient.Builder)}.</p>
+		 *
+		 * @param sslContext The TLS context.
+		 * @return This builder.
+		 */
+		public PhilterClientBuilder withSslContext(SSLContext sslContext) {
+			this.sslContext = Objects.requireNonNull(sslContext, "sslContext");
 			return this;
 		}
 
@@ -310,15 +389,45 @@ public class PhilterClient {
 		/**
 		 * Builds the configured {@link PhilterClient}.
 		 * @return A new {@link PhilterClient}.
+		 * @throws IllegalStateException Thrown if TLS options are combined that cannot be, such as
+		 * {@link #withSslContext(SSLContext)} with {@link #withTrustStore(Path, char[])}, or any TLS option
+		 * with {@link #withHttpClientBuilder(HttpClient.Builder)}.
+		 * @throws IllegalArgumentException Thrown if a keystore or trust store cannot be read.
 		 */
 		public PhilterClient build() {
-			return new PhilterClient(endpoint, httpClientBuilder, timeout, apiKey, clientAddress);
+			return new PhilterClient(endpoint, httpClientBuilder, timeout, apiKey, clientAddress, sslContext());
+		}
+
+		/** The TLS context for the SDK's own HTTP client, or {@code null} for the JVM's default. */
+		private SSLContext sslContext() {
+
+			final boolean stores = clientCertificate != null || trustStore != null;
+
+			if(httpClientBuilder != null && (stores || sslContext != null)) {
+				throw new IllegalStateException("withClientCertificate, withTrustStore, and withSslContext configure "
+						+ "the SDK's own HTTP client, so they cannot be combined with withHttpClientBuilder. Set the "
+						+ "SSLContext on the supplied HttpClient.Builder instead.");
+			}
+
+			if(sslContext != null && stores) {
+				throw new IllegalStateException("withSslContext cannot be combined with withClientCertificate or "
+						+ "withTrustStore. Put the key and trusted certificates in the SSLContext instead.");
+			}
+
+			if(sslContext != null) {
+				return sslContext;
+			}
+
+			return stores
+					? TlsContexts.create(clientCertificate, clientCertificatePassword, trustStore, trustStorePassword)
+					: null;
+
 		}
 
 	}
 
 	private PhilterClient(String endpoint, HttpClient.Builder httpClientBuilder, long timeout, String apiKey,
-						  Supplier<String> clientAddress) {
+						  Supplier<String> clientAddress, SSLContext sslContext) {
 
 		this.endpoint = URI.create(endpoint);
 		this.timeout = Duration.ofSeconds(timeout);
@@ -342,6 +451,10 @@ public class PhilterClient {
 
 			if(proxySelector != null) {
 				httpClientBuilder.proxy(proxySelector);
+			}
+
+			if(sslContext != null) {
+				httpClientBuilder.sslContext(sslContext);
 			}
 
 		}
