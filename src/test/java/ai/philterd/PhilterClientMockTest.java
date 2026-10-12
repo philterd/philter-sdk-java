@@ -51,6 +51,8 @@ import ai.philterd.philter.model.FilterResponse;
 import ai.philterd.philter.model.GenericResponse;
 import ai.philterd.philter.model.GetApiKeysResponse;
 import ai.philterd.philter.model.GetAuditLogResponse;
+import ai.philterd.philter.model.GetPiiCountsResponse;
+import ai.philterd.philter.model.PiiCount;
 import ai.philterd.philter.model.GetListsResponse;
 import ai.philterd.philter.model.GetUsersResponse;
 import ai.philterd.philter.model.LegalHoldRequest;
@@ -2295,6 +2297,141 @@ public class PhilterClientMockTest {
 
         Assert.assertTrue(ex.getMessage(), ex.getMessage().contains("HTTP 400"));
         Assert.assertTrue(ex.getMessage(), ex.getMessage().contains("not an audit event type"));
+    }
+
+    // PII counts.
+
+    @Test
+    public void getPiiCountsSendsEveryFilterAndMapsTheCounts() throws Exception {
+
+        respond(200, "{\"recordingEnabled\":true,\"counts\":[{\"context\":\"claims-intake\",\"day\":\"2026-09-30\","
+                + "\"counts\":{\"SSN\":1240,\"EMAIL_ADDRESS\":8900,\"PERSON\":9500},\"totalDocuments\":10000,"
+                + "\"updatedAt\":\"2026-09-30T18:42:10.000Z\"}],\"total\":31}");
+
+        final GetPiiCountsResponse response = client().getPiiCounts(LocalDate.of(2026, 9, 1),
+                LocalDate.of(2026, 9, 30), "claims-intake", 25, 50);
+
+        Assert.assertEquals("GET", method);
+        Assert.assertEquals("/api/pii-counts", path);
+        Assert.assertEquals(Map.of("from", "2026-09-01", "to", "2026-09-30", "context", "claims-intake",
+                "offset", "25", "limit", "50"), queryParameters);
+        Assert.assertEquals("application/json", header("Accept"));
+
+        Assert.assertTrue(response.isRecordingEnabled());
+        Assert.assertEquals(31, response.getTotal());
+        Assert.assertEquals(1, response.getCounts().size());
+
+        final PiiCount count = response.getCounts().get(0);
+        Assert.assertEquals("claims-intake", count.getContext());
+        Assert.assertEquals(LocalDate.of(2026, 9, 30), count.getDay());
+        Assert.assertEquals("2026-09-30", count.getDayText());
+        Assert.assertEquals(Map.of("SSN", 1240L, "EMAIL_ADDRESS", 8900L, "PERSON", 9500L), count.getCounts());
+        Assert.assertEquals(10000, count.getTotalDocuments());
+        Assert.assertEquals(Instant.parse("2026-09-30T18:42:10Z"), count.getUpdatedAt());
+        Assert.assertEquals("2026-09-30T18:42:10.000Z", count.getUpdatedAtText());
+    }
+
+    @Test
+    public void getPiiCountsShortFormSendsNoFilters() throws Exception {
+
+        respond(200, "{\"recordingEnabled\":true,\"counts\":[],\"total\":0}");
+
+        Assert.assertEquals(0, client().getPiiCounts().getTotal());
+
+        Assert.assertEquals("/api/pii-counts", path);
+        Assert.assertTrue(queryParameters.isEmpty());
+    }
+
+    @Test
+    public void getPiiCountsWithRecordingOffIsNotAnError() throws Exception {
+
+        respond(200, "{\"recordingEnabled\":false,\"counts\":[],\"total\":0}");
+
+        final GetPiiCountsResponse response = client().getPiiCounts(null, null, "claims-intake", null, null);
+
+        Assert.assertFalse(response.isRecordingEnabled());
+        Assert.assertTrue(response.getCounts().isEmpty());
+        Assert.assertEquals(Map.of("context", "claims-intake"), queryParameters);
+    }
+
+    @Test
+    public void getAllPiiCountsReadsEveryPage() throws Exception {
+
+        final StringBuilder first = new StringBuilder("{\"recordingEnabled\":true,\"counts\":[");
+        for (int i = 0; i < 100; i++) {
+            first.append(i == 0 ? "" : ",").append("{\"context\":\"c").append(i).append("\",\"day\":\"2026-09-30\","
+                    + "\"counts\":{\"SSN\":1},\"totalDocuments\":1}");
+        }
+        first.append("],\"total\":102}");
+        respondNext(200, first.toString());
+        respondNext(200, "{\"recordingEnabled\":false,\"counts\":["
+                + "{\"context\":\"c100\",\"day\":\"2026-09-29\",\"counts\":{\"SSN\":2},\"totalDocuments\":2},"
+                + "{\"context\":\"c101\",\"day\":\"2026-09-29\",\"counts\":{\"SSN\":3},\"totalDocuments\":3}"
+                + "],\"total\":102}");
+
+        final GetPiiCountsResponse all = client().getAllPiiCounts(LocalDate.of(2026, 9, 1),
+                LocalDate.of(2026, 9, 30), "c");
+
+        Assert.assertEquals(2, requests.size());
+        Assert.assertEquals(Map.of("from", "2026-09-01", "to", "2026-09-30", "context", "c",
+                "offset", "0", "limit", "100"), requests.get(0).queryParameters);
+        Assert.assertEquals(Map.of("from", "2026-09-01", "to", "2026-09-30", "context", "c",
+                "offset", "100", "limit", "100"), requests.get(1).queryParameters);
+
+        Assert.assertEquals(102, all.getCounts().size());
+        Assert.assertEquals(102, all.getTotal());
+        Assert.assertEquals("c101", all.getCounts().get(101).getContext());
+        Assert.assertFalse("From the last page read", all.isRecordingEnabled());
+    }
+
+    @Test
+    public void getAllPiiCountsStopsAtAnEmptyPage() throws Exception {
+
+        // Philter's total says more remain, but the next page is empty: entries were removed between reads.
+        respondNext(200, "{\"recordingEnabled\":true,\"counts\":[{\"context\":\"c\",\"day\":\"2026-09-30\","
+                + "\"counts\":{\"SSN\":1},\"totalDocuments\":1}],\"total\":5}");
+        respondNext(200, "{\"recordingEnabled\":true,\"counts\":[],\"total\":1}");
+
+        final GetPiiCountsResponse all = client().getAllPiiCounts(null, null, null);
+
+        Assert.assertEquals(2, requests.size());
+        Assert.assertEquals(1, all.getCounts().size());
+        Assert.assertEquals(1, all.getTotal());
+    }
+
+    @Test
+    public void getAllPiiCountsWithNothingRecordedMakesOneCall() throws Exception {
+
+        respond(200, "{\"recordingEnabled\":false,\"counts\":[],\"total\":0}");
+
+        final GetPiiCountsResponse all = client().getAllPiiCounts(null, null, null);
+
+        Assert.assertEquals(1, requests.size());
+        Assert.assertTrue(all.getCounts().isEmpty());
+        Assert.assertFalse(all.isRecordingEnabled());
+    }
+
+    @Test
+    public void getPiiCountsSurfacesPhilterRefusals() {
+
+        responseHeaders.put("X-Request-Id", REQUEST_ID);
+
+        respond(403, "{\"message\":\"This API key does not have the 'pii-counts:read' scope.\",\"reason\":\"missing_scope\"}");
+        final ClientException noScope = Assert.assertThrows(ClientException.class, () -> client().getPiiCounts());
+        Assert.assertEquals(403, noScope.getStatusCode());
+        Assert.assertEquals(ErrorReasons.MISSING_SCOPE, noScope.getReason());
+        Assert.assertEquals(REQUEST_ID, noScope.getRequestId());
+
+        respond(403, "{\"message\":\"Reading the PII counts requires an administrator.\",\"reason\":\"admin_required\"}");
+        final ClientException notAdmin = Assert.assertThrows(ClientException.class, () -> client().getPiiCounts());
+        Assert.assertEquals(403, notAdmin.getStatusCode());
+        Assert.assertEquals(ErrorReasons.ADMIN_REQUIRED, notAdmin.getReason());
+
+        respond(400, "{\"message\":\"from must not be after to.\",\"reason\":\"invalid_request\"}");
+        final ClientException badRange = Assert.assertThrows(ClientException.class,
+                () -> client().getAllPiiCounts(LocalDate.of(2026, 9, 30), LocalDate.of(2026, 9, 1), null));
+        Assert.assertEquals(400, badRange.getStatusCode());
+        Assert.assertEquals(ErrorReasons.INVALID_REQUEST, badRange.getReason());
     }
 
     // Audit log export.

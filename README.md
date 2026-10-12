@@ -102,10 +102,10 @@ deployment requires it. The `health()` endpoint does not require authentication.
 
 In addition to filtering, the client covers the full Philter 4.0.0 API: policies (including templates, versions and
 their authors, diffs, rollbacks, deleted policies, descriptions and notes, managed policies, and copies), contexts,
-documents, legal holds, the redaction ledger, the audit log and its CSV export, custom lists, redact lists,
-re-identification, user management (including roles and email addresses), sign-in with passwords, session keys, and
-MFA, webhooks, managing API keys, rotating the output signing key, admin settings, and administrator listings of
-policies, contexts, custom lists, ledger chains, and legal holds across all users.
+documents, legal holds, the redaction ledger, the audit log and its CSV export, PII counts for Philter Diffuse,
+custom lists, redact lists, re-identification, user management (including roles and email addresses), sign-in with
+passwords, session keys, and MFA, webhooks, managing API keys, rotating the output signing key, admin settings, and
+administrator listings of policies, contexts, custom lists, ledger chains, and legal holds across all users.
 
 To create a policy, start from one of Philter's templates, which matches the schema Philter runs, and save it:
 

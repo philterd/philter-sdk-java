@@ -54,6 +54,8 @@ import ai.philterd.philter.model.GenericResponse;
 import ai.philterd.philter.model.GetApiKeyScopesResponse;
 import ai.philterd.philter.model.GetApiKeysResponse;
 import ai.philterd.philter.model.GetAuditLogResponse;
+import ai.philterd.philter.model.GetPiiCountsResponse;
+import ai.philterd.philter.model.PiiCount;
 import ai.philterd.philter.model.GetListsResponse;
 import ai.philterd.philter.model.GetUsersResponse;
 import ai.philterd.philter.model.PolicyWithETag;
@@ -4336,6 +4338,98 @@ public class PhilterClient {
 					+ EXPORT_ROWS_HEADER + " or " + EXPORT_NEXT_OFFSET_HEADER + " header.", 0, null, null,
 					requestIdOf(response));
 		}
+
+	}
+
+	// PII counts.
+
+	/** The most entries Philter returns in one page of PII counts. */
+	private static final int PII_COUNTS_MAX_LIMIT = 100;
+
+	/**
+	 * Gets the first page of the recorded PII counts, most recent day first, with no filters. See
+	 * {@link #getPiiCounts(LocalDate, LocalDate, String, Integer, Integer)}.
+	 * @return The page of counts, the total, and whether Philter is recording counts.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public GetPiiCountsResponse getPiiCounts() throws IOException {
+		return getPiiCounts(null, null, null, null, null);
+	}
+
+	/**
+	 * Gets a page of the PII type counts Philter records for differential-privacy reporting with Philter
+	 * Diffuse, one entry per context and UTC day, most recent day first and then by context. It returns counts
+	 * only, never any PII. Needs Philter 4.0 or later.
+	 *
+	 * <p>Philter records counts only while its {@code diffuseCountsEnabled} admin setting is on.
+	 * {@link GetPiiCountsResponse#isRecordingEnabled()} says whether it is: when it is {@code false}, an empty
+	 * page means nothing is being recorded, not that no PII was found. That is not an error, and counts recorded
+	 * while recording was on are still returned.</p>
+	 *
+	 * <p>The counts cover the whole deployment, so this requires the {@code pii-counts:read} scope and an
+	 * administrator. A key without the scope is refused with an HTTP 403 and the
+	 * {@link ai.philterd.philter.model.exceptions.ErrorReasons#MISSING_SCOPE} reason; a key whose owner is not
+	 * an administrator is refused with an HTTP 403 and the
+	 * {@link ai.philterd.philter.model.exceptions.ErrorReasons#ADMIN_REQUIRED} reason. Both are thrown as a
+	 * {@link ClientException}. Each call is recorded as a {@code pii_counts_retrieved} audit event.</p>
+	 *
+	 * <p>{@code from} after {@code to} is an HTTP 400, thrown as a {@link ClientException}.</p>
+	 *
+	 * @param from The first UTC day to return, inclusive. May be {@code null}.
+	 * @param to The last UTC day to return, inclusive. May be {@code null}.
+	 * @param context The context to return counts for. May be {@code null} for every context.
+	 * @param offset The number of entries to skip. May be {@code null} for {@code 0}.
+	 * @param limit The most entries to return, up to 100. May be {@code null} for Philter's default of 25.
+	 * @return The page of counts, the total number matching the filters, and whether Philter is recording counts.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public GetPiiCountsResponse getPiiCounts(LocalDate from, LocalDate to, String context, Integer offset,
+			Integer limit) throws IOException {
+
+		final HttpRequest request = json(uri("/api/pii-counts", "from", from, "to", to, "context", context,
+				"offset", offset, "limit", limit))
+				.GET()
+				.build();
+
+		return sendExpectingJson(request, GetPiiCountsResponse.class);
+
+	}
+
+	/**
+	 * Gets every recorded PII count matching the filters, reading page after page of
+	 * {@link #getPiiCounts(LocalDate, LocalDate, String, Integer, Integer)} until Philter's total is reached or a
+	 * page comes back empty. The returned response holds every entry, most recent day first, with the total and
+	 * {@link GetPiiCountsResponse#isRecordingEnabled()} from the last page read. The scope, role, and errors are
+	 * those of {@link #getPiiCounts(LocalDate, LocalDate, String, Integer, Integer)}, and each page is its own
+	 * call, recorded as its own audit event.
+	 *
+	 * <p>Counts recorded while the pages are being read can change entries or shift them between pages, so a
+	 * caller that needs a stable result should end the range before the current UTC day.</p>
+	 *
+	 * @param from The first UTC day to return, inclusive. May be {@code null}.
+	 * @param to The last UTC day to return, inclusive. May be {@code null}.
+	 * @param context The context to return counts for. May be {@code null} for every context.
+	 * @return Every matching entry, the total, and whether Philter is recording counts.
+	 * @throws IOException Thrown if a call can not be executed.
+	 */
+	public GetPiiCountsResponse getAllPiiCounts(LocalDate from, LocalDate to, String context) throws IOException {
+
+		final List<PiiCount> counts = new ArrayList<>();
+		GetPiiCountsResponse page;
+
+		do {
+			page = getPiiCounts(from, to, context, counts.size(), PII_COUNTS_MAX_LIMIT);
+			if(page.getCounts() == null || page.getCounts().isEmpty()) {
+				break;
+			}
+			counts.addAll(page.getCounts());
+		} while(counts.size() < page.getTotal());
+
+		final GetPiiCountsResponse all = new GetPiiCountsResponse();
+		all.setRecordingEnabled(page.isRecordingEnabled());
+		all.setCounts(counts);
+		all.setTotal(page.getTotal());
+		return all;
 
 	}
 

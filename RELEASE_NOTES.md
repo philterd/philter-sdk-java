@@ -80,6 +80,10 @@ the listing's response type.
   `getId()`, which audit events refer to them by. `AuditEvent.getSource()` is `api` for an event a request
   caused or `system` for one Philter recorded on its own, and `getClientIpAddress()` is only ever the requesting
   client's address.
+* **PII counts:** `getPiiCounts` reads the PII type counts Philter records for Philter Diffuse, per context and
+  UTC day, filtered by date range and context, and `getAllPiiCounts` reads every page.
+  `GetPiiCountsResponse.isRecordingEnabled()` tells "no data" from "not recording". Requires the
+  `pii-counts:read` scope and an administrator.
 
 Responses are typed models. Calls that returned raw JSON have typed alternatives, and the `String` versions are
 deprecated: `listContexts`, `getContextDetails`, `listLedgerChains`, `getLedgerExport`, `compilePhiSql` (for
@@ -99,7 +103,7 @@ search (#160), which the policy, version, hold, and custom list listings need to
 sign-in options (#159); audit event usernames and user ids (#161); policy templates (#164); webhook tests,
 delivery history, and keeping the secret (#165); deleted policies and version authors (#166); changing a user's
 email address, and the email rule on `createUser` (#168); session client details and signing out other sessions
-(#169); and request ids (#156).
+(#169); request ids (#156); and PII counts (#174).
 
 ### Errors
 

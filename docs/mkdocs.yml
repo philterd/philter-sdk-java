@@ -26,6 +26,7 @@ nav:
   - Legal Holds: legal-holds.md
   - Redaction Ledger: ledger.md
   - Audit Log: audit-log.md
+  - PII Counts: pii-counts.md
   - Owners and Pagination: owners-and-pagination.md
   - Limits and Rules: limits.md
   - Users and API Keys: provisioning.md
