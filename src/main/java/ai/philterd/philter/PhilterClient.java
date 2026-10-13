@@ -997,7 +997,7 @@ public class PhilterClient {
 	private BinaryFilterResponse filterBinary(String context, String policyName, String filename, byte[] content,
 	                                          String accept) throws IOException {
 
-		final HttpRequest request = binaryFilterRequest(context, policyName, filename, content, accept, false);
+		final HttpRequest request = binaryFilterRequest(context, policyName, filename, content, accept, false, null);
 
 		final HttpResponse<byte[]> response = send(request, HttpResponse.BodyHandlers.ofByteArray());
 
@@ -1026,7 +1026,35 @@ public class PhilterClient {
 	 * @throws IOException Thrown if the request can not be completed.
 	 */
 	public String filterAsync(String context, String policyName, String filename, File file) throws IOException {
-		return filterAsync(context, policyName, filename, Files.readAllBytes(file.toPath()));
+		return filterAsync(context, policyName, filename, file, null);
+	}
+
+	/**
+	 * Submits a PDF document to Philter to be filtered asynchronously. Philter accepts the document and
+	 * returns immediately; poll {@link #getDocumentState(String)} with the returned document ID and
+	 * retrieve the result with {@link #getDocument(String)}.
+	 * If the user has a webhook, Philter also notifies it when the redaction completes or fails; see
+	 * {@link #setWebhook(String, String)}.
+	 *
+	 * <p>Sends a fairness key, so one person's large batch does not delay the documents of everyone else
+	 * submitting under the same API key.</p>
+	 *
+	 * @param context The context. Contexts can be used to group text based on some arbitrary property.
+	 * @param policyName The name of the policy to apply to the document.
+	 * @param filename The name of the file being filtered. May be {@code null}.
+	 * @param file The PDF file to be filtered.
+	 * @param fairnessKey A key that shares Philter's queue fairly among the people a single API key submits
+	 *                    for, such as an internal user or group ID. Documents queued with different keys take
+	 *                    turns, the way different accounts do. The key is opaque to Philter and is stored
+	 *                    unencrypted with the queued document, so it must not contain personal data. It must be
+	 *                    1 to 64 characters of letters, digits, {@code .}, {@code _}, {@code :} and {@code -};
+	 *                    Philter refuses any other value with a 400. May be {@code null} to send no key.
+	 * @return The ID Philter assigned to the document.
+	 * @throws IOException Thrown if the request can not be completed.
+	 */
+	public String filterAsync(String context, String policyName, String filename, File file,
+	                          String fairnessKey) throws IOException {
+		return filterAsync(context, policyName, filename, Files.readAllBytes(file.toPath()), fairnessKey);
 	}
 
 	/**
@@ -1047,7 +1075,38 @@ public class PhilterClient {
 	 * @throws IOException Thrown if the request can not be completed.
 	 */
 	public String filterAsync(String context, String policyName, String filename, byte[] content) throws IOException {
-		return filterBinaryAsync(context, policyName, filename, content, "application/zip");
+		return filterAsync(context, policyName, filename, content, null);
+	}
+
+	/**
+	 * Submits a PDF document to Philter to be filtered asynchronously. Philter accepts the document and
+	 * returns immediately; poll {@link #getDocumentState(String)} with the returned document ID and
+	 * retrieve the result with {@link #getDocument(String)}.
+	 * If the user has a webhook, Philter also notifies it when the redaction completes or fails; see
+	 * {@link #setWebhook(String, String)}.
+	 *
+	 * <p>Sends a fairness key, so one person's large batch does not delay the documents of everyone else
+	 * submitting under the same API key.</p>
+	 *
+	 * <p>Takes the PDF in memory, so a caller holding an upload does not write an unredacted copy to
+	 * disk first. Sends the same request as the {@link File} overload.</p>
+	 *
+	 * @param context The context. Contexts can be used to group text based on some arbitrary property.
+	 * @param policyName The name of the policy to apply to the document.
+	 * @param filename The name of the file being filtered, recorded against the document. May be {@code null}.
+	 * @param content The PDF.
+	 * @param fairnessKey A key that shares Philter's queue fairly among the people a single API key submits
+	 *                    for, such as an internal user or group ID. Documents queued with different keys take
+	 *                    turns, the way different accounts do. The key is opaque to Philter and is stored
+	 *                    unencrypted with the queued document, so it must not contain personal data. It must be
+	 *                    1 to 64 characters of letters, digits, {@code .}, {@code _}, {@code :} and {@code -};
+	 *                    Philter refuses any other value with a 400. May be {@code null} to send no key.
+	 * @return The ID Philter assigned to the document.
+	 * @throws IOException Thrown if the request can not be completed.
+	 */
+	public String filterAsync(String context, String policyName, String filename, byte[] content,
+	                          String fairnessKey) throws IOException {
+		return filterBinaryAsync(context, policyName, filename, content, "application/zip", fairnessKey);
 	}
 
 	/**
@@ -1065,7 +1124,36 @@ public class PhilterClient {
 	 * @throws IOException Thrown if the request can not be completed.
 	 */
 	public String filterToPdfAsync(String context, String policyName, String filename, File file) throws IOException {
-		return filterToPdfAsync(context, policyName, filename, Files.readAllBytes(file.toPath()));
+		return filterToPdfAsync(context, policyName, filename, file, null);
+	}
+
+	/**
+	 * Submits a PDF document to Philter to be filtered asynchronously, with the result stored as a PDF
+	 * rather than as a ZIP archive. Philter accepts the document and returns immediately; poll
+	 * {@link #getDocumentState(String)} with the returned document ID and retrieve the result with
+	 * {@link #getDocument(String)}.
+	 * If the user has a webhook, Philter also notifies it when the redaction completes or fails; see
+	 * {@link #setWebhook(String, String)}.
+	 *
+	 * <p>Sends a fairness key, so one person's large batch does not delay the documents of everyone else
+	 * submitting under the same API key.</p>
+	 *
+	 * @param context The context. Contexts can be used to group text based on some arbitrary property.
+	 * @param policyName The name of the policy to apply to the document.
+	 * @param filename The name of the file being filtered. May be {@code null}.
+	 * @param file The PDF file to be filtered.
+	 * @param fairnessKey A key that shares Philter's queue fairly among the people a single API key submits
+	 *                    for, such as an internal user or group ID. Documents queued with different keys take
+	 *                    turns, the way different accounts do. The key is opaque to Philter and is stored
+	 *                    unencrypted with the queued document, so it must not contain personal data. It must be
+	 *                    1 to 64 characters of letters, digits, {@code .}, {@code _}, {@code :} and {@code -};
+	 *                    Philter refuses any other value with a 400. May be {@code null} to send no key.
+	 * @return The ID Philter assigned to the document.
+	 * @throws IOException Thrown if the request can not be completed.
+	 */
+	public String filterToPdfAsync(String context, String policyName, String filename, File file,
+	                               String fairnessKey) throws IOException {
+		return filterToPdfAsync(context, policyName, filename, Files.readAllBytes(file.toPath()), fairnessKey);
 	}
 
 	/**
@@ -1087,13 +1175,45 @@ public class PhilterClient {
 	 * @throws IOException Thrown if the request can not be completed.
 	 */
 	public String filterToPdfAsync(String context, String policyName, String filename, byte[] content) throws IOException {
-		return filterBinaryAsync(context, policyName, filename, content, "application/pdf");
+		return filterToPdfAsync(context, policyName, filename, content, null);
+	}
+
+	/**
+	 * Submits a PDF document to Philter to be filtered asynchronously, with the result stored as a PDF
+	 * rather than as a ZIP archive. Philter accepts the document and returns immediately; poll
+	 * {@link #getDocumentState(String)} with the returned document ID and retrieve the result with
+	 * {@link #getDocument(String)}.
+	 * If the user has a webhook, Philter also notifies it when the redaction completes or fails; see
+	 * {@link #setWebhook(String, String)}.
+	 *
+	 * <p>Sends a fairness key, so one person's large batch does not delay the documents of everyone else
+	 * submitting under the same API key.</p>
+	 *
+	 * <p>Takes the PDF in memory, so a caller holding an upload does not write an unredacted copy to
+	 * disk first. Sends the same request as the {@link File} overload.</p>
+	 *
+	 * @param context The context. Contexts can be used to group text based on some arbitrary property.
+	 * @param policyName The name of the policy to apply to the document.
+	 * @param filename The name of the file being filtered, recorded against the document. May be {@code null}.
+	 * @param content The PDF.
+	 * @param fairnessKey A key that shares Philter's queue fairly among the people a single API key submits
+	 *                    for, such as an internal user or group ID. Documents queued with different keys take
+	 *                    turns, the way different accounts do. The key is opaque to Philter and is stored
+	 *                    unencrypted with the queued document, so it must not contain personal data. It must be
+	 *                    1 to 64 characters of letters, digits, {@code .}, {@code _}, {@code :} and {@code -};
+	 *                    Philter refuses any other value with a 400. May be {@code null} to send no key.
+	 * @return The ID Philter assigned to the document.
+	 * @throws IOException Thrown if the request can not be completed.
+	 */
+	public String filterToPdfAsync(String context, String policyName, String filename, byte[] content,
+	                               String fairnessKey) throws IOException {
+		return filterBinaryAsync(context, policyName, filename, content, "application/pdf", fairnessKey);
 	}
 
 	private String filterBinaryAsync(String context, String policyName, String filename, byte[] content,
-	                                 String accept) throws IOException {
+	                                 String accept, String fairnessKey) throws IOException {
 
-		final HttpRequest request = binaryFilterRequest(context, policyName, filename, content, accept, true);
+		final HttpRequest request = binaryFilterRequest(context, policyName, filename, content, accept, true, fairnessKey);
 
 		// Philter answers an accepted submission with 202 and a JSON body carrying the document ID.
 		final AsyncFilterResponse response = sendExpectingJson(request, AsyncFilterResponse.class);
@@ -1103,9 +1223,11 @@ public class PhilterClient {
 	}
 
 	private HttpRequest binaryFilterRequest(String context, String policyName, String filename, byte[] content,
-	                                        String accept, boolean async) {
+	                                        String accept, boolean async, String fairnessKey) {
 
-		return request(uri("/api/filter", "c", context, "p", policyName, "filename", filename, "async", async))
+		// Philter refuses a fairness key on a synchronous request, so only asynchronous calls pass one.
+		return request(uri("/api/filter", "c", context, "p", policyName, "filename", filename, "async", async,
+				"fairness_key", fairnessKey))
 				.header("Accept", accept)
 				.header("Content-Type", "application/pdf")
 				.POST(HttpRequest.BodyPublishers.ofByteArray(content))

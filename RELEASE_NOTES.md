@@ -43,8 +43,10 @@ another user's data. Every listing has an overload taking `ListOptions` (offset,
 the listing's response type.
 
 * **Filtering:** redact PDFs with `filterToPdf`, or asynchronously with `filterAsync` and `filterToPdfAsync`
-  and then `getDocumentState` and `getDocument`, from a `File` or a `byte[]`. `filter` and `explain` take an
-  optional filename and can return a signed response (`X-Philter-Signature`).
+  and then `getDocumentState` and `getDocument`, from a `File` or a `byte[]`. The asynchronous methods take an
+  optional fairness key (`fairness_key`, philterd/philter#106), so documents one API key submits for different
+  people take turns in Philter's queue. `filter` and `explain` take an optional filename and can return a signed
+  response (`X-Philter-Signature`).
 * **Policies:** versions (each with its `author`), diffs (`diffPolicy`, and `diffPolicy(name)` compares the two
   most recent revisions), rollback, deleted policies (`getDeletedPolicies`), templates (`getPolicyTemplate`),
   PhiSQL compilation (`compilePhiSql`), descriptions and notes, managed policies (`listManagedPolicies`), and

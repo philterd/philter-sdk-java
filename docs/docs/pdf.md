@@ -54,4 +54,15 @@ The status is `PENDING`, `PROCESSING`, `COMPLETE`, or `FAILED`. Downloading a do
 
 To be notified when a redaction finishes instead of polling, set a [webhook](webhook.md).
 
+## Sharing the queue fairly
+
+Philter takes asynchronous documents from different accounts in turns, so one account's large batch does not hold up everyone else. An application that submits for many people under one API key can get the same behavior among those people by passing a fairness key as the last argument to `filterAsync(...)` or `filterToPdfAsync(...)`, with either a `File` or a `byte[]`. Documents queued with different keys take turns.
+
+```java
+// For example, an internal user or group ID.
+String documentId = client.filterAsync("my-context", "default", "report.pdf", new File("report.pdf"), "group-42");
+```
+
+The key is opaque to Philter and is stored unencrypted with the queued document, so it must not contain personal data such as a name or email address. Use an internal ID instead. A key is 1 to 64 characters of letters, digits, `.`, `_`, `:` and `-`; Philter refuses any other value with an HTTP 400. Passing `null`, or calling the overloads without a key, sends no key; documents queued without a key take turns together, as if they shared one key. The synchronous `filter(...)` and `filterToPdf(...)` methods do not take one, since Philter refuses a key on a synchronous request.
+
 Use `listDocuments()` to list the stored documents and `deleteDocument(documentId)` to remove one.

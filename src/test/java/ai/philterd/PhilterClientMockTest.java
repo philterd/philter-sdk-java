@@ -418,6 +418,84 @@ public class PhilterClientMockTest {
     }
 
     @Test
+    public void fairnessKeyIsSentOnAsynchronousRequests() throws Exception {
+
+        final byte[] pdf = {0x25, 0x50, 0x44, 0x46};
+        final File file = pdfFile();
+
+        respond(202, "{\"documentId\":\"doc-fair\"}");
+
+        Assert.assertEquals("doc-fair", client().filterAsync("ctx", "default", "a.pdf", file, "group:42"));
+        Assert.assertEquals("group:42", queryParameter("fairness_key"));
+        Assert.assertEquals("application/zip", header("Accept"));
+
+        Assert.assertEquals("doc-fair", client().filterAsync("ctx", "default", "a.pdf", pdf, "user_7.a-b"));
+        Assert.assertEquals("user_7.a-b", queryParameter("fairness_key"));
+        Assert.assertEquals("application/zip", header("Accept"));
+
+        Assert.assertEquals("doc-fair", client().filterToPdfAsync("ctx", "default", "a.pdf", file, "group:42"));
+        Assert.assertEquals("group:42", queryParameter("fairness_key"));
+        Assert.assertEquals("application/pdf", header("Accept"));
+
+        Assert.assertEquals("doc-fair", client().filterToPdfAsync("ctx", "default", "a.pdf", pdf, "user_7.a-b"));
+        Assert.assertEquals("user_7.a-b", queryParameter("fairness_key"));
+        Assert.assertEquals("application/pdf", header("Accept"));
+        Assert.assertEquals("true", queryParameter("async"));
+    }
+
+    @Test
+    public void fairnessKeyIsUrlEncoded() throws Exception {
+
+        respond(202, "{\"documentId\":\"doc-fair\"}");
+
+        // Philter would refuse this key, but the client must still encode it rather than corrupt the query.
+        client().filterAsync("ctx", "default", "a.pdf", new byte[]{1}, "a&b=c d");
+
+        Assert.assertEquals("a&b=c d", queryParameter("fairness_key"));
+        Assert.assertTrue(rawQuery, rawQuery.contains("fairness_key=a%26b%3Dc%20d"));
+    }
+
+    @Test
+    public void noFairnessKeyIsSentWithoutOne() throws Exception {
+
+        final byte[] pdf = {0x25, 0x50, 0x44, 0x46};
+        final File file = pdfFile();
+
+        respond(202, "{\"documentId\":\"doc-async\"}");
+
+        client().filterAsync("ctx", "default", "a.pdf", file);
+        Assert.assertFalse(queryParameters.containsKey("fairness_key"));
+        client().filterAsync("ctx", "default", "a.pdf", pdf);
+        Assert.assertFalse(queryParameters.containsKey("fairness_key"));
+        client().filterToPdfAsync("ctx", "default", "a.pdf", file);
+        Assert.assertFalse(queryParameters.containsKey("fairness_key"));
+        client().filterToPdfAsync("ctx", "default", "a.pdf", pdf);
+        Assert.assertFalse(queryParameters.containsKey("fairness_key"));
+
+        // A null key is the same request as the overload without one.
+        client().filterAsync("ctx", "default", "a.pdf", pdf);
+        final String withoutKey = lastRequest();
+        client().filterAsync("ctx", "default", "a.pdf", pdf, null);
+        Assert.assertEquals(withoutKey, lastRequest());
+
+        client().filterToPdfAsync("ctx", "default", "a.pdf", file);
+        final String toPdfWithoutKey = lastRequest();
+        client().filterToPdfAsync("ctx", "default", "a.pdf", file, null);
+        Assert.assertEquals(toPdfWithoutKey, lastRequest());
+    }
+
+    @Test
+    public void synchronousRequestsSendNoFairnessKey() throws Exception {
+
+        respond(200, new byte[]{0x25, 0x50, 0x44, 0x46});
+
+        client().filter("ctx", "default", "a.pdf", pdfFile());
+        Assert.assertFalse(queryParameters.containsKey("fairness_key"));
+        client().filterToPdf("ctx", "default", "a.pdf", pdfFile());
+        Assert.assertFalse(queryParameters.containsKey("fairness_key"));
+    }
+
+    @Test
     public void filenameIsSentOnTextRequests() throws Exception {
 
         respond(200, "filtered");
