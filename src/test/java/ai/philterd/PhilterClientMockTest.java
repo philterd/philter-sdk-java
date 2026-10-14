@@ -3910,17 +3910,24 @@ public class PhilterClientMockTest {
         final GetDocumentsResponse documents = client().listDocuments();
         Assert.assertEquals("/api/documents", path);
         final DocumentSummary document = documents.getDocuments().get(0);
-        Assert.assertEquals("bb00a978-5ac9-4189-896a-bd1e281645ee", document.getDocumentId());
+        Assert.assertEquals("0d6cddfd-e0fa-42e9-9f36-7f1ca8a17b35", document.getDocumentId());
         Assert.assertEquals("scan.pdf", document.getFileName());
         Assert.assertEquals("PENDING", document.getStatus());
         Assert.assertNotNull(document.getTimestamp());
+        // Revision 0 is a policy's first revision, not a missing one.
+        Assert.assertEquals("default", document.getPolicyName());
+        Assert.assertEquals(Integer.valueOf(0), document.getPolicyVersion());
+        Assert.assertEquals(64, document.getPolicyContentHash().length());
 
         respond(200, recorded("document-status.json"));
-        final DocumentStatus status = client().getDocumentState("bb00a978-5ac9-4189-896a-bd1e281645ee");
-        Assert.assertEquals("/api/documents/bb00a978-5ac9-4189-896a-bd1e281645ee/status", path);
+        final DocumentStatus status = client().getDocumentState("0d6cddfd-e0fa-42e9-9f36-7f1ca8a17b35");
+        Assert.assertEquals("/api/documents/0d6cddfd-e0fa-42e9-9f36-7f1ca8a17b35/status", path);
         Assert.assertEquals("PENDING", status.getStatus());
         Assert.assertEquals(64, status.getEffectiveConfigurationHash().length());
         Assert.assertNull(status.getError());
+        Assert.assertEquals("default", status.getPolicyName());
+        Assert.assertEquals(Integer.valueOf(0), status.getPolicyVersion());
+        Assert.assertEquals(document.getPolicyContentHash(), status.getPolicyContentHash());
     }
 
     @Test

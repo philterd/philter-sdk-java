@@ -52,6 +52,14 @@ byte[] zip = client.getDocument(documentId);            // once the status is CO
 
 The status is `PENDING`, `PROCESSING`, `COMPLETE`, or `FAILED`. Downloading a document whose redaction failed returns an HTTP 410, which the client raises as a `ClientException`; `status.getError()` says why.
 
+The status also names the policy the document was submitted with, and so does each document from `listDocuments()`. Read that revision of the policy to see exactly what redacted it:
+
+```java
+String policy = client.getPolicyVersion(status.getPolicyName(), status.getPolicyVersion());
+```
+
+`getPolicyVersion()` is `null` only if Philter recorded no policy for the document. A policy's first revision is `0`.
+
 To be notified when a redaction finishes instead of polling, set a [webhook](webhook.md).
 
 ## Sharing the queue fairly

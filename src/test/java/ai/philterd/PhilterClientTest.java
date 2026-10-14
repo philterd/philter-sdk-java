@@ -19,6 +19,8 @@ import ai.philterd.philter.PhilterClient;
 import ai.philterd.philter.model.BinaryFilterResponse;
 import ai.philterd.philter.model.CreatedApiKeyResponse;
 import ai.philterd.philter.model.CreatedUserResponse;
+import ai.philterd.philter.model.DocumentStatus;
+import ai.philterd.philter.model.DocumentSummary;
 import ai.philterd.philter.model.ExplainResponse;
 import ai.philterd.philter.model.FilterResponse;
 import ai.philterd.philter.model.GenericResponse;
@@ -158,6 +160,31 @@ public class PhilterClientTest {
 
         Assert.assertNotNull(response.getContent());
         Assert.assertTrue(response.getContent().length > 0);
+    }
+
+    @Test
+    public void asyncDocumentNamesItsPolicy() throws Exception {
+
+        final String pdfPath = System.getenv("PHILTER_PDF_FILE");
+        Assume.assumeTrue("Set PHILTER_PDF_FILE to run the asynchronous PDF test.",
+                pdfPath != null && !pdfPath.isBlank());
+
+        final PhilterClient client = client();
+        final String documentId = client.filterAsync("sdk-it", "default", "test.pdf", new File(pdfPath));
+
+        // Named from submission, whatever the document's status.
+        final DocumentStatus status = client.getDocumentState(documentId);
+        Assert.assertEquals("default", status.getPolicyName());
+        Assert.assertNotNull(status.getPolicyVersion());
+        Assert.assertEquals(64, status.getPolicyContentHash().length());
+
+        final DocumentSummary listed = client.listDocuments().getDocuments().stream()
+                .filter(document -> documentId.equals(document.getDocumentId())).findFirst().orElseThrow();
+        Assert.assertEquals(status.getPolicyVersion(), listed.getPolicyVersion());
+        Assert.assertEquals(status.getPolicyContentHash(), listed.getPolicyContentHash());
+
+        // The revision it names can be read back.
+        Assert.assertNotNull(client.getPolicyVersion(status.getPolicyName(), status.getPolicyVersion()));
     }
 
     // Policies.

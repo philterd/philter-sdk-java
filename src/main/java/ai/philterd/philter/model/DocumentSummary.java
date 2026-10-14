@@ -39,6 +39,18 @@ public class DocumentSummary {
     @SerializedName("timestamp")
     private String timestamp;
 
+    @Expose
+    @SerializedName("policyName")
+    private String policyName;
+
+    @Expose
+    @SerializedName("policyVersion")
+    private Integer policyVersion;
+
+    @Expose
+    @SerializedName("policyContentHash")
+    private String policyContentHash;
+
     /** The document ID. */
     public String getDocumentId() {
         return documentId;
@@ -73,6 +85,36 @@ public class DocumentSummary {
 
     public void setTimestamp(String timestamp) {
         this.timestamp = timestamp;
+    }
+
+    /**
+     * The policy the document was submitted with. Read that revision with
+     * {@link ai.philterd.philter.PhilterClient#getPolicyVersion(String, int)}.
+     */
+    public String getPolicyName() {
+        return policyName;
+    }
+
+    public void setPolicyName(String policyName) {
+        this.policyName = policyName;
+    }
+
+    /** The policy's revision when the document was submitted, or {@code null} if none was recorded. */
+    public Integer getPolicyVersion() {
+        return policyVersion;
+    }
+
+    public void setPolicyVersion(Integer policyVersion) {
+        this.policyVersion = policyVersion;
+    }
+
+    /** The SHA-256 of that revision's content. */
+    public String getPolicyContentHash() {
+        return policyContentHash;
+    }
+
+    public void setPolicyContentHash(String policyContentHash) {
+        this.policyContentHash = policyContentHash;
     }
 
 }
