@@ -2382,7 +2382,8 @@ public class PhilterClientMockTest {
     @Test
     public void getPiiCountsSendsEveryFilterAndMapsTheCounts() throws Exception {
 
-        respond(200, "{\"recordingEnabled\":true,\"counts\":[{\"context\":\"claims-intake\",\"day\":\"2026-09-30\","
+        respond(200, "{\"recordingEnabled\":true,\"counts\":[{\"id\":\"9b2f6c0d4e8a1f3b5c7d9e1f2a4b6c8d\","
+                + "\"owner\":\"jordan\",\"context\":\"claims-intake\",\"day\":\"2026-09-30\","
                 + "\"counts\":{\"SSN\":1240,\"EMAIL_ADDRESS\":8900,\"PERSON\":9500},\"totalDocuments\":10000,"
                 + "\"updatedAt\":\"2026-09-30T18:42:10.000Z\"}],\"total\":31}");
 
@@ -2400,6 +2401,8 @@ public class PhilterClientMockTest {
         Assert.assertEquals(1, response.getCounts().size());
 
         final PiiCount count = response.getCounts().get(0);
+        Assert.assertEquals("9b2f6c0d4e8a1f3b5c7d9e1f2a4b6c8d", count.getId());
+        Assert.assertEquals("jordan", count.getOwner());
         Assert.assertEquals("claims-intake", count.getContext());
         Assert.assertEquals(LocalDate.of(2026, 9, 30), count.getDay());
         Assert.assertEquals("2026-09-30", count.getDayText());
@@ -2407,6 +2410,44 @@ public class PhilterClientMockTest {
         Assert.assertEquals(10000, count.getTotalDocuments());
         Assert.assertEquals(Instant.parse("2026-09-30T18:42:10Z"), count.getUpdatedAt());
         Assert.assertEquals("2026-09-30T18:42:10.000Z", count.getUpdatedAtText());
+    }
+
+    @Test
+    public void getPiiCountsNarrowsToAnOwnerAndReadsAnUnnamedEntry() throws Exception {
+
+        // Another user's counts come without their context and username unless cross-user access is on.
+        respond(200, "{\"recordingEnabled\":true,\"counts\":[{\"id\":\"0123456789abcdef0123456789abcdef\","
+                + "\"day\":\"2026-09-30\",\"counts\":{\"SSN\":5},\"totalDocuments\":5}],\"total\":1}");
+
+        final GetPiiCountsResponse response = client().getPiiCounts(null, null, null, "riley", 0, 10);
+
+        Assert.assertEquals(Map.of("owner", "riley", "offset", "0", "limit", "10"), queryParameters);
+        final PiiCount count = response.getCounts().get(0);
+        Assert.assertEquals("0123456789abcdef0123456789abcdef", count.getId());
+        Assert.assertNull(count.getOwner());
+        Assert.assertNull(count.getContext());
+        Assert.assertEquals(Map.of("SSN", 5L), count.getCounts());
+    }
+
+    @Test
+    public void getAllPiiCountsReturnsAnEntryRepeatedAcrossPagesOnce() throws Exception {
+
+        final StringBuilder first = new StringBuilder("{\"recordingEnabled\":true,\"counts\":[");
+        for (int i = 0; i < 100; i++) {
+            first.append(i == 0 ? "" : ",").append("{\"id\":\"id").append(i).append("\",\"day\":\"2026-09-30\","
+                    + "\"counts\":{\"SSN\":1},\"totalDocuments\":1}");
+        }
+        first.append("],\"total\":101}");
+        respondNext(200, first.toString());
+        // A day created while paging shifts the listing, so the last entry of the first page comes back.
+        respondNext(200, "{\"recordingEnabled\":true,\"counts\":["
+                + "{\"id\":\"id99\",\"day\":\"2026-09-30\",\"counts\":{\"SSN\":1},\"totalDocuments\":1}"
+                + "],\"total\":101}");
+
+        final GetPiiCountsResponse all = client().getAllPiiCounts(null, null, null);
+
+        Assert.assertEquals(2, requests.size());
+        Assert.assertEquals("id99 is returned once", 100, all.getCounts().size());
     }
 
     @Test

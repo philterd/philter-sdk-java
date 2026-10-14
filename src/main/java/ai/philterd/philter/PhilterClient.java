@@ -4592,8 +4592,8 @@ public class PhilterClient {
 	}
 
 	/**
-	 * Gets a page of the PII type counts Philter records, one entry per context and UTC day, most recent day
-	 * first and then by context. Philter Diffuse reads them for differential-privacy reporting, and any caller
+	 * Gets a page of the PII type counts Philter records, one entry per user's context and UTC day, most recent
+	 * day first. Philter Diffuse reads them for differential-privacy reporting, and any caller
 	 * can use them for similar reporting, such as dashboards or trend monitoring. It returns counts only, never
 	 * any PII. Needs Philter 4.0 or later.
 	 *
@@ -4621,9 +4621,31 @@ public class PhilterClient {
 	 */
 	public GetPiiCountsResponse getPiiCounts(LocalDate from, LocalDate to, String context, Integer offset,
 			Integer limit) throws IOException {
+		return getPiiCounts(from, to, context, null, offset, limit);
+	}
+
+	/**
+	 * As {@link #getPiiCounts(LocalDate, LocalDate, String, Integer, Integer)}, narrowed to one user's counts.
+	 *
+	 * <p>Philter keeps each user's counts apart. Another user's context name and username are returned only when
+	 * Philter's {@code ADMIN_CROSS_USER_ACCESS_ENABLED} is on; without it their counts are still returned, unnamed,
+	 * and {@code context} narrows to the caller's own contexts. Naming another user as {@code owner} without it is an
+	 * HTTP 404, thrown as a {@link ClientException}.</p>
+	 *
+	 * @param from The first UTC day to return, inclusive. May be {@code null}.
+	 * @param to The last UTC day to return, inclusive. May be {@code null}.
+	 * @param context The context to return counts for. May be {@code null} for every context.
+	 * @param owner The username whose counts to return. May be {@code null} for every user's.
+	 * @param offset The number of entries to skip. May be {@code null} for {@code 0}.
+	 * @param limit The most entries to return, up to 100. May be {@code null} for Philter's default of 25.
+	 * @return The page of counts, the total number matching the filters, and whether Philter is recording counts.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public GetPiiCountsResponse getPiiCounts(LocalDate from, LocalDate to, String context, String owner, Integer offset,
+			Integer limit) throws IOException {
 
 		final HttpRequest request = json(uri("/api/pii-counts", "from", from, "to", to, "context", context,
-				"offset", offset, "limit", limit))
+				"owner", owner, "offset", offset, "limit", limit))
 				.GET()
 				.build();
 
@@ -4639,8 +4661,9 @@ public class PhilterClient {
 	 * those of {@link #getPiiCounts(LocalDate, LocalDate, String, Integer, Integer)}, and each page is its own
 	 * call, recorded as its own audit event.
 	 *
-	 * <p>Counts recorded while the pages are being read can change entries or shift them between pages, so a
-	 * caller that needs a stable result should end the range before the current UTC day.</p>
+	 * <p>Counts recorded while the pages are being read can change entries or shift them between pages. An entry
+	 * that comes back on two pages is returned once, by its {@link PiiCount#getId()}, but a caller that needs a stable
+	 * result should end the range before the current UTC day.</p>
 	 *
 	 * @param from The first UTC day to return, inclusive. May be {@code null}.
 	 * @param to The last UTC day to return, inclusive. May be {@code null}.
@@ -4651,15 +4674,23 @@ public class PhilterClient {
 	public GetPiiCountsResponse getAllPiiCounts(LocalDate from, LocalDate to, String context) throws IOException {
 
 		final List<PiiCount> counts = new ArrayList<>();
+		final java.util.Set<String> seen = new java.util.HashSet<>();
+		int offset = 0;
 		GetPiiCountsResponse page;
 
 		do {
-			page = getPiiCounts(from, to, context, counts.size(), PII_COUNTS_MAX_LIMIT);
+			page = getPiiCounts(from, to, context, null, offset, PII_COUNTS_MAX_LIMIT);
 			if(page.getCounts() == null || page.getCounts().isEmpty()) {
 				break;
 			}
-			counts.addAll(page.getCounts());
-		} while(counts.size() < page.getTotal());
+			offset += page.getCounts().size();
+			for(final PiiCount count : page.getCounts()) {
+				// A day created while paging shifts the newest-first listing, so an entry can come back twice.
+				if(count.getId() == null || seen.add(count.getId())) {
+					counts.add(count);
+				}
+			}
+		} while(offset < page.getTotal());
 
 		final GetPiiCountsResponse all = new GetPiiCountsResponse();
 		all.setRecordingEnabled(page.isRecordingEnabled());

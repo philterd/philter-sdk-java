@@ -24,10 +24,18 @@ import java.time.format.DateTimeParseException;
 import java.util.Map;
 
 /**
- * The PII type counts Philter recorded for one context on one UTC day, for reporting such as differential-privacy
- * reporting with Philter Diffuse. Counts only: never any PII.
+ * The PII type counts Philter recorded for one user's context on one UTC day, for reporting such as
+ * differential-privacy reporting with Philter Diffuse. Counts only: never any PII.
  */
 public class PiiCount {
+
+    @Expose
+    @SerializedName("id")
+    private String id;
+
+    @Expose
+    @SerializedName("owner")
+    private String owner;
 
     @Expose
     @SerializedName("context")
@@ -49,7 +57,34 @@ public class PiiCount {
     @SerializedName("updatedAt")
     private String updatedAt;
 
-    /** The context the redactions ran in. */
+    /**
+     * Identifies this user's context and day, the same on every read, so entries can be told apart without their
+     * names: two users' contexts of one name are separate entries.
+     */
+    public String getId() {
+        return id;
+    }
+
+    public void setId(String id) {
+        this.id = id;
+    }
+
+    /**
+     * The username of the user whose redactions these are, or {@code null} for another user's counts when Philter's
+     * {@code ADMIN_CROSS_USER_ACCESS_ENABLED} is off.
+     */
+    public String getOwner() {
+        return owner;
+    }
+
+    public void setOwner(String owner) {
+        this.owner = owner;
+    }
+
+    /**
+     * The context the redactions ran in, or {@code null} for another user's counts when Philter's
+     * {@code ADMIN_CROSS_USER_ACCESS_ENABLED} is off.
+     */
     public String getContext() {
         return context;
     }
