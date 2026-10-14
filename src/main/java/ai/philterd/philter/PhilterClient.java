@@ -371,9 +371,10 @@ public class PhilterClient {
 		 * sent instead of the supplier's value.</p>
 		 *
 		 * <p>Philter believes the header only when the request reaches it from an address in its
-		 * {@code TRUSTED_PROXIES}, which by default are the loopback, private, link-local, and IPv6
-		 * unique-local ranges; from any other address, and for a value that is not an IP address (a port
-		 * is allowed and ignored), it uses the connection's own address. Return an address the application
+		 * {@code TRUSTED_PROXIES}, which by default is loopback only, so unless the application runs on the
+		 * same host as Philter, list the application's address there; from any other address, and for a value
+		 * that is not an IP address (a port is allowed and ignored), it uses the connection's own address.
+		 * Return an address the application
 		 * determined itself, such as the remote address of the person's connection to it, not one the
 		 * person's browser supplied, which they can set to anything.</p>
 		 *
@@ -4815,9 +4816,10 @@ public class PhilterClient {
 	 * application's. Otherwise the same as {@link #signIn(String, String)}.
 	 *
 	 * <p>The address is sent as {@code X-Forwarded-For}. Philter believes the header only when the request
-	 * reaches it from an address in its {@code TRUSTED_PROXIES}, which by default are the loopback, private,
-	 * link-local, and IPv6 unique-local ranges; from any other address, and for a value that is not an IP
-	 * address (a port is allowed and ignored), Philter uses the connection's own address. Pass an address
+	 * reaches it from an address in its {@code TRUSTED_PROXIES}, which by default is loopback only, so unless the
+	 * application runs on the same host as Philter, list the application's address there; from any other address,
+	 * and for a value that is not an IP address (a port is allowed and ignored), Philter uses the connection's own
+	 * address. Pass an address
 	 * the application determined itself, such as the remote address of the person's connection to it, not
 	 * one the person's browser supplied, which they can set to anything.</p>
 	 *
