@@ -38,12 +38,14 @@ List the contexts, and inspect or clear the values a context has accumulated:
 
 ```java
 import ai.philterd.philter.model.ContextDetails;
+import ai.philterd.philter.model.ContextSummary;
 import ai.philterd.philter.model.ContextEntriesExport;
 import ai.philterd.philter.model.ImportContextEntriesResponse;
 import ai.philterd.philter.model.ContextEntry;
 import ai.philterd.philter.model.GetContextEntriesResponse;
 
-List<String> contexts = client.listContexts().getContexts();
+// The first page of contexts, each with its name and when it was created.
+List<ContextSummary> contexts = client.listContexts().getContexts();
 
 // The context's settings and its entries counted by filter type.
 ContextDetails context = client.getContextDetails("tenant-a");

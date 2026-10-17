@@ -33,6 +33,14 @@ are relative to 1.5.0.
   `getLedgerChain(documentId, owner, offset, limit)` overload asks for another page (at most 100 entries).
   `LedgerChain.getTotal()` is how many entries the whole chain has. The validity results still cover the whole
   chain. `getLedgerExport` still returns every entry.
+* The policy and context listings return summaries instead of names, as Philter 4.0 does. `listPolicies`,
+  `listPoliciesAcrossUsers`, and `listManagedPolicies(ListOptions)` return `Page<PolicySummary>`, with each policy's
+  `name`, `description`, `revision`, `createdAt`, `updatedAt`, and, across users, `owner`. `GetContextsResponse`
+  and `GetContextsAcrossUsersResponse` hold `ContextSummary` items, with `name`, `createdAt`, and, across users,
+  `owner`. The timestamps are `Instant`s. The deprecated `getPolicies` and `getManagedPolicies` still return names,
+  `getPoliciesAcrossUsers` still returns `OwnedName`, and `listManagedPolicies()` and
+  `listManagedPolicies(offset, limit)` still return `ManagedPolicySummary`; `OwnedName` and `ManagedPolicySummary`
+  are deprecated.
 * `withApiKey(...)` sends its value verbatim in the `Authorization` header, so include any scheme prefix such
   as `"Bearer "`.
 * `filter` and `explain` no longer take a document ID. Philter returns it in the `x-document-id` header.

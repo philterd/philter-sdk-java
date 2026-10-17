@@ -27,14 +27,14 @@ public class GetContextsAcrossUsersResponse {
 
     @Expose
     @SerializedName("contexts")
-    private List<OwnedName> contexts;
+    private List<ContextSummary> contexts;
 
-    /** Each context's name and owner. */
-    public List<OwnedName> getContexts() {
+    /** The contexts on this page, each with its {@link ContextSummary#getOwner() owner}. */
+    public List<ContextSummary> getContexts() {
         return contexts;
     }
 
-    public void setContexts(List<OwnedName> contexts) {
+    public void setContexts(List<ContextSummary> contexts) {
         this.contexts = contexts;
     }
 

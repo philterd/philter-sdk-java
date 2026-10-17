@@ -59,6 +59,7 @@ import ai.philterd.philter.model.GetPiiCountsResponse;
 import ai.philterd.philter.model.PiiCount;
 import ai.philterd.philter.model.GetUsersResponse;
 import ai.philterd.philter.model.PolicyWithETag;
+import ai.philterd.philter.model.PolicySummary;
 import ai.philterd.philter.model.ListOptions;
 import ai.philterd.philter.model.Page;
 import ai.philterd.philter.model.RedactList;
@@ -1525,21 +1526,28 @@ public class PhilterClient {
 	 */
 	@Deprecated
 	public List<String> getPolicies(String owner, Integer offset, Integer limit) throws IOException {
-		return listPolicies(owner, new ListOptions().offset(offset).limit(limit)).getItems();
+
+		final List<String> names = new ArrayList<>();
+		for (final PolicySummary policy : listPolicies(owner, new ListOptions().offset(offset).limit(limit)).getItems()) {
+			names.add(policy.getName());
+		}
+		return names;
+
 	}
 
 	/**
-	 * Lists the caller's policy names, a page at a time, with the total. Sort by {@code name} (the default),
+	 * Lists the caller's policies, a page at a time, with the total. Sort by {@code name} (the default),
 	 * {@code created}, or {@code updated}; {@link ListOptions#search(String)} matches the name.
 	 * @param owner The owner. May be {@code null} for the caller's own. Another user's requires an
 	 * administrator and {@code ADMIN_CROSS_USER_ACCESS_ENABLED=true}; otherwise Philter answers HTTP 404.
 	 * @param options Paging, sorting, and search. May be {@code null} for Philter's defaults.
-	 * @return A page of policy names.
+	 * @return A page of policies, each with its description, revision, and when it was created and last
+	 * changed.
 	 * @throws IOException Thrown if the call can not be executed.
 	 */
-	public Page<String> listPolicies(String owner, ListOptions options) throws IOException {
+	public Page<PolicySummary> listPolicies(String owner, ListOptions options) throws IOException {
 		return sendExpectingPage(json(uri("/api/policies", listParameters(options, "owner", owner))).GET().build(),
-				"policies", String.class);
+				"policies", PolicySummary.class);
 	}
 
 	/**
@@ -1548,24 +1556,24 @@ public class PhilterClient {
 	 * Requires an administrator and {@code ADMIN_CROSS_USER_ACCESS_ENABLED=true}; otherwise Philter answers HTTP
 	 * 404.
 	 * @param options Paging, sorting, and search. May be {@code null} for Philter's defaults.
-	 * @return A page of policy names and their owners.
+	 * @return A page of policies, each with its {@link PolicySummary#getOwner() owner}.
 	 * @throws IOException Thrown if the call can not be executed.
 	 */
-	public Page<OwnedName> listPoliciesAcrossUsers(ListOptions options) throws IOException {
+	public Page<PolicySummary> listPoliciesAcrossUsers(ListOptions options) throws IOException {
 		return sendExpectingPage(json(uri("/api/policies", listParameters(options, "all_users", Boolean.TRUE)))
-				.GET().build(), "policies", OwnedName.class);
+				.GET().build(), "policies", PolicySummary.class);
 	}
 
 	/**
 	 * Lists the built-in managed policies, a page at a time, each with its description, with the total. They
 	 * sort by {@code name} only; {@link ListOptions#search(String)} matches the name.
 	 * @param options Paging, sorting, and search. May be {@code null} for Philter's defaults.
-	 * @return A page of managed policies.
+	 * @return A page of managed policies. Each name begins with {@code managed_}.
 	 * @throws IOException Thrown if the call can not be executed.
 	 */
-	public Page<ManagedPolicySummary> listManagedPolicies(ListOptions options) throws IOException {
+	public Page<PolicySummary> listManagedPolicies(ListOptions options) throws IOException {
 		return sendExpectingPage(json(uri("/api/policies", listParameters(options, "managed", Boolean.TRUE)))
-				.GET().build(), "policies", ManagedPolicySummary.class);
+				.GET().build(), "policies", PolicySummary.class);
 	}
 
 	/**
@@ -1597,7 +1605,16 @@ public class PhilterClient {
 	 */
 	@Deprecated
 	public List<OwnedName> getPoliciesAcrossUsers(Integer offset, Integer limit) throws IOException {
-		return listPoliciesAcrossUsers(new ListOptions().offset(offset).limit(limit)).getItems();
+
+		final List<OwnedName> policies = new ArrayList<>();
+		for (final PolicySummary policy : listPoliciesAcrossUsers(new ListOptions().offset(offset).limit(limit)).getItems()) {
+			final OwnedName owned = new OwnedName();
+			owned.setName(policy.getName());
+			owned.setOwner(policy.getOwner());
+			policies.add(owned);
+		}
+		return policies;
+
 	}
 
 	/**
@@ -1660,7 +1677,16 @@ public class PhilterClient {
 	 */
 	@Deprecated
 	public List<ManagedPolicySummary> listManagedPolicies(Integer offset, Integer limit) throws IOException {
-		return listManagedPolicies(new ListOptions().offset(offset).limit(limit)).getItems();
+
+		final List<ManagedPolicySummary> policies = new ArrayList<>();
+		for (final PolicySummary policy : listManagedPolicies(new ListOptions().offset(offset).limit(limit)).getItems()) {
+			final ManagedPolicySummary managed = new ManagedPolicySummary();
+			managed.setName(policy.getName());
+			managed.setDescription(policy.getDescription());
+			policies.add(managed);
+		}
+		return policies;
+
 	}
 
 	/**
@@ -2548,8 +2574,8 @@ public class PhilterClient {
 	}
 
 	/**
-	 * Lists the names of the caller's contexts, paged. See {@link #listContexts(String, Integer, Integer)}.
-	 * @return The context names.
+	 * Lists the caller's contexts, paged. See {@link #listContexts(String, Integer, Integer)}.
+	 * @return The contexts.
 	 * @throws IOException Thrown if the call can not be executed.
 	 */
 	public GetContextsResponse listContexts() throws IOException {
@@ -2557,12 +2583,12 @@ public class PhilterClient {
 	}
 
 	/**
-	 * Lists the names of the caller's contexts, paged.
+	 * Lists the caller's contexts, paged, each with when it was created.
 	 * @param owner The owner. May be {@code null} for the caller's own. Another user's requires an
 	 * administrator and {@code ADMIN_CROSS_USER_ACCESS_ENABLED=true}; otherwise Philter answers HTTP 404.
 	 * @param offset The number of items to skip. May be {@code null} for {@code 0}.
 	 * @param limit The most items to return, up to 100. May be {@code null} for Philter's default of 25.
-	 * @return The context names.
+	 * @return The contexts.
 	 * @throws IOException Thrown if the call can not be executed.
 	 */
 	public GetContextsResponse listContexts(String owner, Integer offset, Integer limit) throws IOException {
@@ -2570,12 +2596,12 @@ public class PhilterClient {
 	}
 
 	/**
-	 * Lists the caller's context names, a page at a time, with the total. Sort by {@code name} (the default) or
-	 * {@code created}; {@link ListOptions#search(String)} matches the name.
+	 * Lists the caller's contexts, a page at a time, each with when it was created, with the total. Sort by
+	 * {@code name} (the default) or {@code created}; {@link ListOptions#search(String)} matches the name.
 	 * @param owner The owner. May be {@code null} for the caller's own. Another user's requires an
 	 * administrator and {@code ADMIN_CROSS_USER_ACCESS_ENABLED=true}; otherwise Philter answers HTTP 404.
 	 * @param options Paging, sorting, and search. May be {@code null} for Philter's defaults.
-	 * @return The context names and the total.
+	 * @return The contexts and the total.
 	 * @throws IOException Thrown if the call can not be executed.
 	 */
 	public GetContextsResponse listContexts(String owner, ListOptions options) throws IOException {

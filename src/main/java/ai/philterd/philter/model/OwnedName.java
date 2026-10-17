@@ -21,7 +21,11 @@ import com.google.gson.annotations.SerializedName;
 /**
  * A named resource and the username of the user who owns it, as returned by Philter's listings
  * across all users.
+ *
+ * @deprecated Returned only by the deprecated {@code getPoliciesAcrossUsers} overloads. Use
+ * {@link PolicySummary} from {@code listPoliciesAcrossUsers}.
  */
+@Deprecated
 public class OwnedName {
 
     @Expose

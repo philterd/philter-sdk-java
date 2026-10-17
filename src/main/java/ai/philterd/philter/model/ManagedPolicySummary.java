@@ -21,7 +21,12 @@ import com.google.gson.annotations.SerializedName;
 /**
  * A built-in managed policy's name and description. Get its content with {@code getPolicy}, or copy it with
  * {@code copyPolicy}.
+ *
+ * @deprecated Returned only by the deprecated {@code listManagedPolicies()} and
+ * {@code listManagedPolicies(Integer, Integer)} overloads. Use {@link PolicySummary} from
+ * {@code listManagedPolicies(ListOptions)}.
  */
+@Deprecated
 public class ManagedPolicySummary {
 
     @Expose

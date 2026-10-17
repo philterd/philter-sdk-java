@@ -8,10 +8,10 @@ Endpoints that accept an `owner` have an overload taking that owner's username. 
 
 ```java
 // Your own policies.
-Page<String> mine = client.listPolicies(null, null);
+Page<PolicySummary> mine = client.listPolicies(null, null);
 
 // Another user's policies, as an administrator.
-Page<String> theirs = client.listPolicies("someone@example.com", null);
+Page<PolicySummary> theirs = client.listPolicies("someone@example.com", null);
 
 String policy = client.getPolicy("default", "someone@example.com");
 ```
@@ -31,11 +31,11 @@ import ai.philterd.philter.model.ListOptions;
 import ai.philterd.philter.model.Page;
 
 // The third page of 50 policies whose name contains "claims", newest first.
-Page<String> page = client.listPolicies(null,
+Page<PolicySummary> page = client.listPolicies(null,
         new ListOptions().offset(100).limit(50).sort("created").descending().search("claims"));
 long total = page.getTotal();
-for (String name : page.getItems()) {
-    System.out.println(name);
+for (PolicySummary policy : page.getItems()) {
+    System.out.println(policy.getName());
 }
 ```
 
@@ -47,9 +47,9 @@ for (String name : page.getItems()) {
 
 | Method | Returns | `sort` (default first) | `search` matches | Filters |
 |--------|---------|------------------------|------------------|---------|
-| `listPolicies(owner, options)` | `Page<String>` | `name`, `created`, `updated` | name | |
-| `listPoliciesAcrossUsers(options)` | `Page<OwnedName>` | `name`, `created`, `updated` | name | |
-| `listManagedPolicies(options)` | `Page<ManagedPolicySummary>` | `name` | name | |
+| `listPolicies(owner, options)` | `Page<PolicySummary>` | `name`, `created`, `updated` | name | |
+| `listPoliciesAcrossUsers(options)` | `Page<PolicySummary>` | `name`, `created`, `updated` | name | |
+| `listManagedPolicies(options)` | `Page<PolicySummary>` | `name` | name | |
 | `getDeletedPolicies(owner, options)` | `GetDeletedPoliciesResponse` | `name` | name | |
 | `listPolicyVersions(name, owner, options)` | `Page<PolicyVersionSummary>` | `revision` (newest first) | | |
 | `listContexts(owner, options)` | `GetContextsResponse` | `name`, `created` | name | |
@@ -74,12 +74,12 @@ Items with the same sort value keep a stable order, so paging does not skip or r
 An administrator can list every user's policies, contexts, custom lists, ledger chains, and legal holds in one call, with the `...AcrossUsers(options)` methods above. Each item names its owner. The same two conditions apply as for `owner`: an administrator key and `ADMIN_CROSS_USER_ACCESS_ENABLED=true`, otherwise a 404 raised as a `ClientException`. Managed policies are not included in `listPoliciesAcrossUsers`.
 
 ```java
-Page<OwnedName> policies = client.listPoliciesAcrossUsers(new ListOptions().search("claims"));
+Page<PolicySummary> policies = client.listPoliciesAcrossUsers(new ListOptions().search("claims"));
 Page<OwnedLegalHoldResponse> holds = client.listHoldsAcrossUsers(new ListOptions().limit(100));
 ```
 
 ## Older listing methods
 
-The listing methods that returned a plain `List` (`getPolicies`, `getPoliciesAcrossUsers`, `listManagedPolicies(offset, limit)`, `getPolicyVersions`, `getHolds`, `getHoldsAcrossUsers`, `listCustomLists(owner)`, and `listCustomListsAcrossUsers(offset, limit)`) still work and are deprecated: they return one page's items without the total, and take no sorting or search. `listCustomLists(owner)` returns every list, reading each page in turn, as it did before Philter paged custom lists. The listings that already returned a typed page, such as `listContexts(owner, offset, limit)` and `getUsers(offset, limit)`, keep their `offset` and `limit` overloads and now carry the total.
+The listing methods that returned a plain `List` (`getPolicies`, `getPoliciesAcrossUsers`, `listManagedPolicies(offset, limit)`, `getPolicyVersions`, `getHolds`, `getHoldsAcrossUsers`, `listCustomLists(owner)`, and `listCustomListsAcrossUsers(offset, limit)`) still work and are deprecated: they return one page's items without the total, and take no sorting or search. `listCustomLists(owner)` returns every list, reading each page in turn, as it did before Philter paged custom lists. `getPolicies` and `getManagedPolicies` still return policy names, `getPoliciesAcrossUsers` still returns `OwnedName` items, and `listManagedPolicies()` and `listManagedPolicies(offset, limit)` still return `ManagedPolicySummary` items, each read from the policy summaries Philter now returns. The listings that already returned a typed page, such as `listContexts(owner, offset, limit)` and `getUsers(offset, limit)`, keep their `offset` and `limit` overloads and now carry the total.
 
 `exportAuditLog` is paged with `offset` and `limit` too, but with its own defaults and a truncation flag; see [Audit Log](audit-log.md). `listRedactLists` is not a listing: it returns the two redact lists.

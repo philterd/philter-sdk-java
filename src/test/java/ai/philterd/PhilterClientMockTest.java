@@ -72,6 +72,8 @@ import ai.philterd.philter.model.User;
 import ai.philterd.philter.model.Webhook;
 import ai.philterd.philter.model.PolicyWithETag;
 import ai.philterd.philter.model.GetContextsResponse;
+import ai.philterd.philter.model.ContextSummary;
+import ai.philterd.philter.model.PolicySummary;
 import ai.philterd.philter.model.Page;
 import ai.philterd.philter.model.ListOptions;
 import ai.philterd.philter.model.RedactListTerms;
@@ -881,8 +883,9 @@ public class PhilterClientMockTest {
     @Test
     public void getPolicies() throws Exception {
 
-        respond(200, "{\"policies\":[\"default\",\"strict\"],\"total\":2}");
+        respond(200, "{\"policies\":[{\"name\":\"default\"},{\"name\":\"strict\"}],\"total\":2}");
 
+        // Deprecated, and still returns the names.
         final List<String> policies = client().getPolicies();
 
         Assert.assertEquals(2, policies.size());
@@ -3813,16 +3816,92 @@ public class PhilterClientMockTest {
     public void listContextsParsesTheRecordedResponse() throws Exception {
 
         respond(200, recorded("contexts.json"));
-        Assert.assertEquals(List.of("default", "ledgered"), client().listContexts(OWNER, 25, 50).getContexts());
+        final GetContextsResponse own = client().listContexts(OWNER, 25, 50);
         Assert.assertEquals("/api/contexts", path);
         Assert.assertEquals(Map.of("owner", OWNER, "offset", "25", "limit", "50"), queryParameters);
+        Assert.assertEquals("ledgered", own.getContexts().get(1).getName());
 
         respond(200, recorded("contexts-all-users.json"));
         final GetContextsAcrossUsersResponse all = client().listContextsAcrossUsers(0, 5);
         Assert.assertEquals("true", queryParameter("all_users"));
-        Assert.assertEquals(3, all.getContexts().size());
-        Assert.assertEquals("ledgered", all.getContexts().get(2).getName());
-        Assert.assertTrue(all.getContexts().get(2).getOwner().endsWith("@example.com"));
+        Assert.assertEquals(4, all.getContexts().size());
+        Assert.assertEquals("intake", all.getContexts().get(2).getName());
+        Assert.assertEquals("analyst@example.com", all.getContexts().get(2).getOwner());
+    }
+
+    // Recorded from Philter 4.0: an administrator with a "claims" policy and a "ledgered" context, and a second
+    // user, analyst@example.com, with an "intake" policy and context.
+    @Test
+    public void policyAndContextListingsParseTheRecordedResponses() throws Exception {
+
+        // The caller's own policies. Philter sends the policy timestamps in UTC.
+        respond(200, recorded("policies.json"));
+        final PolicySummary claims = client().listPolicies(null, null).getItems().get(0);
+        Assert.assertTrue(queryParameters.isEmpty());
+        Assert.assertEquals("claims", claims.getName());
+        Assert.assertEquals("Claims intake", claims.getDescription());
+        Assert.assertEquals(0, claims.getRevision());
+        Assert.assertEquals(Instant.parse("2026-10-17T18:19:33.060Z"), claims.getCreatedAt());
+        Assert.assertEquals(Instant.parse("2026-10-17T18:19:52.525Z"), claims.getUpdatedAt());
+        Assert.assertEquals("2026-10-17T18:19:33.060Z", claims.getCreatedAtText());
+        // Only a listing across every user names the owner.
+        Assert.assertNull(claims.getOwner());
+
+        // Another user's.
+        respond(200, recorded("policies-owner.json"));
+        final Page<PolicySummary> theirs = client().listPolicies("analyst@example.com", null);
+        Assert.assertEquals(Map.of("owner", "analyst@example.com"), queryParameters);
+        Assert.assertEquals("intake", theirs.getItems().get(1).getName());
+        Assert.assertNull(theirs.getItems().get(1).getOwner());
+        Assert.assertEquals(2, theirs.getTotal());
+
+        // Every user's, each naming its owner.
+        respond(200, recorded("policies-all-users.json"));
+        final Page<PolicySummary> everyone = client().listPoliciesAcrossUsers(null);
+        Assert.assertEquals(Map.of("all_users", "true"), queryParameters);
+        Assert.assertEquals(4, everyone.getTotal());
+        Assert.assertEquals("admin", everyone.getItems().get(0).getOwner());
+        Assert.assertEquals("intake", everyone.getItems().get(3).getName());
+        Assert.assertEquals("analyst@example.com", everyone.getItems().get(3).getOwner());
+
+        // The managed policies have the same shape.
+        respond(200, recorded("policies-managed.json"));
+        final PolicySummary managed = client().listManagedPolicies((ListOptions) null).getItems().get(0);
+        Assert.assertEquals(Map.of("managed", "true"), queryParameters);
+        Assert.assertEquals("managed_common_pii", managed.getName());
+        Assert.assertNotNull(managed.getCreatedAt());
+        Assert.assertNull(managed.getOwner());
+
+        // Contexts. Philter sends the context timestamps with the server's offset.
+        respond(200, recorded("contexts.json"));
+        final ContextSummary context = client().listContexts(null, null).getContexts().get(0);
+        Assert.assertEquals("default", context.getName());
+        Assert.assertEquals(Instant.parse("2026-10-17T18:19:31.547Z"), context.getCreatedAt());
+        Assert.assertEquals("2026-10-17T14:19:31.547-04:00", context.getCreatedAtText());
+        Assert.assertNull(context.getOwner());
+
+        respond(200, recorded("contexts-owner.json"));
+        final GetContextsResponse theirContexts = client().listContexts("analyst@example.com", null);
+        Assert.assertEquals(Map.of("owner", "analyst@example.com"), queryParameters);
+        Assert.assertEquals("intake", theirContexts.getContexts().get(1).getName());
+        Assert.assertEquals(2, theirContexts.getTotal());
+
+        respond(200, recorded("contexts-all-users.json"));
+        final GetContextsAcrossUsersResponse allContexts = client().listContextsAcrossUsers((ListOptions) null);
+        Assert.assertEquals(Map.of("all_users", "true"), queryParameters);
+        Assert.assertEquals("admin", allContexts.getContexts().get(0).getOwner());
+        Assert.assertEquals(4, allContexts.getTotal());
+    }
+
+    @Test
+    public void aSummaryTimestampPhilterCannotBeReadAsOneIsNull() {
+
+        final PolicySummary policy = new com.google.gson.Gson().fromJson("{\"name\":\"p\",\"createdAt\":\"yesterday\"}",
+                PolicySummary.class);
+
+        Assert.assertNull(policy.getCreatedAt());
+        Assert.assertEquals("yesterday", policy.getCreatedAtText());
+        Assert.assertNull(policy.getUpdatedAt());
     }
 
     @Test
@@ -4721,7 +4800,7 @@ public class PhilterClientMockTest {
     public void oneClientIsUsableFromManyThreads() throws Exception {
 
         // The documentation tells callers to build one client and share it.
-        respond(200, "{\"policies\":[\"default\"],\"total\":1}");
+        respond(200, "{\"policies\":[{\"name\":\"default\"}],\"total\":1}");
 
         final PhilterClient client = client();
         final ExecutorService pool = Executors.newFixedThreadPool(8);
@@ -5464,23 +5543,23 @@ public class PhilterClientMockTest {
     @Test
     public void listPoliciesReadsTheEnvelopeAndSendsSortingAndSearch() throws Exception {
 
-        respond(200, "{\"policies\":[\"claims-2025\",\"claims-2026\"],\"total\":7}");
+        respond(200, "{\"policies\":[{\"name\":\"claims-2025\"},{\"name\":\"claims-2026\"}],\"total\":7}");
 
-        final Page<String> page = client().listPolicies(OWNER, SORTED_AND_SEARCHED);
+        final Page<PolicySummary> page = client().listPolicies(OWNER, SORTED_AND_SEARCHED);
 
         Assert.assertEquals("/api/policies", path);
         Assert.assertEquals(sortedAndSearched("owner", OWNER), queryParameters);
-        Assert.assertEquals(List.of("claims-2025", "claims-2026"), page.getItems());
+        Assert.assertEquals("claims-2026", page.getItems().get(1).getName());
         Assert.assertEquals(7, page.getTotal());
 
         respond(200, "{\"policies\":[{\"name\":\"default\",\"owner\":\"alice\"}],\"total\":3}");
-        final Page<OwnedName> across = client().listPoliciesAcrossUsers(SORTED_AND_SEARCHED);
+        final Page<PolicySummary> across = client().listPoliciesAcrossUsers(SORTED_AND_SEARCHED);
         Assert.assertEquals(sortedAndSearched("all_users", "true"), queryParameters);
         Assert.assertEquals("alice", across.getItems().get(0).getOwner());
         Assert.assertEquals(3, across.getTotal());
 
         respond(200, recorded("policies-managed.json"));
-        final Page<ManagedPolicySummary> managed = client().listManagedPolicies(new ListOptions().search("pii"));
+        final Page<PolicySummary> managed = client().listManagedPolicies(new ListOptions().search("pii"));
         Assert.assertEquals(Map.of("managed", "true", "q", "pii"), queryParameters);
         Assert.assertEquals(3, managed.getItems().size());
         Assert.assertEquals(3, managed.getTotal());
@@ -5558,7 +5637,7 @@ public class PhilterClientMockTest {
     @Test
     public void typedListingsSendSortingSearchAndTheirFilters() throws Exception {
 
-        respond(200, "{\"contexts\":[\"tenant-a\"],\"total\":12}");
+        respond(200, "{\"contexts\":[{\"name\":\"tenant-a\"}],\"total\":12}");
         final GetContextsResponse contexts = client().listContexts(OWNER, SORTED_AND_SEARCHED);
         Assert.assertEquals(sortedAndSearched("owner", OWNER), queryParameters);
         Assert.assertEquals(12, contexts.getTotal());
@@ -5633,7 +5712,7 @@ public class PhilterClientMockTest {
     @Test
     public void aListingWithoutATotalCountsThePage() throws Exception {
 
-        respond(200, "{\"policies\":[\"a\",\"b\"]}");
+        respond(200, "{\"policies\":[{\"name\":\"a\"},{\"name\":\"b\"}]}");
 
         Assert.assertEquals(2, client().listPolicies(null, null).getTotal());
     }

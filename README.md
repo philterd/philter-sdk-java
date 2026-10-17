@@ -29,6 +29,7 @@ responses, for example:
 * `getList` returns a `CustomList`, whose items are `getItems()`.
 * `saveList` and `replaceList` send the items and description as a JSON body.
 * `getLedgerChain` returns a page of the chain, with `getTotal()`, and takes `offset` and `limit`.
+* The policy and context listings return `PolicySummary` and `ContextSummary` items instead of names.
 
 See the breaking changes in [RELEASE_NOTES.md](RELEASE_NOTES.md) before upgrading.
 
@@ -178,7 +179,7 @@ client.replaceRedactList(RedactList.ALWAYS, terms, current.getRevision());
 Listings return a page of items and the total, and take a `ListOptions` to page, sort, search, and filter:
 
 ```
-Page<String> page = client.listPolicies(null, new ListOptions().limit(50).sort("created").descending().search("claims"));
+Page<PolicySummary> page = client.listPolicies(null, new ListOptions().limit(50).sort("created").descending().search("claims"));
 System.out.println(page.getItems() + " of " + page.getTotal());
 ```
 

@@ -21,20 +21,20 @@ import com.google.gson.annotations.SerializedName;
 import java.util.List;
 
 /**
- * A page of the calling user's context names.
+ * A page of a user's contexts.
  */
 public class GetContextsResponse {
 
     @Expose
     @SerializedName("contexts")
-    private List<String> contexts;
+    private List<ContextSummary> contexts;
 
-    /** The context names. */
-    public List<String> getContexts() {
+    /** The contexts on this page. */
+    public List<ContextSummary> getContexts() {
         return contexts;
     }
 
-    public void setContexts(List<String> contexts) {
+    public void setContexts(List<ContextSummary> contexts) {
         this.contexts = contexts;
     }
 

@@ -3,10 +3,15 @@
 A policy defines which entity types are detected and how each is redacted. Manage them with the policy methods. Policy bodies are JSON strings whose schema is defined by Philter; refer to the [Philter API specification](https://github.com/philterd/philter/blob/main/docs/docs/api_and_sdks/openapi.json) for the policy schema.
 
 ```java
+import ai.philterd.philter.model.Page;
+import ai.philterd.philter.model.PolicySummary;
 import java.util.List;
 
-// The first page of policy names, and how many there are. See Owners and Pagination to sort, search, and page.
-Page<String> policies = client.listPolicies(null, null);
+// The first page of policies, and how many there are. See Owners and Pagination to sort, search, and page.
+Page<PolicySummary> policies = client.listPolicies(null, null);
+for (PolicySummary policy : policies.getItems()) {
+    System.out.println(policy.getName() + " revision " + policy.getRevision() + ", changed " + policy.getUpdatedAt());
+}
 
 // Retrieve a policy's JSON.
 String policyJson = client.getPolicy("default");
@@ -91,10 +96,10 @@ Each write returns the new tag, so you can keep editing without reading the poli
 Philter ships built-in managed policies, whose names begin with `managed_`. They can be read and copied, but not changed: `replacePolicy`, `deletePolicy`, `rollbackPolicy`, and `setPolicyDetails` refuse a `managed_` name with a `409` whose `getReason()` is `policy_managed`. Copy one with `copyPolicy` and change the copy instead. Listing them requires `policies:read`; copying requires `policies:write`.
 
 ```java
-import ai.philterd.philter.model.ManagedPolicySummary;
+import ai.philterd.philter.model.PolicySummary;
 
-// The first page of managed policies, each with its name and description, paged like listPolicies.
-for (ManagedPolicySummary policy : client.listManagedPolicies(null).getItems()) {
+// The first page of managed policies, paged like listPolicies and with the same fields.
+for (PolicySummary policy : client.listManagedPolicies(null).getItems()) {
     System.out.println(policy.getName() + ": " + policy.getDescription());
 }
 
