@@ -2451,6 +2451,17 @@ public class PhilterClientMockTest {
     }
 
     @Test
+    public void getPiiCountsSendsTheSortAndOrder() throws Exception {
+
+        respond(200, "{\"counts\":[],\"total\":0,\"recordingEnabled\":true}");
+
+        client().listPiiCounts(null, null, null, null, new ListOptions().sort("documents").descending().limit(10));
+
+        Assert.assertEquals("/api/pii-counts", path);
+        Assert.assertEquals(Map.of("sort", "documents", "order", "desc", "limit", "10"), queryParameters);
+    }
+
+    @Test
     public void getPiiCountsShortFormSendsNoFilters() throws Exception {
 
         respond(200, "{\"recordingEnabled\":true,\"counts\":[],\"total\":0}");

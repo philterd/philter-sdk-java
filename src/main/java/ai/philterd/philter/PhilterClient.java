@@ -4660,9 +4660,31 @@ public class PhilterClient {
 	 */
 	public GetPiiCountsResponse getPiiCounts(LocalDate from, LocalDate to, String context, String owner, Integer offset,
 			Integer limit) throws IOException {
+		return listPiiCounts(from, to, context, owner, new ListOptions().offset(offset).limit(limit));
+	}
 
+	/**
+	 * As {@link #getPiiCounts(LocalDate, LocalDate, String, String, Integer, Integer)}, with the page and order
+	 * from {@code options}. {@link ListOptions#sort(String)} takes {@code day} (the default, most recent first),
+	 * {@code context}, or {@code documents} (how many redactions found any PII); ties are ordered by day, most
+	 * recent first. Any other sort or order is an HTTP 400, thrown as a {@link ClientException}. The search,
+	 * role, active, status, and session options do not apply and are not sent.
+	 *
+	 * @param from The first UTC day to return, inclusive. May be {@code null}.
+	 * @param to The last UTC day to return, inclusive. May be {@code null}.
+	 * @param context The context to return counts for. May be {@code null} for every context.
+	 * @param owner The username whose counts to return. May be {@code null} for every user's.
+	 * @param options The offset, limit, sort, and order. May be {@code null} for Philter's defaults.
+	 * @return The page of counts, the total number matching the filters, and whether Philter is recording counts.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public GetPiiCountsResponse listPiiCounts(LocalDate from, LocalDate to, String context, String owner,
+			ListOptions options) throws IOException {
+
+		final ListOptions o = options == null ? new ListOptions() : options;
 		final HttpRequest request = json(uri("/api/pii-counts", "from", from, "to", to, "context", context,
-				"owner", owner, "offset", offset, "limit", limit))
+				"owner", owner, "sort", o.getSort(), "order", o.getOrder(), "offset", o.getOffset(),
+				"limit", o.getLimit()))
 				.GET()
 				.build();
 

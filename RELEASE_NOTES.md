@@ -69,6 +69,7 @@ the listing's response type.
   `purgeLedger`). A chain Philter cannot check has a `getValidationError()` and `null` check results. An
   unreadable entry has a `getReadError()`, and exporting its chain is a 422 `entry_unreadable`. A `user` hold
   needs no `scopeValue`.
+* **PII counts sorting:** `listPiiCounts` takes `ListOptions`, whose `sort` (`day`, `context`, or `documents`) and `order` Philter 4.0 applies.
 * **Users and sign-in:** user management, including `setUserEmail`; `getSignInOptions` (the password rules,
   empty when password sign-in is off), `signIn`, `completeSignIn` (MFA), and `signOut`; passwords, MFA
   enrollment, `revokeSessionKeys`, `signOutOtherSessions`, and `unlockUserSignIn` to clear a sign-in lock. `withClientAddress(Supplier<String>)` sends the
