@@ -12,9 +12,13 @@ GetLedgerResponse chains = client.listLedgerChains(null);
 GetLedgerResponse matching = client.listLedgerChains("note.txt");
 int total = chains.getTotal();
 
-// One document's chain, and whether its hash chain and signatures verify.
+// The first page of one document's chain, and whether its hash chain and signatures verify.
 LedgerChain chain = client.getLedgerChain(documentId);
 boolean valid = chain.isValid();
+Long entries = chain.getTotal();  // null if the chain could not be checked
+
+// A later page: skip 25 entries and read up to 50.
+LedgerChain next = client.getLedgerChain(documentId, null, 25, 50);
 
 // Just whether it verifies, without the entries.
 boolean stillValid = client.verifyLedgerChain(documentId).isValid();
@@ -22,6 +26,8 @@ boolean stillValid = client.verifyLedgerChain(documentId).isValid();
 // An export that verifies standalone. It carries the original redacted values.
 LedgerExport export = client.getLedgerExport(documentId);
 ```
+
+`getLedgerChain` returns a page of the chain, 25 entries unless a limit is given, and at most 100. The entries are in chain order, and `getTotal()` is how many the whole chain has, one per redacted span plus the genesis entry. `isValid()` and the other check results cover the whole chain, whichever page is read. `getLedgerExport` returns every entry at once.
 
 A chain that is not valid either failed a check or could not be checked at all:
 
@@ -40,7 +46,7 @@ if (chain.isValid()) {
 }
 ```
 
-When the chain could not be checked, `getHashChainValid()`, `getSignaturesValid()`, `getSignedEntries()`, `getUnsignedEntries()`, and `getEntries()` are `null`.
+When the chain could not be checked, `getHashChainValid()`, `getSignaturesValid()`, `getSignedEntries()`, `getUnsignedEntries()`, `getEntries()`, and `getTotal()` are `null`.
 
 Reading or listing a chain does not return the values that were redacted, only their replacements. An export does, in each entry's `getToken()`, which is why it needs the `ledger:export` scope; treat it as sensitive.
 

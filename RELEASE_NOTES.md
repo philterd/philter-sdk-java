@@ -29,6 +29,10 @@ are relative to 1.5.0.
   Philter 4.0 requires, instead of a bare array with the description as a query parameter. Their signatures are
   unchanged and `owner` is still a query parameter. A `null` description is left out, so a replace keeps the
   current one, and `""` clears it. `Limits.CustomLists` adds `getDescriptionMaxLength()` (200).
+* `getLedgerChain` returns a page of the chain, as Philter 4.0 does: the first 25 entries unless a new
+  `getLedgerChain(documentId, owner, offset, limit)` overload asks for another page (at most 100 entries).
+  `LedgerChain.getTotal()` is how many entries the whole chain has. The validity results still cover the whole
+  chain. `getLedgerExport` still returns every entry.
 * `withApiKey(...)` sends its value verbatim in the `Authorization` header, so include any scheme prefix such
   as `"Bearer "`.
 * `filter` and `explain` no longer take a document ID. Philter returns it in the `x-document-id` header.

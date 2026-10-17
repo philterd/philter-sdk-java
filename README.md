@@ -28,6 +28,7 @@ responses, for example:
 * The context and ledger deletes return `void`.
 * `getList` returns a `CustomList`, whose items are `getItems()`.
 * `saveList` and `replaceList` send the items and description as a JSON body.
+* `getLedgerChain` returns a page of the chain, with `getTotal()`, and takes `offset` and `limit`.
 
 See the breaking changes in [RELEASE_NOTES.md](RELEASE_NOTES.md) before upgrading.
 

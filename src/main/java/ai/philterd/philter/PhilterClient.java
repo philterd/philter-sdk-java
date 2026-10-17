@@ -3597,11 +3597,12 @@ public class PhilterClient {
 
 
 	/**
-	 * Gets the ledger entry for a document.
+	 * Gets the ledger entry for a document. Philter returns the first page of the chain, up to 25 entries;
+	 * {@link #getLedgerChain(String, String, Integer, Integer)} reads later pages.
 	 * @param documentId The document ID.
 	 * @return The ledger entry.
 	 * @throws IOException Thrown if the call can not be executed.
-	 * @deprecated Use {@link #getLedgerChain(String, String)}, which returns a typed model.
+	 * @deprecated Use {@link #getLedgerChain(String, String, Integer, Integer)}, which returns a typed model.
 	 */
 	@Deprecated
 	public String getLedgerEntry(String documentId) throws IOException {
@@ -3609,12 +3610,13 @@ public class PhilterClient {
 	}
 
 	/**
-	 * Gets the ledger entry for a document.
+	 * Gets the ledger entry for a document. Philter returns the first page of the chain, up to 25 entries;
+	 * {@link #getLedgerChain(String, String, Integer, Integer)} reads later pages.
 	 * @param documentId The document ID.
 	 * @param owner The owner of the entry. May be {@code null}.
 	 * @return The ledger entry.
 	 * @throws IOException Thrown if the call can not be executed.
-	 * @deprecated Use {@link #getLedgerChain(String, String)}, which returns a typed model.
+	 * @deprecated Use {@link #getLedgerChain(String, String, Integer, Integer)}, which returns a typed model.
 	 */
 	@Deprecated
 	public String getLedgerEntry(String documentId, String owner) throws IOException {
@@ -3622,19 +3624,34 @@ public class PhilterClient {
 	}
 
 	/**
-	 * Gets a document's redaction-ledger chain and whether it verifies. The original redacted values are not
-	 * returned; see {@link #getLedgerExport(String)}. See {@link #getLedgerChain(String, String)}.
+	 * Gets the first page of a document's redaction-ledger chain, up to 25 entries, and whether the whole
+	 * chain verifies. See {@link #getLedgerChain(String, String, Integer, Integer)}.
 	 * @param documentId The document ID.
 	 * @return The chain.
 	 * @throws IOException Thrown if the call can not be executed.
 	 */
 	public LedgerChain getLedgerChain(String documentId) throws IOException {
-		return getLedgerChain(documentId, null);
+		return getLedgerChain(documentId, null, null, null);
 	}
 
 	/**
-	 * Gets a document's redaction-ledger chain and whether it verifies. The original redacted values are not
-	 * returned; see {@link #getLedgerExport(String)}.
+	 * Gets the first page of a document's redaction-ledger chain, up to 25 entries, and whether the whole
+	 * chain verifies. See {@link #getLedgerChain(String, String, Integer, Integer)}.
+	 * @param documentId The document ID.
+	 * @param owner The owner. May be {@code null} for the caller's own.
+	 * @return The chain.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public LedgerChain getLedgerChain(String documentId, String owner) throws IOException {
+		return getLedgerChain(documentId, owner, null, null);
+	}
+
+	/**
+	 * Gets a page of a document's redaction-ledger chain and whether it verifies. The entries are in chain
+	 * order, and {@link LedgerChain#getTotal()} says how many the whole chain has. The validity and the
+	 * check results cover the whole chain, not only the page. The original redacted values are not
+	 * returned. {@link #getLedgerExport(String, String)} returns every entry at once, for offline
+	 * verification.
 	 *
 	 * <p>A chain that could not be checked, for example because an entry can no longer be decrypted, is
 	 * returned with {@link LedgerChain#isValid()} {@code false} and a {@link LedgerChain#getValidationError()};
@@ -3645,11 +3662,16 @@ public class PhilterClient {
 	 * @param documentId The document ID.
 	 * @param owner The owner. May be {@code null} for the caller's own. Another user's requires an
 	 * administrator and {@code ADMIN_CROSS_USER_ACCESS_ENABLED=true}; otherwise Philter answers HTTP 404.
+	 * @param offset The number of entries to skip. {@code null} for 0; Philter treats a negative offset as 0.
+	 * @param limit The most entries to return. {@code null} for 25; Philter caps it at 100 and treats zero
+	 * or less as 25.
 	 * @return The chain.
 	 * @throws IOException Thrown if the call can not be executed.
 	 */
-	public LedgerChain getLedgerChain(String documentId, String owner) throws IOException {
-		return gson.fromJson(getLedgerEntry(documentId, owner), LedgerChain.class);
+	public LedgerChain getLedgerChain(String documentId, String owner, Integer offset, Integer limit)
+			throws IOException {
+		return sendExpectingJson(json(uri("/api/ledger/" + encode(documentId), "owner", owner, "offset", offset,
+				"limit", limit)).GET().build(), LedgerChain.class);
 	}
 
 

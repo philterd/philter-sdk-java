@@ -72,6 +72,10 @@ public class LedgerChain {
     @SerializedName("validationError")
     private String validationError;
 
+    @Expose
+    @SerializedName("total")
+    private Long total;
+
     /** The document ID. */
     public String getDocumentId() {
         return documentId;
@@ -82,8 +86,8 @@ public class LedgerChain {
     }
 
     /**
-     * The entries, in order. {@code null} when the chain came from {@code verifyLedgerChain}, or when it
-     * could not be checked.
+     * The entries on this page, in chain order. {@code null} when the chain came from {@code verifyLedgerChain},
+     * or when it could not be checked.
      */
     public List<LedgerEntry> getEntries() {
         return entries;
@@ -158,6 +162,18 @@ public class LedgerChain {
 
     public void setValidationError(String validationError) {
         this.validationError = validationError;
+    }
+
+    /**
+     * How many entries the whole chain has, across every page. {@code null} when {@link #getEntries()} is
+     * {@code null}.
+     */
+    public Long getTotal() {
+        return total;
+    }
+
+    public void setTotal(Long total) {
+        this.total = total;
     }
 
 }

@@ -3939,7 +3939,41 @@ public class PhilterClientMockTest {
         Assert.assertEquals("/api/ledger/50f6010d-6f44-44a9-85a8-830b93d13c17/valid", path);
         Assert.assertTrue(verified.isValid());
         Assert.assertNull(verified.getEntries());
+        Assert.assertNull(verified.getTotal());
         Assert.assertNull(verified.getValidationError());
+    }
+
+    // Recorded from Philter 4.0: a chain of 31 entries, a genesis entry and one per redacted SSN, read a
+    // page at a time.
+    @Test
+    public void ledgerChainsAreReadAPageAtATime() throws Exception {
+
+        final String documentId = "db12a871-6a9a-49e1-8698-777b6b3710e4";
+
+        // The default page: Philter's first 25 entries.
+        respond(200, recorded("ledger-chain-first-page.json"));
+        final LedgerChain first = client().getLedgerChain(documentId);
+        Assert.assertEquals("GET", method);
+        Assert.assertEquals("/api/ledger/" + documentId, path);
+        Assert.assertTrue(queryParameters.isEmpty());
+        Assert.assertEquals(25, first.getEntries().size());
+        Assert.assertEquals(Long.valueOf(31), first.getTotal());
+        Assert.assertEquals("[genesis]", first.getEntries().get(0).getPreviousHash());
+
+        // A later page. The check results cover the whole chain, so they are the same on every page.
+        respond(200, recorded("ledger-chain-last-page.json"));
+        final LedgerChain last = client().getLedgerChain(documentId, OWNER, 25, null);
+        Assert.assertEquals(Map.of("owner", OWNER, "offset", "25"), queryParameters);
+        Assert.assertEquals(6, last.getEntries().size());
+        Assert.assertEquals(Long.valueOf(31), last.getTotal());
+        Assert.assertTrue(last.isValid());
+        Assert.assertEquals(Integer.valueOf(31), last.getSignedEntries());
+        Assert.assertEquals(first.getEntries().get(24).getHash(), last.getEntries().get(0).getPreviousHash());
+
+        // An explicit page size.
+        respond(200, "{\"documentId\":\"" + documentId + "\",\"valid\":true,\"entries\":[],\"total\":31}");
+        client().getLedgerChain(documentId, null, 10, 5);
+        Assert.assertEquals(Map.of("offset", "10", "limit", "5"), queryParameters);
     }
 
     // Recorded from Philter with a genesis entry's document hash rewritten in the database.
