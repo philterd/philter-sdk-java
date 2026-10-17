@@ -251,6 +251,10 @@ public class Limits {
         @SerializedName("itemMaxLength")
         private int itemMaxLength;
 
+        @Expose
+        @SerializedName("descriptionMaxLength")
+        private int descriptionMaxLength;
+
         /** The most items a custom list can have. */
         public int getMaxItems() {
             return maxItems;
@@ -267,6 +271,15 @@ public class Limits {
 
         public void setItemMaxLength(int itemMaxLength) {
             this.itemMaxLength = itemMaxLength;
+        }
+
+        /** The most characters a custom list's description can have. */
+        public int getDescriptionMaxLength() {
+            return descriptionMaxLength;
+        }
+
+        public void setDescriptionMaxLength(int descriptionMaxLength) {
+            this.descriptionMaxLength = descriptionMaxLength;
         }
 
     }

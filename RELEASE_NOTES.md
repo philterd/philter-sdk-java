@@ -25,6 +25,10 @@ are relative to 1.5.0.
 * `getList` returns a `CustomList`, which replaces `GetListsResponse` and reads Philter 4.0's `items` field
   through `getItems()` instead of `lists` through `getLists()`. With the old field name, `getList` returned no
   items. A list without a description has an empty string. The `GET /api/lists` listing is unchanged.
+* `saveList` and `replaceList` send the items and description as a JSON body (`items`, `description`), as
+  Philter 4.0 requires, instead of a bare array with the description as a query parameter. Their signatures are
+  unchanged and `owner` is still a query parameter. A `null` description is left out, so a replace keeps the
+  current one, and `""` clears it. `Limits.CustomLists` adds `getDescriptionMaxLength()` (200).
 * `withApiKey(...)` sends its value verbatim in the `Authorization` header, so include any scheme prefix such
   as `"Bearer "`.
 * `filter` and `explain` no longer take a document ID. Philter returns it in the `x-document-id` header.

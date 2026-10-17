@@ -27,6 +27,6 @@ for (CustomListSummary summary : lists.getItems()) {
 client.deleteList("blocked-terms");
 ```
 
-`saveList` only creates. A name the owner already uses is refused with a `ClientException` whose `getStatusCode()` is `409` and `getReason()` is `list_exists`; replace the list with `replaceList` instead, which is refused with a `404` if there is no such list. A list holds up to 100 items of up to 50 characters each; more is an HTTP 400.
+`saveList` only creates. A name the owner already uses is refused with a `ClientException` whose `getStatusCode()` is `409` and `getReason()` is `list_exists`; replace the list with `replaceList` instead, which is refused with a `404` if there is no such list. A list holds up to 100 items of up to 50 characters each, and a description of up to 200 characters; more is an HTTP 400. `getLimits().getCustomLists()` reports these limits.
 
 A list name is used in request paths, so it cannot contain `/`, `\`, `;`, `%`, or a control character, and cannot be `.` or `..`. `saveList` with such a name gets an HTTP 400, raised as a `ClientException` whose `getReason()` is `invalid_request`. Since no list can have such a name, `deleteList` always names the list in the path.

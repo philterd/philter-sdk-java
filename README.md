@@ -27,6 +27,7 @@ responses, for example:
 * The document listing reads `documents` and gives each job a `type`.
 * The context and ledger deletes return `void`.
 * `getList` returns a `CustomList`, whose items are `getItems()`.
+* `saveList` and `replaceList` send the items and description as a JSON body.
 
 See the breaking changes in [RELEASE_NOTES.md](RELEASE_NOTES.md) before upgrading.
 

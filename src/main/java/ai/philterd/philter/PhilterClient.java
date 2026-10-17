@@ -3995,14 +3995,15 @@ public class PhilterClient {
 	 * Creates a custom list. It only creates: a name the owner already uses is a {@link ClientException}
 	 * with status {@code 409} and {@link ClientException#getReason()} {@code list_exists}. Replace an
 	 * existing list with {@link #replaceList(String, String, List)}. A list holds up to 100 items of up
-	 * to 50 characters; more is an HTTP 400, thrown as a {@link ClientException}.
+	 * to 50 characters, and a description of up to 200 characters; more is an HTTP 400, thrown as a
+	 * {@link ClientException}. {@link #getLimits()} reports these limits.
 	 *
 	 * <p>The name is used in request paths, so one containing {@code /}, {@code \}, {@code ;},
 	 * {@code %}, or a control character, or that is {@code .} or {@code ..}, is refused with an HTTP
 	 * 400, thrown as a {@link ClientException}. Some of these are refused by the web server before the
 	 * request reaches Philter, so {@link ClientException#getErrorMessage()} may be {@code null}.</p>
 	 * @param list The name of the list.
-	 * @param description The description of the list. May be {@code null}.
+	 * @param description The description of the list. {@code null} gives the list an empty description.
 	 * @param values The values in the list.
 	 * @return A {@link GenericResponse}.
 	 * @throws IOException Thrown if the call can not be executed.
@@ -4015,14 +4016,15 @@ public class PhilterClient {
 	 * Creates a custom list. It only creates: a name the owner already uses is a {@link ClientException}
 	 * with status {@code 409} and {@link ClientException#getReason()} {@code list_exists}. Replace an
 	 * existing list with {@link #replaceList(String, String, List)}. A list holds up to 100 items of up
-	 * to 50 characters; more is an HTTP 400, thrown as a {@link ClientException}.
+	 * to 50 characters, and a description of up to 200 characters; more is an HTTP 400, thrown as a
+	 * {@link ClientException}. {@link #getLimits()} reports these limits.
 	 *
 	 * <p>The name is used in request paths, so one containing {@code /}, {@code \}, {@code ;},
 	 * {@code %}, or a control character, or that is {@code .} or {@code ..}, is refused with an HTTP
 	 * 400, thrown as a {@link ClientException}. Some of these are refused by the web server before the
 	 * request reaches Philter, so {@link ClientException#getErrorMessage()} may be {@code null}.</p>
 	 * @param list The name of the list.
-	 * @param description The description of the list. May be {@code null}.
+	 * @param description The description of the list. {@code null} gives the list an empty description.
 	 * @param values The values in the list.
 	 * @param owner The owner of the list. May be {@code null}.
 	 * @return A {@link GenericResponse}.
@@ -4030,9 +4032,9 @@ public class PhilterClient {
 	 */
 	public GenericResponse saveList(String list, String description, List<String> values, String owner) throws IOException {
 
-		final HttpRequest request = request(uri("/api/lists/" + encode(list), "description", description, "owner", owner))
+		final HttpRequest request = request(uri("/api/lists/" + encode(list), "owner", owner))
 				.header("Content-Type", APPLICATION_JSON)
-				.POST(text(gson.toJson(values)))
+				.POST(text(customListBody(description, values)))
 				.build();
 
 		return sendExpectingJson(request, GenericResponse.class);
@@ -4059,8 +4061,8 @@ public class PhilterClient {
 	 * <p>Requires the {@code lists:write} scope. Does not require an administrator, except to replace
 	 * another user's list with {@code owner}.</p>
 	 *
-	 * <p>A list that does not exist is an HTTP 404. More than 100 items, or an item over 50 characters,
-	 * is an HTTP 400. Both are thrown as a {@link ClientException}.</p>
+	 * <p>A list that does not exist is an HTTP 404. More than 100 items, an item over 50 characters, or a
+	 * description over 200 characters is an HTTP 400. Each is thrown as a {@link ClientException}.</p>
 	 *
 	 * @param list The name of the list.
 	 * @param description The description. {@code null} keeps the current one, and an empty string clears it.
@@ -4075,12 +4077,27 @@ public class PhilterClient {
 	public GenericResponse replaceList(String list, String description, List<String> values, String owner)
 			throws IOException {
 
-		final HttpRequest request = request(uri("/api/lists/" + encode(list), "description", description, "owner", owner))
+		final HttpRequest request = request(uri("/api/lists/" + encode(list), "owner", owner))
 				.header("Content-Type", APPLICATION_JSON)
-				.PUT(text(gson.toJson(values)))
+				.PUT(text(customListBody(description, values)))
 				.build();
 
 		return sendExpectingJson(request, GenericResponse.class);
+
+	}
+
+	/**
+	 * The body {@code POST} and {@code PUT /api/lists/{name}} take. Philter refuses the description as a
+	 * query parameter. Gson leaves out a {@code null} description, so a replace keeps the current one, and
+	 * sends an empty one, which clears it.
+	 */
+	private String customListBody(final String description, final List<String> values) {
+
+		final Map<String, Object> body = new LinkedHashMap<>();
+		body.put("items", values);
+		body.put("description", description);
+
+		return gson.toJson(body);
 
 	}
 

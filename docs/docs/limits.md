@@ -25,7 +25,7 @@ Any valid API key can call it, whatever its scopes, including a session key that
 | `getPassword()` | `getMinCharacters()` and `getMaxBytes()` (in UTF-8). |
 | `getNames()` | The rule for custom list names, context names, legal hold references, and usernames: `getForbiddenCharacters()`, `isControlCharactersForbidden()`, `getReservedNames()`, and `getRule()`, the rule in words. |
 | `getPolicies()` | `getNameMaxLength()`, `getNamePattern()`, `getReservedNamePrefix()` (`managed_`), `getReservedNames()`, `getDefaultPolicyName()`, `getDescriptionMaxLength()`, and `getNotesMaxLength()`. |
-| `getCustomLists()` | `getMaxItems()` and `getItemMaxLength()`. |
+| `getCustomLists()` | `getMaxItems()`, `getItemMaxLength()`, and `getDescriptionMaxLength()`. |
 | `getRedactLists()` | `getMaxTerms()` and `getTermMaxLength()`, for each of the always-redact and never-redact lists. |
 | `getContexts()` | `getMaxPerUser()`, and `getMaxEntries()`, beyond which adding an entry evicts the least-read one. |
 | `getWebhook()` | `getSecretMinLength()`. |

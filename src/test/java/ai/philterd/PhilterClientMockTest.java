@@ -1566,8 +1566,16 @@ public class PhilterClientMockTest {
 
         Assert.assertEquals("POST", method);
         Assert.assertEquals("/api/lists/my-list", path);
-        Assert.assertEquals("a description", queryParameter("description"));
-        Assert.assertEquals("[\"alpha\",\"beta\"]", requestBodyAsString());
+        Assert.assertEquals("application/json", header("Content-Type"));
+        // Philter refuses the description as a query parameter, so it goes in the body.
+        Assert.assertTrue(queryParameters.isEmpty());
+        Assert.assertEquals("{\"items\":[\"alpha\",\"beta\"],\"description\":\"a description\"}",
+                requestBodyAsString());
+
+        // Without a description, the body has only the items.
+        client().saveList("my-list", null, List.of("alpha"), OWNER);
+        Assert.assertEquals(Map.of("owner", OWNER), queryParameters);
+        Assert.assertEquals("{\"items\":[\"alpha\"]}", requestBodyAsString());
     }
 
     // Sign-in.
@@ -4202,17 +4210,24 @@ public class PhilterClientMockTest {
 
         respond(200, "{\"message\":\"List saved.\"}");
 
+        // A null description is left out, so Philter keeps the current one.
         client().replaceList("customer-names", null, List.of("Jordan Example", "Avery Example"));
         Assert.assertEquals("PUT", method);
         Assert.assertEquals("/api/lists/customer-names", path);
-        Assert.assertEquals("[\"Jordan Example\",\"Avery Example\"]", requestBodyAsString());
-        // A null description is left out, so Philter keeps the current one.
-        Assert.assertFalse(queryParameters.containsKey("description"));
+        Assert.assertEquals("application/json", header("Content-Type"));
+        Assert.assertTrue(queryParameters.isEmpty());
+        Assert.assertEquals("{\"items\":[\"Jordan Example\",\"Avery Example\"]}", requestBodyAsString());
 
-        client().replaceList("customer-names", "", List.of("Jordan Example"), OWNER);
+        // A description replaces the current one.
+        client().replaceList("customer-names", "Customer names", List.of("Jordan Example"));
+        Assert.assertTrue(queryParameters.isEmpty());
+        Assert.assertEquals("{\"items\":[\"Jordan Example\"],\"description\":\"Customer names\"}",
+                requestBodyAsString());
+
         // An empty description is sent, which clears it.
-        Assert.assertEquals("", queryParameter("description"));
-        Assert.assertEquals(OWNER, queryParameter("owner"));
+        client().replaceList("customer-names", "", List.of("Jordan Example"), OWNER);
+        Assert.assertEquals(Map.of("owner", OWNER), queryParameters);
+        Assert.assertEquals("{\"items\":[\"Jordan Example\"],\"description\":\"\"}", requestBodyAsString());
     }
 
     @Test
@@ -5182,7 +5197,7 @@ public class PhilterClientMockTest {
             + "\"reservedNames\":[\".\",\"..\"],\"rule\":\"cannot contain /, \\\\, ;, %, or control characters, and cannot be . or ..\"},"
             + "\"policies\":{\"nameMaxLength\":50,\"namePattern\":\"^[a-zA-Z0-9_-]+$\",\"reservedNamePrefix\":\"managed_\","
             + "\"reservedNames\":[\"templates\"],\"defaultPolicyName\":\"default\",\"descriptionMaxLength\":200,\"notesMaxLength\":1000},"
-            + "\"customLists\":{\"maxItems\":100,\"itemMaxLength\":50},"
+            + "\"customLists\":{\"maxItems\":100,\"itemMaxLength\":50,\"descriptionMaxLength\":200},"
             + "\"redactLists\":{\"maxTerms\":1000,\"termMaxLength\":100},"
             + "\"contexts\":{\"maxPerUser\":10,\"maxEntries\":10000},"
             + "\"webhook\":{\"secretMinLength\":16},"
@@ -5224,6 +5239,7 @@ public class PhilterClientMockTest {
         Assert.assertEquals(1000, limits.getPolicies().getNotesMaxLength());
         Assert.assertEquals(100, limits.getCustomLists().getMaxItems());
         Assert.assertEquals(50, limits.getCustomLists().getItemMaxLength());
+        Assert.assertEquals(200, limits.getCustomLists().getDescriptionMaxLength());
         Assert.assertEquals(1000, limits.getRedactLists().getMaxTerms());
         Assert.assertEquals(100, limits.getRedactLists().getTermMaxLength());
         Assert.assertEquals(10, limits.getContexts().getMaxPerUser());
