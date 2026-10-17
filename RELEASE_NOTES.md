@@ -15,6 +15,9 @@ are relative to 1.5.0.
 * `updateContext` sends `PATCH /api/contexts/{name}` with the settings given as a JSON body
   (`entityTypeDisambiguation`, `disambiguationScope`, `ledger`), as Philter 4.0 requires. Its signatures are
   unchanged and `owner` is still a query parameter.
+* `GetDocumentsResponse` reads Philter 4.0's `documents` field, which replaces `pendingRedactedDocuments` and
+  holds finished and failed documents as well as pending ones. With the old field name, `listDocuments` returned
+  the `total` but no documents.
 * `withApiKey(...)` sends its value verbatim in the `Authorization` header, so include any scheme prefix such
   as `"Bearer "`.
 * `filter` and `explain` no longer take a document ID. Philter returns it in the `x-document-id` header.
@@ -52,8 +55,9 @@ the listing's response type.
   optional fairness key (`fairness_key`, philterd/philter#106), so documents one API key submits for different
   people take turns in Philter's queue. A document's status and listing entry name the policy it was submitted
   with (`getPolicyName`, `getPolicyVersion`, `getPolicyContentHash`), which `getPolicyVersion(name, revision)`
-  reads. `filter` and `explain` take an optional filename and can return a signed response
-  (`X-Philter-Signature`).
+  reads. Each also has a job `type` (`getType`), a string so a type a later Philter adds is still read;
+  `redaction` is the only one Philter 4.0 returns. `filter` and `explain` take an optional filename and can
+  return a signed response (`X-Philter-Signature`).
 * **Policies:** versions (each with its `author`), diffs (`diffPolicy`, and `diffPolicy(name)` compares the two
   most recent revisions), rollback, deleted policies (`getDeletedPolicies`), templates (`getPolicyTemplate`),
   PhiSQL compilation (`compilePhiSql`), descriptions and notes, managed policies (`listManagedPolicies`), and

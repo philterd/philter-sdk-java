@@ -4033,7 +4033,10 @@ public class PhilterClientMockTest {
         respond(200, recorded("documents.json"));
         final GetDocumentsResponse documents = client().listDocuments();
         Assert.assertEquals("/api/documents", path);
+        Assert.assertEquals(1, documents.getDocuments().size());
+        Assert.assertEquals(1, documents.getTotal());
         final DocumentSummary document = documents.getDocuments().get(0);
+        Assert.assertEquals("redaction", document.getType());
         Assert.assertEquals("0d6cddfd-e0fa-42e9-9f36-7f1ca8a17b35", document.getDocumentId());
         Assert.assertEquals("scan.pdf", document.getFileName());
         Assert.assertEquals("PENDING", document.getStatus());
@@ -4046,12 +4049,39 @@ public class PhilterClientMockTest {
         respond(200, recorded("document-status.json"));
         final DocumentStatus status = client().getDocumentState("0d6cddfd-e0fa-42e9-9f36-7f1ca8a17b35");
         Assert.assertEquals("/api/documents/0d6cddfd-e0fa-42e9-9f36-7f1ca8a17b35/status", path);
+        Assert.assertEquals("redaction", status.getType());
         Assert.assertEquals("PENDING", status.getStatus());
         Assert.assertEquals(64, status.getEffectiveConfigurationHash().length());
         Assert.assertNull(status.getError());
         Assert.assertEquals("default", status.getPolicyName());
         Assert.assertEquals(Integer.valueOf(0), status.getPolicyVersion());
         Assert.assertEquals(document.getPolicyContentHash(), status.getPolicyContentHash());
+    }
+
+    @Test
+    public void listDocumentsReadsTheDocumentsFromEveryOverload() throws Exception {
+
+        // A type Philter 4.0 does not return yet is still read, since type is a string.
+        respond(200, "{\"documents\":[{\"type\":\"redaction\",\"documentId\":\"d1\",\"status\":\"COMPLETE\"},"
+                + "{\"type\":\"span-proposal\",\"documentId\":\"d2\",\"status\":\"FAILED\"}],\"total\":2}");
+
+        final List<Callable<GetDocumentsResponse>> calls = List.of(
+                () -> client().listDocuments(),
+                () -> client().listDocuments(OWNER, 0, 25),
+                () -> client().listDocuments(OWNER, new ListOptions().status("FAILED")));
+
+        for (final Callable<GetDocumentsResponse> call : calls) {
+
+            final GetDocumentsResponse documents = call.call();
+
+            Assert.assertEquals(2, documents.getTotal());
+            Assert.assertEquals(2, documents.getDocuments().size());
+            Assert.assertEquals("d1", documents.getDocuments().get(0).getDocumentId());
+            Assert.assertEquals("redaction", documents.getDocuments().get(0).getType());
+            Assert.assertEquals("COMPLETE", documents.getDocuments().get(0).getStatus());
+            Assert.assertEquals("span-proposal", documents.getDocuments().get(1).getType());
+            Assert.assertEquals("FAILED", documents.getDocuments().get(1).getStatus());
+        }
     }
 
     @Test
@@ -5419,7 +5449,7 @@ public class PhilterClientMockTest {
         Assert.assertEquals("/api/contexts/tenant-a/entries", path);
         Assert.assertEquals(Map.of("sort", "reads"), queryParameters);
 
-        respond(200, "{\"pendingRedactedDocuments\":[],\"total\":9}");
+        respond(200, "{\"documents\":[],\"total\":9}");
         final GetDocumentsResponse documents = client().listDocuments(OWNER,
                 new ListOptions().status("FAILED").sort("fileName"));
         Assert.assertEquals(Map.of("owner", OWNER, "status", "FAILED", "sort", "fileName"), queryParameters);

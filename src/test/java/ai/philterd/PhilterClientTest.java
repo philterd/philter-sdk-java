@@ -174,12 +174,14 @@ public class PhilterClientTest {
 
         // Named from submission, whatever the document's status.
         final DocumentStatus status = client.getDocumentState(documentId);
+        Assert.assertEquals("redaction", status.getType());
         Assert.assertEquals("default", status.getPolicyName());
         Assert.assertNotNull(status.getPolicyVersion());
         Assert.assertEquals(64, status.getPolicyContentHash().length());
 
         final DocumentSummary listed = client.listDocuments().getDocuments().stream()
                 .filter(document -> documentId.equals(document.getDocumentId())).findFirst().orElseThrow();
+        Assert.assertEquals("redaction", listed.getType());
         Assert.assertEquals(status.getPolicyVersion(), listed.getPolicyVersion());
         Assert.assertEquals(status.getPolicyContentHash(), listed.getPolicyContentHash());
 

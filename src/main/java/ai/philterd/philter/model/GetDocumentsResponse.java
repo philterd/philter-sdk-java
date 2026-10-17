@@ -21,12 +21,12 @@ import com.google.gson.annotations.SerializedName;
 import java.util.List;
 
 /**
- * A page of documents submitted for asynchronous redaction.
+ * A page of documents submitted for asynchronous processing, whatever their status.
  */
 public class GetDocumentsResponse {
 
     @Expose
-    @SerializedName("pendingRedactedDocuments")
+    @SerializedName("documents")
     private List<DocumentSummary> documents;
 
     /** The documents in this page. */

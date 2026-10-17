@@ -24,6 +24,10 @@ import com.google.gson.annotations.SerializedName;
 public class DocumentSummary {
 
     @Expose
+    @SerializedName("type")
+    private String type;
+
+    @Expose
     @SerializedName("documentId")
     private String documentId;
 
@@ -50,6 +54,18 @@ public class DocumentSummary {
     @Expose
     @SerializedName("policyContentHash")
     private String policyContentHash;
+
+    /**
+     * What the job produces. {@code redaction}, a redacted document, is the only type Philter 4.0 returns.
+     * A string rather than an enum, so a type a later Philter adds is still read.
+     */
+    public String getType() {
+        return type;
+    }
+
+    public void setType(String type) {
+        this.type = type;
+    }
 
     /** The document ID. */
     public String getDocumentId() {

@@ -52,6 +52,8 @@ byte[] zip = client.getDocument(documentId);            // once the status is CO
 
 The status is `PENDING`, `PROCESSING`, `COMPLETE`, or `FAILED`. Downloading a document whose redaction failed returns an HTTP 410, which the client raises as a `ClientException`; `status.getError()` says why.
 
+`status.getType()` says what the job produces, as does `getType()` on each document from `listDocuments()`. `redaction`, a redacted document, is the only type Philter 4.0 returns. It is a string, so a type a later Philter adds is still read.
+
 The status also names the policy the document was submitted with, and so does each document from `listDocuments()`. Read that revision of the policy to see exactly what redacted it:
 
 ```java
