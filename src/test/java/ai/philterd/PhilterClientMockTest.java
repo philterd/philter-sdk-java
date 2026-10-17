@@ -2983,6 +2983,32 @@ public class PhilterClientMockTest {
     }
 
     @Test
+    public void aLockedUserIsASignInLockedExceptionWhenCheckingTheirPassword() {
+
+        responseHeaders.put("Retry-After", "900");
+        respond(429, "{\"message\":\"Too many failed sign-ins for this username. Try again later.\",\"reason\":\"locked\"}");
+
+        final SignInLockedException changing = Assert.assertThrows(SignInLockedException.class,
+                () -> client().changePassword("the-current-password", "a-new-password-of-16-or-more"));
+        Assert.assertEquals(Integer.valueOf(900), changing.getRetryAfterSeconds());
+
+        final SignInLockedException enrolling = Assert.assertThrows(SignInLockedException.class,
+                () -> client().startMfaEnrollment("the-current-password"));
+        Assert.assertEquals("locked", enrolling.getReason());
+        Assert.assertEquals(Integer.valueOf(900), enrolling.getRetryAfterSeconds());
+    }
+
+    @Test
+    public void aWrongPasswordWhenStartingEnrollmentIsAClientException() {
+
+        respond(403, "{\"message\":\"The password is not correct.\",\"reason\":\"wrong_password\"}");
+
+        final ClientException ex = Assert.assertThrows(ClientException.class,
+                () -> client().startMfaEnrollment("wrong-password-0123"));
+        Assert.assertEquals("wrong_password", ex.getReason());
+    }
+
+    @Test
     public void setPassword() throws Exception {
 
         respond(204, "");

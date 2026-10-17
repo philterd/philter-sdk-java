@@ -819,6 +819,22 @@ public class PhilterClient {
 	}
 
 	/**
+	 * Sends a request that checks the user's current password under the sign-in lockout, returning the
+	 * response body. A locked user is a {@link SignInLockedException}, as at sign-in.
+	 */
+	private String sendCheckingPassword(final HttpRequest request) throws IOException {
+
+		final HttpResponse<String> response = send(request, HttpResponse.BodyHandlers.ofString());
+
+		if(!isSuccessful(response)) {
+			throw toSignInException(response);
+		}
+
+		return response.body();
+
+	}
+
+	/**
 	 * Sends a request and returns the response body as a string, failing on a non-2xx status.
 	 */
 	private String sendExpectingString(final HttpRequest request) throws IOException {
@@ -5403,7 +5419,8 @@ public class PhilterClient {
 	 * <p>A missing field, a new password shorter than 16 characters or longer than 72 UTF-8 bytes, or one
 	 * the same as the current password is an HTTP 400. A wrong current password is an HTTP 403. A user
 	 * with no password, whose first password an administrator sets, is an HTTP 409. Each is thrown as a
-	 * {@link ClientException} carrying Philter's reason.</p>
+	 * {@link ClientException} carrying Philter's reason. A wrong current password counts toward the user's
+	 * sign-in lockout; while the user is locked, Philter refuses with a {@link SignInLockedException}.</p>
 	 *
 	 * @param currentPassword The current password.
 	 * @param newPassword The new password, 16 characters to 72 UTF-8 bytes.
@@ -5416,7 +5433,7 @@ public class PhilterClient {
 				.PUT(text(gson.toJson(new ChangePasswordRequest(currentPassword, newPassword))))
 				.build();
 
-		sendExpectingNoContent(request);
+		sendCheckingPassword(request);
 
 	}
 
@@ -5477,8 +5494,8 @@ public class PhilterClient {
 	public MfaEnrollment startMfaEnrollment(String password) throws IOException {
 		final JsonObject body = new JsonObject();
 		body.addProperty("password", password);
-		return sendExpectingJson(json(uri("/api/users/me/mfa")).header("Content-Type", APPLICATION_JSON)
-				.POST(text(gson.toJson(body))).build(), MfaEnrollment.class);
+		return gson.fromJson(sendCheckingPassword(json(uri("/api/users/me/mfa")).header("Content-Type", APPLICATION_JSON)
+				.POST(text(gson.toJson(body))).build()), MfaEnrollment.class);
 	}
 
 	/**
