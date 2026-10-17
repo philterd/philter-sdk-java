@@ -3038,6 +3038,11 @@ public class PhilterClientMockTest {
         Assert.assertEquals("POST", method);
         Assert.assertEquals("/api/users/jordan/mfa/unlock", path);
         Assert.assertEquals(0, requestBody.length);
+
+        client().unlockUserSignIn("jordan");
+        Assert.assertEquals("POST", method);
+        Assert.assertEquals("/api/users/jordan/sign-in/unlock", path);
+        Assert.assertEquals(0, requestBody.length);
     }
 
     @Test

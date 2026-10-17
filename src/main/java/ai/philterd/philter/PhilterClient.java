@@ -5552,6 +5552,26 @@ public class PhilterClient {
 				.POST(HttpRequest.BodyPublishers.noBody()).build());
 	}
 
+	/**
+	 * Clears a user's sign-in lock, set after repeated failed sign-ins, before it lapses, and resets the
+	 * count of failures. The lock returns if sign-in keeps failing.
+	 *
+	 * <p>Requires the {@code users:write} scope and an administrator. A key without the scope is refused
+	 * with an HTTP 403 whose message names the scope; a key that has it but does not belong to an
+	 * administrator is refused with an HTTP 403 saying an administrator is required. Both are thrown as
+	 * a {@link ClientException} carrying that message.</p>
+	 *
+	 * <p>A username that does not exist is an HTTP 404, and a user whose sign-in is not locked an HTTP 409.
+	 * Both are thrown as a {@link ClientException}.</p>
+	 *
+	 * @param username The username.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public void unlockUserSignIn(String username) throws IOException {
+		sendExpectingNoContent(request(uri("/api/users/" + encode(username) + "/sign-in/unlock"))
+				.POST(HttpRequest.BodyPublishers.noBody()).build());
+	}
+
 	// Webhook.
 
 	/**

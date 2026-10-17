@@ -69,7 +69,7 @@ the listing's response type.
   needs no `scopeValue`.
 * **Users and sign-in:** user management, including `setUserEmail`; `getSignInOptions` (the password rules,
   empty when password sign-in is off), `signIn`, `completeSignIn` (MFA), and `signOut`; passwords, MFA
-  enrollment, `revokeSessionKeys`, and `signOutOtherSessions`. `withClientAddress(Supplier<String>)` sends the
+  enrollment, `revokeSessionKeys`, `signOutOtherSessions`, and `unlockUserSignIn` to clear a sign-in lock. `withClientAddress(Supplier<String>)` sends the
   end user's address as `X-Forwarded-For` on every request, so Philter rate-limits and audits per person.
   `signIn` and `completeSignIn` overloads also take the person's user agent, sent as the sign-in request's
   `User-Agent`, so each session shows the person's browser rather than the application's client.

@@ -67,7 +67,7 @@ session.signOut();
 | Wrong password, unknown username, a user without a password, or a deactivated user | `UnauthorizedException`. Philter does not say which, so it does not reveal which usernames exist. |
 | Wrong MFA code, or an unknown, used, or expired challenge | `UnauthorizedException`. The challenge is used up by any attempt, so sign in again with the password. |
 | The user's MFA is locked after five consecutive bad codes | `ClientException` (HTTP 403), until an administrator unlocks it. |
-| The username is locked after repeated failed sign-ins | `SignInLockedException`. Every sign-in for the username is refused, even with the right password, until the lock lapses. |
+| The username is locked after repeated failed sign-ins | `SignInLockedException`. Every sign-in for the username is refused, even with the right password, until the lock lapses or an administrator clears it with `unlockUserSignIn`. |
 | The client address made too many sign-in requests in the last minute | `SignInRateLimitedException`. |
 
 `SignInLockedException` and `SignInRateLimitedException` extend `SignInThrottledException`, which extends `ClientException`. Both carry `getRetryAfterSeconds()`, the most seconds to wait, and `getReason()`, `locked` or `rate_limited`.
