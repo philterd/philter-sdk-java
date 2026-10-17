@@ -1371,46 +1371,88 @@ public class PhilterClientMockTest {
     }
 
     @Test
-    public void updateContextSendsTheDisambiguationScopeOnlyWhenGiven() throws Exception {
+    public void updateContextSendsTheSettingsGivenAsAJsonBody() throws Exception {
 
-        // The overloads without a scope leave it out, so Philter keeps the current one.
         respond(200, "{\"message\":\"Context updated.\"}");
-        client().updateContext("ctx", true, false);
-        Assert.assertFalse(queryParameters.containsKey("disambiguation_scope"));
 
-        client().updateContext("ctx", true, false, OWNER);
-        Assert.assertFalse(queryParameters.containsKey("disambiguation_scope"));
-        Assert.assertEquals(OWNER, queryParameter("owner"));
-
-        client().updateContext("ctx", true, null, false, null);
-        Assert.assertFalse(queryParameters.containsKey("disambiguation_scope"));
-
-        // A null setting is left out, so only the scope changes.
+        // One setting: a null setting is left out, so only the scope changes.
         client().updateContext("ctx", null, DisambiguationScope.CONTEXT, null, null);
-        Assert.assertEquals("PUT", method);
+        Assert.assertEquals("PATCH", method);
         Assert.assertEquals("/api/contexts/ctx", path);
-        Assert.assertEquals(Map.of("disambiguation_scope", "context"), queryParameters);
+        Assert.assertEquals("application/json", header("Content-Type"));
+        Assert.assertTrue(queryParameters.isEmpty());
+        Assert.assertEquals("{\"disambiguationScope\":\"context\"}", requestBodyAsString());
+
+        // Two settings.
+        client().updateContext("ctx", true, null, false, null);
+        Assert.assertEquals("PATCH", method);
+        Assert.assertTrue(queryParameters.isEmpty());
+        Assert.assertEquals("{\"entityTypeDisambiguation\":true,\"ledger\":false}", requestBodyAsString());
+
+        // All three, with the owner still in the query string.
+        client().updateContext("ctx", false, DisambiguationScope.DOCUMENT, true, OWNER);
+        Assert.assertEquals("PATCH", method);
+        Assert.assertEquals(Map.of("owner", OWNER), queryParameters);
+        Assert.assertEquals("{\"entityTypeDisambiguation\":false,\"disambiguationScope\":\"document\","
+                + "\"ledger\":true}", requestBodyAsString());
+    }
+
+    @Test
+    public void updateContextOverloadsSendNoDisambiguationScope() throws Exception {
+
+        respond(200, "{\"message\":\"Context updated.\"}");
+
+        client().updateContext("ctx", true, false);
+        Assert.assertEquals("PATCH", method);
+        Assert.assertEquals("/api/contexts/ctx", path);
+        Assert.assertTrue(queryParameters.isEmpty());
+        Assert.assertEquals("{\"entityTypeDisambiguation\":true,\"ledger\":false}", requestBodyAsString());
+
+        client().updateContext("ctx", null, true, OWNER);
+        Assert.assertEquals("PATCH", method);
+        Assert.assertEquals(Map.of("owner", OWNER), queryParameters);
+        Assert.assertEquals("{\"ledger\":true}", requestBodyAsString());
+    }
+
+    @Test
+    public void updateContextWithNoSettingIsA400() {
+
+        respond(400, "{\"message\":\"Give at least one of entityTypeDisambiguation, disambiguationScope, or ledger.\","
+                + "\"reason\":\"invalid_request\"}");
+
+        final ClientException ex = Assert.assertThrows(ClientException.class,
+                () -> client().updateContext("ctx", null, null, null, null));
+
+        Assert.assertEquals("PATCH", method);
+        Assert.assertEquals("{}", requestBodyAsString());
+        Assert.assertEquals(400, ex.getStatusCode());
+        Assert.assertEquals(ErrorReasons.INVALID_REQUEST, ex.getReason());
     }
 
     @Test
     public void anUnknownDisambiguationScopeIsA400() {
 
-        // Philter's message for any value other than document or context.
-        final String message = "disambiguation_scope must be document or context.";
-        final Map<String, ThrowingRunnable> calls = Map.of(
-                "createContext", () -> client().createContext("ctx", true, "global", false, null),
-                "updateContext", () -> client().updateContext("ctx", null, "global", null, null));
+        // Philter's message for any value other than document or context: a query parameter on create, a
+        // body field on update.
+        respond(400, "{\"message\":\"disambiguation_scope must be document or context.\"}");
 
-        for (final Map.Entry<String, ThrowingRunnable> call : calls.entrySet()) {
+        ClientException ex = Assert.assertThrows(ClientException.class,
+                () -> client().createContext("ctx", true, "global", false, null));
 
-            respond(400, "{\"message\":\"" + message + "\"}");
+        Assert.assertEquals("global", queryParameter("disambiguation_scope"));
+        Assert.assertEquals(400, ex.getStatusCode());
+        Assert.assertEquals("disambiguation_scope must be document or context.", ex.getErrorMessage());
 
-            final ClientException ex = Assert.assertThrows(call.getKey(), ClientException.class, call.getValue());
+        respond(400, "{\"message\":\"disambiguationScope must be document or context.\","
+                + "\"reason\":\"invalid_request\",\"field\":\"disambiguationScope\"}");
 
-            Assert.assertEquals(call.getKey(), "global", queryParameter("disambiguation_scope"));
-            Assert.assertEquals(call.getKey(), 400, ex.getStatusCode());
-            Assert.assertEquals(call.getKey(), message, ex.getErrorMessage());
-        }
+        ex = Assert.assertThrows(ClientException.class,
+                () -> client().updateContext("ctx", null, "global", null, null));
+
+        Assert.assertEquals("{\"disambiguationScope\":\"global\"}", requestBodyAsString());
+        Assert.assertEquals(400, ex.getStatusCode());
+        Assert.assertEquals("disambiguationScope", ex.getField());
+        Assert.assertEquals("disambiguationScope must be document or context.", ex.getErrorMessage());
     }
 
     @Test
@@ -2112,8 +2154,7 @@ public class PhilterClientMockTest {
         // Contexts.
         verify("GET", "/api/contexts", Map.of(), "[]", c::getContexts);
         verify("GET", "/api/contexts/c1", Map.of(), "{}", () -> c.getContext("c1"));
-        verify("PUT", "/api/contexts/c1", Map.of("entity_type_disambiguation", "true", "ledger", "false"), "{}",
-                () -> c.updateContext("c1", true, false));
+        verify("PATCH", "/api/contexts/c1", Map.of(), "{}", () -> c.updateContext("c1", true, false));
         verify("DELETE", "/api/contexts/c1", Map.of(), "{}", () -> c.deleteContext("c1"));
         verify("GET", "/api/contexts/c1/entries", Map.of(), "[]", () -> c.getContextEntries("c1"));
         verify("DELETE", "/api/contexts/c1/entries", Map.of(), "{}", () -> c.deleteContextEntries("c1"));

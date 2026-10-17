@@ -12,6 +12,9 @@ are relative to 1.5.0.
 
 * `startMfaEnrollment` takes the user's current password, which Philter 4.0 requires to start enrollment. It and
   `changePassword` throw `SignInLockedException` while the user's sign-in is locked.
+* `updateContext` sends `PATCH /api/contexts/{name}` with the settings given as a JSON body
+  (`entityTypeDisambiguation`, `disambiguationScope`, `ledger`), as Philter 4.0 requires. Its signatures are
+  unchanged and `owner` is still a query parameter.
 * `withApiKey(...)` sends its value verbatim in the `Authorization` header, so include any scheme prefix such
   as `"Bearer "`.
 * `filter` and `explain` no longer take a document ID. Philter returns it in the `x-document-id` header.

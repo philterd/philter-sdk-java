@@ -123,7 +123,9 @@ import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Supplier;
@@ -2823,10 +2825,16 @@ public class PhilterClient {
 	public GenericResponse updateContext(String name, Boolean entityTypeDisambiguation, String disambiguationScope,
 			Boolean ledger, String owner) throws IOException {
 
-		final HttpRequest request = request(uri("/api/contexts/" + encode(name),
-				"entity_type_disambiguation", entityTypeDisambiguation, "disambiguation_scope", disambiguationScope,
-				"ledger", ledger, "owner", owner))
-				.PUT(HttpRequest.BodyPublishers.noBody())
+		// Philter refuses the settings as query parameters, so they go in the body under the names
+		// getContext returns. Gson leaves out the null ones.
+		final Map<String, Object> settings = new LinkedHashMap<>();
+		settings.put("entityTypeDisambiguation", entityTypeDisambiguation);
+		settings.put("disambiguationScope", disambiguationScope);
+		settings.put("ledger", ledger);
+
+		final HttpRequest request = request(uri("/api/contexts/" + encode(name), "owner", owner))
+				.header("Content-Type", APPLICATION_JSON)
+				.method("PATCH", text(gson.toJson(settings)))
 				.build();
 
 		return sendExpectingJson(request, GenericResponse.class);
