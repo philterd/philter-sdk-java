@@ -2844,11 +2844,10 @@ public class PhilterClient {
 	/**
 	 * Deletes a context. See {@link #deleteContext(String, String)}.
 	 * @param name The name of the context.
-	 * @return A {@link GenericResponse}.
 	 * @throws IOException Thrown if the call can not be executed.
 	 */
-	public GenericResponse deleteContext(String name) throws IOException {
-		return deleteContext(name, null);
+	public void deleteContext(String name) throws IOException {
+		deleteContext(name, null);
 	}
 
 	/**
@@ -2858,17 +2857,16 @@ public class PhilterClient {
 	 * {@code %}, or a control character, or {@code .} or {@code ..}) when it is created, so every context can
 	 * be deleted by path. A name like that is refused with an HTTP 400, thrown as a {@link ClientException}.</p>
 	 *
+	 * <p>A context that does not exist is an HTTP 404. A context with pending or processing redaction jobs
+	 * is an HTTP 409 whose {@link ClientException#getReason()} is {@code context_in_use}. Each is thrown as
+	 * a {@link ClientException}.</p>
+	 *
 	 * @param name The name of the context.
 	 * @param owner The owner of the context. May be {@code null}.
-	 * @return A {@link GenericResponse}.
 	 * @throws IOException Thrown if the call can not be executed.
 	 */
-	public GenericResponse deleteContext(String name, String owner) throws IOException {
-
-		final HttpRequest request = request(uri("/api/contexts/" + encode(name), "owner", owner)).DELETE().build();
-
-		return sendExpectingJson(request, GenericResponse.class);
-
+	public void deleteContext(String name, String owner) throws IOException {
+		sendExpectingNoContent(request(uri("/api/contexts/" + encode(name), "owner", owner)).DELETE().build());
 	}
 
 	/**
@@ -2947,30 +2945,25 @@ public class PhilterClient {
 
 
 	/**
-	 * Deletes all entries for a context.
+	 * Deletes all entries for a context. See {@link #deleteContextEntries(String, String)}.
 	 * @param name The name of the context.
-	 * @return A {@link GenericResponse}.
 	 * @throws IOException Thrown if the call can not be executed.
 	 */
-	public GenericResponse deleteContextEntries(String name) throws IOException {
-		return deleteContextEntries(name, null);
+	public void deleteContextEntries(String name) throws IOException {
+		deleteContextEntries(name, null);
 	}
 
 	/**
-	 * Deletes all entries for a context.
+	 * Deletes all entries for a context. A context that does not exist is an HTTP 404, thrown as a
+	 * {@link ClientException}.
 	 * @param name The name of the context.
 	 * @param owner The owner of the context. May be {@code null}.
-	 * @return A {@link GenericResponse}.
 	 * @throws IOException Thrown if the call can not be executed.
 	 */
-	public GenericResponse deleteContextEntries(String name, String owner) throws IOException {
-
-		final HttpRequest request = request(uri("/api/contexts/" + encode(name) + "/entries", "owner", owner))
+	public void deleteContextEntries(String name, String owner) throws IOException {
+		sendExpectingNoContent(request(uri("/api/contexts/" + encode(name) + "/entries", "owner", owner))
 				.DELETE()
-				.build();
-
-		return sendExpectingJson(request, GenericResponse.class);
-
+				.build());
 	}
 
 	/**
@@ -3079,33 +3072,28 @@ public class PhilterClient {
 	}
 
 	/**
-	 * Deletes a single entry from a context.
+	 * Deletes a single entry from a context. See {@link #deleteContextEntry(String, String, String)}.
 	 * @param name The name of the context.
 	 * @param entryId The entry ID.
-	 * @return A {@link GenericResponse}.
 	 * @throws IOException Thrown if the call can not be executed.
 	 */
-	public GenericResponse deleteContextEntry(String name, String entryId) throws IOException {
-		return deleteContextEntry(name, entryId, null);
+	public void deleteContextEntry(String name, String entryId) throws IOException {
+		deleteContextEntry(name, entryId, null);
 	}
 
 	/**
-	 * Deletes a single entry from a context.
+	 * Deletes a single entry from a context. An entry or context that does not exist is an HTTP 404, and an
+	 * entry ID that is not valid an HTTP 400, each thrown as a {@link ClientException}.
 	 * @param name The name of the context.
 	 * @param entryId The entry ID.
 	 * @param owner The owner of the context. May be {@code null}.
-	 * @return A {@link GenericResponse}.
 	 * @throws IOException Thrown if the call can not be executed.
 	 */
-	public GenericResponse deleteContextEntry(String name, String entryId, String owner) throws IOException {
-
-		final HttpRequest request = request(uri("/api/contexts/" + encode(name) + "/entries/" + encode(entryId),
+	public void deleteContextEntry(String name, String entryId, String owner) throws IOException {
+		sendExpectingNoContent(request(uri("/api/contexts/" + encode(name) + "/entries/" + encode(entryId),
 				"owner", owner))
 				.DELETE()
-				.build();
-
-		return sendExpectingJson(request, GenericResponse.class);
-
+				.build());
 	}
 
 	// Documents.
@@ -3797,29 +3785,28 @@ public class PhilterClient {
 
 	/**
 	 * Deletes a document's ledger chain. Philter restricts this to administrators and to deployments
-	 * that set {@code LEDGER_DELETION_ENABLED=true}.
+	 * that set {@code LEDGER_DELETION_ENABLED=true}. See {@link #deleteLedgerEntry(String, String)}.
 	 * @param documentId The document ID.
-	 * @return A {@link GenericResponse}.
 	 * @throws IOException Thrown if the call can not be executed.
 	 */
-	public GenericResponse deleteLedgerEntry(String documentId) throws IOException {
-		return deleteLedgerEntry(documentId, null);
+	public void deleteLedgerEntry(String documentId) throws IOException {
+		deleteLedgerEntry(documentId, null);
 	}
 
 	/**
 	 * Deletes a document's ledger chain. Philter restricts this to administrators and to deployments
 	 * that set {@code LEDGER_DELETION_ENABLED=true}.
+	 *
+	 * <p>A chain that does not exist is an HTTP 404, a chain that is not complete an HTTP 409, and a chain
+	 * under a legal hold an HTTP 423. Each is thrown as a {@link ClientException} carrying Philter's
+	 * message.</p>
+	 *
 	 * @param documentId The document ID.
 	 * @param owner The owner of the entry. May be {@code null}.
-	 * @return A {@link GenericResponse}.
 	 * @throws IOException Thrown if the call can not be executed.
 	 */
-	public GenericResponse deleteLedgerEntry(String documentId, String owner) throws IOException {
-
-		final HttpRequest request = json(uri("/api/ledger/" + encode(documentId), "owner", owner)).DELETE().build();
-
-		return sendExpectingJson(request, GenericResponse.class);
-
+	public void deleteLedgerEntry(String documentId, String owner) throws IOException {
+		sendExpectingNoContent(json(uri("/api/ledger/" + encode(documentId), "owner", owner)).DELETE().build());
 	}
 
 	/**

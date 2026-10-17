@@ -21,9 +21,9 @@ compatible with Philter 4.0.0 and later.
 Development for Philter 4.x happens on the `main` branch. The `1.x` branch supports Philter 3 and earlier.
 
 Version 2.0.0 is not backward compatible with 1.x. Philter 4.0 changed the shape of several requests and responses,
-such as `updateContext`, which now sends its settings as a JSON body, and the document listing, which reads
-`documents` and gives each job a `type`. See the breaking changes in [RELEASE_NOTES.md](RELEASE_NOTES.md) before
-upgrading.
+such as `updateContext`, which now sends its settings as a JSON body, the document listing, which reads
+`documents` and gives each job a `type`, and the context and ledger deletes, which return `void`. See the breaking
+changes in [RELEASE_NOTES.md](RELEASE_NOTES.md) before upgrading.
 
 The client requires Java 11 or later. Requests are made with the JDK's `java.net.http.HttpClient`, so the SDK adds
 no third-party HTTP dependency to your application.

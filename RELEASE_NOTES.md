@@ -18,6 +18,10 @@ are relative to 1.5.0.
 * `GetDocumentsResponse` reads Philter 4.0's `documents` field, which replaces `pendingRedactedDocuments` and
   holds finished and failed documents as well as pending ones. With the old field name, `listDocuments` returned
   the `total` but no documents.
+* `deleteContext`, `deleteContextEntries`, `deleteContextEntry`, and `deleteLedgerEntry` return `void`, as
+  `deletePolicy`, `deleteDocument`, `deleteHold`, and `deleteList` do, since Philter 4.0 answers them with `204` and
+  no body. Against 4.0 they returned `null`. A failure is still a `ClientException` carrying Philter's message and
+  `reason`. `purgeLedger` still returns Philter's message.
 * `withApiKey(...)` sends its value verbatim in the `Authorization` header, so include any scheme prefix such
   as `"Bearer "`.
 * `filter` and `explain` no longer take a document ID. Philter returns it in the `x-document-id` header.

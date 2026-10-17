@@ -2155,14 +2155,14 @@ public class PhilterClientMockTest {
         verify("GET", "/api/contexts", Map.of(), "[]", c::getContexts);
         verify("GET", "/api/contexts/c1", Map.of(), "{}", () -> c.getContext("c1"));
         verify("PATCH", "/api/contexts/c1", Map.of(), "{}", () -> c.updateContext("c1", true, false));
-        verify("DELETE", "/api/contexts/c1", Map.of(), "{}", () -> c.deleteContext("c1"));
+        verify("DELETE", "/api/contexts/c1", Map.of(), "", () -> c.deleteContext("c1"));
         verify("GET", "/api/contexts/c1/entries", Map.of(), "[]", () -> c.getContextEntries("c1"));
-        verify("DELETE", "/api/contexts/c1/entries", Map.of(), "{}", () -> c.deleteContextEntries("c1"));
+        verify("DELETE", "/api/contexts/c1/entries", Map.of(), "", () -> c.deleteContextEntries("c1"));
         verify("GET", "/api/contexts/c1/entries/export", Map.of("owner", "o1"), "x",
                 () -> c.exportContextEntries("c1", "o1"));
         verify("POST", "/api/contexts/c1/entries/import", Map.of("on_conflict", "skip", "owner", "o1"), "{}",
                 () -> c.importContextEntries("c1", "skip", "o1", "[]"));
-        verify("DELETE", "/api/contexts/c1/entries/e1", Map.of(), "{}", () -> c.deleteContextEntry("c1", "e1"));
+        verify("DELETE", "/api/contexts/c1/entries/e1", Map.of(), "", () -> c.deleteContextEntry("c1", "e1"));
 
         // Documents.
         verify("GET", "/api/documents", Map.of(), "[]", c::getDocuments);
@@ -2179,7 +2179,7 @@ public class PhilterClientMockTest {
         verify("GET", "/api/ledger/d1", Map.of(), "x", () -> c.getLedgerEntry("d1"));
         verify("GET", "/api/ledger/d1/export", Map.of(), "x", () -> c.exportLedger("d1"));
         verify("GET", "/api/ledger/d1/valid", Map.of(), "true", () -> c.isLedgerValid("d1"));
-        verify("DELETE", "/api/ledger/d1", Map.of(), "{}", () -> c.deleteLedgerEntry("d1"));
+        verify("DELETE", "/api/ledger/d1", Map.of(), "", () -> c.deleteLedgerEntry("d1"));
         verify("DELETE", "/api/ledger", Map.of("older_than_days", "30"), "{}", () -> c.purgeLedger(30));
 
         // Custom lists.
@@ -2816,11 +2816,11 @@ public class PhilterClientMockTest {
         verifyOwner("/api/contexts", "{}", () -> c.createContext("c1", true, false, OWNER));
         verifyOwner("/api/contexts/c1", "{}", () -> c.getContext("c1", OWNER));
         verifyOwner("/api/contexts/c1", "{}", () -> c.updateContext("c1", true, false, OWNER));
-        verifyOwner("/api/contexts/c1", "{}", () -> c.deleteContext("c1", OWNER));
-        verifyOwner("/api/contexts/c1/entries", "{}", () -> c.deleteContextEntries("c1", OWNER));
+        verifyOwner("/api/contexts/c1", "", () -> c.deleteContext("c1", OWNER));
+        verifyOwner("/api/contexts/c1/entries", "", () -> c.deleteContextEntries("c1", OWNER));
         verifyOwner("/api/contexts/c1/entries/export", "x", () -> c.exportContextEntries("c1", OWNER));
         verifyOwner("/api/contexts/c1/entries/import", "{}", () -> c.importContextEntries("c1", "skip", OWNER, "[]"));
-        verifyOwner("/api/contexts/c1/entries/e1", "{}", () -> c.deleteContextEntry("c1", "e1", OWNER));
+        verifyOwner("/api/contexts/c1/entries/e1", "", () -> c.deleteContextEntry("c1", "e1", OWNER));
 
         // Documents.
         verifyOwner("/api/documents/d1", "x", () -> c.getDocument("d1", OWNER));
@@ -2836,7 +2836,7 @@ public class PhilterClientMockTest {
         verifyOwner("/api/ledger/d1", "x", () -> c.getLedgerEntry("d1", OWNER));
         verifyOwner("/api/ledger/d1/export", "x", () -> c.exportLedger("d1", OWNER));
         verifyOwner("/api/ledger/d1/valid", "true", () -> c.isLedgerValid("d1", OWNER));
-        verifyOwner("/api/ledger/d1", "{}", () -> c.deleteLedgerEntry("d1", OWNER));
+        verifyOwner("/api/ledger/d1", "", () -> c.deleteLedgerEntry("d1", OWNER));
         verifyOwner("/api/ledger", "{}", () -> c.purgeLedger(30, OWNER));
 
         // Custom lists.
@@ -4230,6 +4230,72 @@ public class PhilterClientMockTest {
         final ClientException ex = Assert.assertThrows(ClientException.class, () -> client().deletePolicy("default"));
         Assert.assertEquals(409, ex.getStatusCode());
         Assert.assertEquals("policy_default", ex.getReason());
+    }
+
+    // Deletes that Philter answers with 204 and no body. Keyed by the path each sends, with the owner
+    // overload's path suffixed so both overloads are covered.
+    private Map<String, Action> noContentDeletes() throws Exception {
+
+        final PhilterClient c = client();
+        final Map<String, Action> calls = new java.util.LinkedHashMap<>();
+        calls.put("/api/contexts/c1", () -> c.deleteContext("c1"));
+        calls.put("/api/contexts/c1 owner", () -> c.deleteContext("c1", OWNER));
+        calls.put("/api/contexts/c1/entries", () -> c.deleteContextEntries("c1"));
+        calls.put("/api/contexts/c1/entries owner", () -> c.deleteContextEntries("c1", OWNER));
+        calls.put("/api/contexts/c1/entries/e1", () -> c.deleteContextEntry("c1", "e1"));
+        calls.put("/api/contexts/c1/entries/e1 owner", () -> c.deleteContextEntry("c1", "e1", OWNER));
+        calls.put("/api/ledger/d1", () -> c.deleteLedgerEntry("d1"));
+        calls.put("/api/ledger/d1 owner", () -> c.deleteLedgerEntry("d1", OWNER));
+        return calls;
+    }
+
+    @Test
+    public void deletesAnsweredWith204Succeed() throws Exception {
+
+        for (final Map.Entry<String, Action> call : noContentDeletes().entrySet()) {
+
+            respond(204, "");
+
+            call.getValue().run();
+
+            final String[] expected = call.getKey().split(" ");
+            Assert.assertEquals(call.getKey(), "DELETE", method);
+            Assert.assertEquals(call.getKey(), expected[0], path);
+            Assert.assertEquals(call.getKey(), expected.length > 1 ? Map.of("owner", OWNER) : Map.of(),
+                    queryParameters);
+        }
+    }
+
+    @Test
+    public void deletesAnsweredWith204ReportAFailure() throws Exception {
+
+        for (final Map.Entry<String, Action> call : noContentDeletes().entrySet()) {
+
+            respond(404, "{\"message\":\"Not found.\",\"reason\":\"not_found\"}");
+
+            final ClientException ex = Assert.assertThrows(call.getKey(), ClientException.class,
+                    () -> call.getValue().run());
+
+            Assert.assertEquals(call.getKey(), 404, ex.getStatusCode());
+            Assert.assertEquals(call.getKey(), "Not found.", ex.getErrorMessage());
+            Assert.assertEquals(call.getKey(), ErrorReasons.NOT_FOUND, ex.getReason());
+        }
+    }
+
+    @Test
+    public void deletingAContextInUseOrAHeldLedgerChainIsRefused() {
+
+        respond(409, "{\"message\":\"Context has pending or processing redaction jobs; cannot delete.\","
+                + "\"reason\":\"context_in_use\"}");
+        ClientException ex = Assert.assertThrows(ClientException.class, () -> client().deleteContext("c1"));
+        Assert.assertEquals(409, ex.getStatusCode());
+        Assert.assertEquals(ErrorReasons.CONTEXT_IN_USE, ex.getReason());
+
+        respond(423, "{\"message\":\"Deletion blocked by legal hold(s): case-1. Release the hold(s) before "
+                + "deleting this chain.\"}");
+        ex = Assert.assertThrows(ClientException.class, () -> client().deleteLedgerEntry("d1"));
+        Assert.assertEquals(423, ex.getStatusCode());
+        Assert.assertTrue(ex.getErrorMessage().startsWith("Deletion blocked by legal hold(s)"));
     }
 
     @Test
