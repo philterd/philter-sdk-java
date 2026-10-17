@@ -23,7 +23,7 @@ Development for Philter 4.x happens on the `main` branch. The `1.x` branch suppo
 Version 2.0.0 is not backward compatible with 1.x. Philter 4.0 changed the shape of several requests and
 responses, for example:
 
-* `updateContext` sends its settings as a JSON body.
+* `createContext` sends the name and settings, and `updateContext` the settings, as a JSON body.
 * The document listing reads `documents` and gives each job a `type`.
 * The context and ledger deletes return `void`.
 * `getList` returns a `CustomList`, whose items are `getItems()`.

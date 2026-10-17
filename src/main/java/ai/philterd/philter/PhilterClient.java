@@ -2684,10 +2684,10 @@ public class PhilterClient {
 	 * Creates a context with the {@link DisambiguationScope#DOCUMENT} disambiguation scope. See
 	 * {@link #createContext(String, Boolean, String, Boolean, String)}.
 	 * @param name The name of the context.
-	 * @param entityTypeDisambiguation Whether entity type disambiguation is enabled. {@code null} omits
-	 * the parameter, which Philter reads as {@code false}.
-	 * @param ledger Whether the redaction ledger is enabled. {@code null} omits the parameter, which
-	 * Philter reads as {@code false}.
+	 * @param entityTypeDisambiguation Whether entity type disambiguation is enabled. {@code null} is left
+	 * out of the request, and Philter reads it as {@code false}.
+	 * @param ledger Whether the redaction ledger is enabled. {@code null} is left out of the request, and
+	 * Philter reads it as {@code false}.
 	 * @return A {@link GenericResponse}.
 	 * @throws IOException Thrown if the call can not be executed.
 	 */
@@ -2699,10 +2699,10 @@ public class PhilterClient {
 	 * Creates a context with the {@link DisambiguationScope#DOCUMENT} disambiguation scope. See
 	 * {@link #createContext(String, Boolean, String, Boolean, String)}.
 	 * @param name The name of the context.
-	 * @param entityTypeDisambiguation Whether entity type disambiguation is enabled. {@code null} omits
-	 * the parameter, which Philter reads as {@code false}.
-	 * @param ledger Whether the redaction ledger is enabled. {@code null} omits the parameter, which
-	 * Philter reads as {@code false}.
+	 * @param entityTypeDisambiguation Whether entity type disambiguation is enabled. {@code null} is left
+	 * out of the request, and Philter reads it as {@code false}.
+	 * @param ledger Whether the redaction ledger is enabled. {@code null} is left out of the request, and
+	 * Philter reads it as {@code false}.
 	 * @param owner The owner of the context. May be {@code null}.
 	 * @return A {@link GenericResponse}.
 	 * @throws IOException Thrown if the call can not be executed.
@@ -2713,22 +2713,23 @@ public class PhilterClient {
 	}
 
 	/**
-	 * Creates a context.
+	 * Creates a context. The name and the settings given are sent as a JSON body; a {@code null} setting is
+	 * left out, and Philter gives it its default.
 	 *
 	 * <p>The name is used in request paths, so Philter refuses one containing {@code /}, {@code \},
 	 * {@code ;}, {@code %}, or a control character, or that is {@code .} or {@code ..}, with an HTTP 400,
-	 * thrown as a {@link ClientException}.</p>
+	 * thrown as a {@link ClientException}. A {@code null} or blank name is an HTTP 400 too.</p>
 	 *
 	 * @param name The name of the context.
-	 * @param entityTypeDisambiguation Whether entity type disambiguation is enabled. {@code null} omits
-	 * the parameter, which Philter reads as {@code false}.
+	 * @param entityTypeDisambiguation Whether entity type disambiguation is enabled. {@code null} is left
+	 * out of the request, and Philter reads it as {@code false}.
 	 * @param disambiguationScope What span disambiguation learns from when entity type disambiguation is
 	 * enabled: {@link DisambiguationScope#DOCUMENT} to learn within each document only, or
 	 * {@link DisambiguationScope#CONTEXT} to store what it learns and use it for every later document
-	 * redacted in the context. Case does not matter. {@code null} omits the parameter, which Philter reads
-	 * as {@code document}. Any other value is an HTTP 400, thrown as a {@link ClientException}.
-	 * @param ledger Whether the redaction ledger is enabled. {@code null} omits the parameter, which
-	 * Philter reads as {@code false}.
+	 * redacted in the context. Case does not matter. {@code null} is left out of the request, and Philter
+	 * reads it as {@code document}. Any other value is an HTTP 400, thrown as a {@link ClientException}.
+	 * @param ledger Whether the redaction ledger is enabled. {@code null} is left out of the request, and
+	 * Philter reads it as {@code false}.
 	 * @param owner The owner of the context. May be {@code null}.
 	 * @return A {@link GenericResponse}.
 	 * @throws IOException Thrown if the call can not be executed.
@@ -2740,10 +2741,17 @@ public class PhilterClient {
 	public GenericResponse createContext(String name, Boolean entityTypeDisambiguation, String disambiguationScope,
 			Boolean ledger, String owner) throws IOException {
 
-		final HttpRequest request = request(uri("/api/contexts", "name", name,
-				"entity_type_disambiguation", entityTypeDisambiguation, "disambiguation_scope", disambiguationScope,
-				"ledger", ledger, "owner", owner))
-				.POST(HttpRequest.BodyPublishers.noBody())
+		// Philter refuses the name and settings as query parameters. They go in the body under the names
+		// getContext returns, and Gson leaves out the null ones.
+		final Map<String, Object> context = new LinkedHashMap<>();
+		context.put("name", name);
+		context.put("entityTypeDisambiguation", entityTypeDisambiguation);
+		context.put("disambiguationScope", disambiguationScope);
+		context.put("ledger", ledger);
+
+		final HttpRequest request = request(uri("/api/contexts", "owner", owner))
+				.header("Content-Type", APPLICATION_JSON)
+				.POST(text(gson.toJson(context)))
 				.build();
 
 		return sendExpectingJson(request, GenericResponse.class);

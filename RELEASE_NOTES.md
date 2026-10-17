@@ -41,6 +41,10 @@ are relative to 1.5.0.
   `getPoliciesAcrossUsers` still returns `OwnedName`, and `listManagedPolicies()` and
   `listManagedPolicies(offset, limit)` still return `ManagedPolicySummary`; `OwnedName` and `ManagedPolicySummary`
   are deprecated.
+* `createContext` sends `POST /api/contexts` with the name and the settings given as a JSON body (`name`,
+  `entityTypeDisambiguation`, `disambiguationScope`, `ledger`), as Philter 4.0 requires. Its signatures are
+  unchanged and `owner` is the only query parameter. A `null` setting is left out, and Philter gives it its
+  default.
 * `withApiKey(...)` sends its value verbatim in the `Authorization` header, so include any scheme prefix such
   as `"Bearer "`.
 * `filter` and `explain` no longer take a document ID. Philter returns it in the `x-document-id` header.

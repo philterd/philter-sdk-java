@@ -1338,39 +1338,63 @@ public class PhilterClientMockTest {
     @Test
     public void createContext() throws Exception {
 
-        respond(200, "{\"message\":\"created\"}");
+        respond(201, "{\"message\":\"Context created.\"}");
 
         final GenericResponse response = client().createContext("ctx", true, false);
 
-        Assert.assertEquals("created", response.getMessage());
+        Assert.assertEquals("Context created.", response.getMessage());
 
         Assert.assertEquals("POST", method);
         Assert.assertEquals("/api/contexts", path);
-        Assert.assertEquals("ctx", queryParameter("name"));
-        Assert.assertEquals("true", queryParameter("entity_type_disambiguation"));
-        Assert.assertEquals("false", queryParameter("ledger"));
+        Assert.assertEquals("application/json", header("Content-Type"));
+        // Philter refuses the name and settings as query parameters, so they go in the body.
+        Assert.assertTrue(queryParameters.isEmpty());
+        Assert.assertEquals("{\"name\":\"ctx\",\"entityTypeDisambiguation\":true,\"ledger\":false}",
+                requestBodyAsString());
     }
 
     @Test
-    public void createContextSendsTheDisambiguationScopeOnlyWhenGiven() throws Exception {
+    public void createContextSendsOnlyTheSettingsGiven() throws Exception {
 
-        // The overloads without a scope leave it out, so Philter applies document.
-        respond(200, "{\"message\":\"created\"}");
-        client().createContext("ctx", true, false);
-        Assert.assertFalse(queryParameters.containsKey("disambiguation_scope"));
+        respond(201, "{\"message\":\"Context created.\"}");
 
-        client().createContext("ctx", true, false, OWNER);
-        Assert.assertFalse(queryParameters.containsKey("disambiguation_scope"));
-        Assert.assertEquals(OWNER, queryParameter("owner"));
-
-        client().createContext("ctx", true, null, false, null);
-        Assert.assertFalse(queryParameters.containsKey("disambiguation_scope"));
-
+        // Every setting, with the owner the only query parameter.
         client().createContext("ctx", true, DisambiguationScope.CONTEXT, false, OWNER);
         Assert.assertEquals("POST", method);
         Assert.assertEquals("/api/contexts", path);
-        Assert.assertEquals(Map.of("name", "ctx", "entity_type_disambiguation", "true",
-                "disambiguation_scope", "context", "ledger", "false", "owner", OWNER), queryParameters);
+        Assert.assertEquals(Map.of("owner", OWNER), queryParameters);
+        Assert.assertEquals("{\"name\":\"ctx\",\"entityTypeDisambiguation\":true,\"disambiguationScope\":\"context\","
+                + "\"ledger\":false}", requestBodyAsString());
+
+        // A null setting is left out, so Philter gives it its default.
+        client().createContext("ctx", null, null, true, null);
+        Assert.assertTrue(queryParameters.isEmpty());
+        Assert.assertEquals("{\"name\":\"ctx\",\"ledger\":true}", requestBodyAsString());
+
+        client().createContext("ctx", null, DisambiguationScope.DOCUMENT, null, null);
+        Assert.assertEquals("{\"name\":\"ctx\",\"disambiguationScope\":\"document\"}", requestBodyAsString());
+
+        client().createContext("ctx", null, null, null, null);
+        Assert.assertEquals("{\"name\":\"ctx\"}", requestBodyAsString());
+
+        // The overloads without a scope send none, so Philter applies document.
+        client().createContext("ctx", false, true, OWNER);
+        Assert.assertEquals(Map.of("owner", OWNER), queryParameters);
+        Assert.assertEquals("{\"name\":\"ctx\",\"entityTypeDisambiguation\":false,\"ledger\":true}",
+                requestBodyAsString());
+    }
+
+    @Test
+    public void createContextWithoutANameIsA400NamingTheField() {
+
+        respond(400, "{\"message\":\"name is required.\",\"reason\":\"invalid_request\",\"field\":\"name\"}");
+
+        final ClientException ex = Assert.assertThrows(ClientException.class,
+                () -> client().createContext(null, true, false));
+
+        Assert.assertEquals("{\"entityTypeDisambiguation\":true,\"ledger\":false}", requestBodyAsString());
+        Assert.assertEquals(400, ex.getStatusCode());
+        Assert.assertEquals("name", ex.getField());
     }
 
     @Test
@@ -1435,16 +1459,19 @@ public class PhilterClientMockTest {
     @Test
     public void anUnknownDisambiguationScopeIsA400() {
 
-        // Philter's message for any value other than document or context: a query parameter on create, a
-        // body field on update.
-        respond(400, "{\"message\":\"disambiguation_scope must be document or context.\"}");
+        // Philter's message for any value other than document or context, on create and on update.
+        respond(400, "{\"message\":\"disambiguationScope must be document or context.\","
+                + "\"reason\":\"invalid_request\",\"field\":\"disambiguationScope\"}");
 
         ClientException ex = Assert.assertThrows(ClientException.class,
                 () -> client().createContext("ctx", true, "global", false, null));
 
-        Assert.assertEquals("global", queryParameter("disambiguation_scope"));
+        Assert.assertTrue(queryParameters.isEmpty());
+        Assert.assertEquals("{\"name\":\"ctx\",\"entityTypeDisambiguation\":true,\"disambiguationScope\":\"global\","
+                + "\"ledger\":false}", requestBodyAsString());
         Assert.assertEquals(400, ex.getStatusCode());
-        Assert.assertEquals("disambiguation_scope must be document or context.", ex.getErrorMessage());
+        Assert.assertEquals("disambiguationScope", ex.getField());
+        Assert.assertEquals("disambiguationScope must be document or context.", ex.getErrorMessage());
 
         respond(400, "{\"message\":\"disambiguationScope must be document or context.\","
                 + "\"reason\":\"invalid_request\",\"field\":\"disambiguationScope\"}");
