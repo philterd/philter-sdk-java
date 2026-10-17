@@ -132,6 +132,38 @@
 				</plugins>
 			</build>
 		</profile>
+		<profile>
+			<id>owasp</id>
+			<activation>
+				<property>
+					<name>owasp</name>
+				</property>
+			</activation>
+			<build>
+				<plugins>
+					<plugin>
+						<groupId>org.owasp</groupId>
+						<artifactId>dependency-check-maven</artifactId>
+						<version>12.1.9</version>
+						<configuration>
+							<retireJsAnalyzerEnabled>false</retireJsAnalyzerEnabled>
+							<failOnError>true</failOnError>
+							<failBuildOnCVSS>0</failBuildOnCVSS>
+							<format>xml</format>
+							<skipProvidedScope>true</skipProvidedScope>
+							<skipTestScope>true</skipTestScope>
+						</configuration>
+						<executions>
+							<execution>
+								<goals>
+									<goal>check</goal>
+								</goals>
+							</execution>
+						</executions>
+					</plugin>
+				</plugins>
+			</build>
+		</profile>
 	</profiles>
 	<dependencies>
 		<dependency>
