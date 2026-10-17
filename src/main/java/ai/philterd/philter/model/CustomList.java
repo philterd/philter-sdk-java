@@ -21,27 +21,29 @@ import com.google.gson.annotations.SerializedName;
 import java.util.List;
 
 /**
- * The response containing the values of a custom list.
+ * A custom list's items and description, as {@code GET /api/lists/{name}} returns them. The listing of
+ * lists, {@code GET /api/lists}, is read as {@link CustomListSummary} instead.
  */
-public class GetListsResponse {
+public class CustomList {
 
     @Expose
-    @SerializedName("lists")
-    private List<String> lists;
+    @SerializedName("items")
+    private List<String> items;
 
     @Expose
     @SerializedName("description")
     private String description;
 
-    public List<String> getLists() {
-        return lists;
+    /** The list's items. */
+    public List<String> getItems() {
+        return items;
     }
 
-    public void setLists(List<String> lists) {
-        this.lists = lists;
+    public void setItems(List<String> items) {
+        this.items = items;
     }
 
-    /** The list's description, or {@code null}. */
+    /** The list's description, or an empty string if it has none. */
     public String getDescription() {
         return description;
     }

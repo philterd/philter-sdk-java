@@ -22,6 +22,9 @@ are relative to 1.5.0.
   `deletePolicy`, `deleteDocument`, `deleteHold`, and `deleteList` do, since Philter 4.0 answers them with `204` and
   no body. Against 4.0 they returned `null`. A failure is still a `ClientException` carrying Philter's message and
   `reason`. `purgeLedger` still returns Philter's message.
+* `getList` returns a `CustomList`, which replaces `GetListsResponse` and reads Philter 4.0's `items` field
+  through `getItems()` instead of `lists` through `getLists()`. With the old field name, `getList` returned no
+  items. A list without a description has an empty string. The `GET /api/lists` listing is unchanged.
 * `withApiKey(...)` sends its value verbatim in the `Authorization` header, so include any scheme prefix such
   as `"Bearer "`.
 * `filter` and `explain` no longer take a document ID. Philter returns it in the `x-document-id` header.

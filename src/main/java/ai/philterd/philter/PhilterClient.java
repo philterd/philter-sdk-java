@@ -28,6 +28,7 @@ import ai.philterd.philter.model.GetContextsAcrossUsersResponse;
 import ai.philterd.philter.model.GetContextEntriesResponse;
 import ai.philterd.philter.model.DocumentStatus;
 import ai.philterd.philter.model.DisambiguationScope;
+import ai.philterd.philter.model.CustomList;
 import ai.philterd.philter.model.CustomListSummary;
 import ai.philterd.philter.model.ContextDetails;
 import ai.philterd.philter.model.SignInResponse;
@@ -56,7 +57,6 @@ import ai.philterd.philter.model.GetApiKeysResponse;
 import ai.philterd.philter.model.GetAuditLogResponse;
 import ai.philterd.philter.model.GetPiiCountsResponse;
 import ai.philterd.philter.model.PiiCount;
-import ai.philterd.philter.model.GetListsResponse;
 import ai.philterd.philter.model.GetUsersResponse;
 import ai.philterd.philter.model.PolicyWithETag;
 import ai.philterd.philter.model.ListOptions;
@@ -4111,27 +4111,27 @@ public class PhilterClient {
 	}
 
 	/**
-	 * Gets the values of a custom list.
+	 * Gets a custom list's items and description. See {@link #getList(String, String)}.
 	 * @param name The name of the list.
-	 * @return The {@link GetListsResponse}.
+	 * @return The {@link CustomList}.
 	 * @throws IOException Thrown if the call can not be executed.
 	 */
-	public GetListsResponse getList(String name) throws IOException {
+	public CustomList getList(String name) throws IOException {
 		return getList(name, null);
 	}
 
 	/**
-	 * Gets the values of a custom list.
+	 * Gets a custom list's items and description.
 	 * @param name The name of the list.
 	 * @param owner The owner of the list. May be {@code null}.
-	 * @return The {@link GetListsResponse}.
+	 * @return The {@link CustomList}.
 	 * @throws IOException Thrown if the call can not be executed.
 	 */
-	public GetListsResponse getList(String name, String owner) throws IOException {
+	public CustomList getList(String name, String owner) throws IOException {
 
 		final HttpRequest request = json(uri("/api/lists/" + encode(name), "owner", owner)).GET().build();
 
-		return sendExpectingJson(request, GetListsResponse.class);
+		return sendExpectingJson(request, CustomList.class);
 
 	}
 

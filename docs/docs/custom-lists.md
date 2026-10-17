@@ -4,7 +4,7 @@ Custom lists let a policy match (or ignore) an explicit set of terms.
 
 ```java
 import ai.philterd.philter.model.CustomListSummary;
-import ai.philterd.philter.model.GetListsResponse;
+import ai.philterd.philter.model.CustomList;
 import java.util.List;
 
 // Create a list of terms. A name already in use is refused.
@@ -13,9 +13,9 @@ client.saveList("blocked-terms", "Terms to always redact", List.of("Acme", "Proj
 // Replace the list's terms. A null description keeps the current one; "" clears it.
 client.replaceList("blocked-terms", null, List.of("Acme", "Project X", "Project Y"));
 
-// Retrieve a list's values and description.
-GetListsResponse list = client.getList("blocked-terms");
-System.out.println(list.getLists() + " " + list.getDescription());
+// Retrieve a list's items and description.
+CustomList list = client.getList("blocked-terms");
+System.out.println(list.getItems() + " " + list.getDescription());
 
 // A page of lists, with each one's name, description, and size but not its terms, and the total.
 Page<CustomListSummary> lists = client.listCustomLists(null, new ListOptions().search("blocked"));

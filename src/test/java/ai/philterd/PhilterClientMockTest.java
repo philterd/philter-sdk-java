@@ -31,6 +31,7 @@ import ai.philterd.philter.model.GetContextsAcrossUsersResponse;
 import ai.philterd.philter.model.GetContextEntriesResponse;
 import ai.philterd.philter.model.DocumentSummary;
 import ai.philterd.philter.model.DocumentStatus;
+import ai.philterd.philter.model.CustomList;
 import ai.philterd.philter.model.CustomListSummary;
 import ai.philterd.philter.model.ContextEntry;
 import ai.philterd.philter.model.ContextDetails;
@@ -53,7 +54,6 @@ import ai.philterd.philter.model.GetApiKeysResponse;
 import ai.philterd.philter.model.GetAuditLogResponse;
 import ai.philterd.philter.model.GetPiiCountsResponse;
 import ai.philterd.philter.model.PiiCount;
-import ai.philterd.philter.model.GetListsResponse;
 import ai.philterd.philter.model.GetUsersResponse;
 import ai.philterd.philter.model.LegalHoldRequest;
 import ai.philterd.philter.model.LegalHoldResponse;
@@ -1538,14 +1538,21 @@ public class PhilterClientMockTest {
     @Test
     public void getList() throws Exception {
 
-        respond(200, "{\"lists\":[\"alpha\",\"beta\"]}");
+        respond(200, "{\"items\":[\"alpha\",\"beta\"],\"description\":\"\"}");
 
-        final GetListsResponse response = client().getList("my-list");
+        final CustomList response = client().getList("my-list");
 
-        Assert.assertEquals(2, response.getLists().size());
-        Assert.assertTrue(response.getLists().contains("alpha"));
+        Assert.assertEquals(List.of("alpha", "beta"), response.getItems());
+        // Philter sends an empty description, not null, for a list without one.
+        Assert.assertEquals("", response.getDescription());
 
+        Assert.assertEquals("GET", method);
         Assert.assertEquals("/api/lists/my-list", path);
+        Assert.assertTrue(queryParameters.isEmpty());
+
+        client().getList("my-list", OWNER);
+        Assert.assertEquals("/api/lists/my-list", path);
+        Assert.assertEquals(Map.of("owner", OWNER), queryParameters);
     }
 
     @Test
@@ -3853,9 +3860,9 @@ public class PhilterClientMockTest {
         Assert.assertTrue(all.get(0).getOwner().endsWith("@example.com"));
 
         respond(200, recorded("list.json"));
-        final GetListsResponse list = client().getList("customer-names");
+        final CustomList list = client().getList("customer-names");
         Assert.assertEquals("Customer names", list.getDescription());
-        Assert.assertEquals(List.of("Jordan Example", "Avery Example"), list.getLists());
+        Assert.assertEquals(List.of("Jordan Example", "Avery Example"), list.getItems());
     }
 
     @Test

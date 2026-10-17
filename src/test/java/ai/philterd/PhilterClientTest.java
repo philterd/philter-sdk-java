@@ -19,12 +19,12 @@ import ai.philterd.philter.PhilterClient;
 import ai.philterd.philter.model.BinaryFilterResponse;
 import ai.philterd.philter.model.CreatedApiKeyResponse;
 import ai.philterd.philter.model.CreatedUserResponse;
+import ai.philterd.philter.model.CustomList;
 import ai.philterd.philter.model.DocumentStatus;
 import ai.philterd.philter.model.DocumentSummary;
 import ai.philterd.philter.model.ExplainResponse;
 import ai.philterd.philter.model.FilterResponse;
 import ai.philterd.philter.model.GenericResponse;
-import ai.philterd.philter.model.GetListsResponse;
 import ai.philterd.philter.model.StatusResponse;
 import ai.philterd.philter.model.exceptions.ClientException;
 import org.apache.logging.log4j.LogManager;
@@ -250,10 +250,10 @@ public class PhilterClientTest {
         try {
             client.saveList(name, "integration test list", List.of("alpha", "beta"));
 
-            final GetListsResponse list = client.getList(name);
+            final CustomList list = client.getList(name);
             Assert.assertNotNull(list);
-            Assert.assertNotNull(list.getLists());
-            Assert.assertTrue("Saved list values should be returned.", list.getLists().contains("alpha"));
+            Assert.assertEquals(List.of("alpha", "beta"), list.getItems());
+            Assert.assertEquals("integration test list", list.getDescription());
         } finally {
             client.deleteList(name);
         }
