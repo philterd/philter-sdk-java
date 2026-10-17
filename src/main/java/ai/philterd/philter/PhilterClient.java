@@ -5460,16 +5460,25 @@ public class PhilterClient {
 	 * not apply until {@link #confirmMfaEnrollment(String)}. Starting again replaces an unconfirmed
 	 * secret.
 	 *
-	 * <p>Requires the {@code users:write} scope. Does not require an administrator. Where MFA is not
-	 * available on the deployment (the {@code mfaAvailable} admin setting), or the user is already
-	 * enrolled, Philter answers HTTP 409, thrown as a {@link ClientException}.</p>
+	 * <p>Takes the user's current password, so a stolen key cannot enroll an authenticator of its own. A
+	 * wrong password is an HTTP 403 with the reason {@code wrong_password}, thrown as a
+	 * {@link ClientException}, and counts toward the user's sign-in lockout; while the user is locked,
+	 * Philter refuses with a {@link SignInLockedException}.</p>
 	 *
+	 * <p>Requires the {@code users:write} scope. Does not require an administrator. Where MFA is not
+	 * available on the deployment (the {@code mfaAvailable} admin setting), the user is already
+	 * enrolled, or the user has no password, Philter answers HTTP 409, thrown as a
+	 * {@link ClientException}.</p>
+	 *
+	 * @param password The user's current password.
 	 * @return The secret and the {@code otpauth://} URI.
 	 * @throws IOException Thrown if the call can not be executed.
 	 */
-	public MfaEnrollment startMfaEnrollment() throws IOException {
-		return sendExpectingJson(json(uri("/api/users/me/mfa")).POST(HttpRequest.BodyPublishers.noBody()).build(),
-				MfaEnrollment.class);
+	public MfaEnrollment startMfaEnrollment(String password) throws IOException {
+		final JsonObject body = new JsonObject();
+		body.addProperty("password", password);
+		return sendExpectingJson(json(uri("/api/users/me/mfa")).header("Content-Type", APPLICATION_JSON)
+				.POST(text(gson.toJson(body))).build(), MfaEnrollment.class);
 	}
 
 	/**

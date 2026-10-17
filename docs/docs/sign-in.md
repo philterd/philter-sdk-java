@@ -138,8 +138,9 @@ A user who signs in with a password can add TOTP multi-factor authentication, wi
 ```java
 import ai.philterd.philter.model.MfaEnrollment;
 
-// Start: show the URI as a QR code, or have the person type in the secret. Neither is returned again.
-MfaEnrollment enrollment = client.startMfaEnrollment();
+// Start, with the person's current password: show the URI as a QR code, or have the person type in the
+// secret. Neither is returned again. A wrong password counts toward the sign-in lockout.
+MfaEnrollment enrollment = client.startMfaEnrollment(currentPassword);
 String qrCodeContent = enrollment.getOtpauthUri();
 
 // Confirm with a code from the app. This revokes the user's session keys.

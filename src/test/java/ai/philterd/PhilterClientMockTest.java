@@ -3000,11 +3000,11 @@ public class PhilterClientMockTest {
         respond(200, "{\"secret\":\"JBSWY3DPEHPK3PXP\","
                 + "\"otpauthUri\":\"otpauth://totp/Philter:jordan?secret=JBSWY3DPEHPK3PXP&issuer=Philter\"}");
 
-        final MfaEnrollment enrollment = client().startMfaEnrollment();
+        final MfaEnrollment enrollment = client().startMfaEnrollment("current-password-0123");
 
         Assert.assertEquals("POST", method);
         Assert.assertEquals("/api/users/me/mfa", path);
-        Assert.assertEquals(0, requestBody.length);
+        Assert.assertEquals("{\"password\":\"current-password-0123\"}", new String(requestBody, StandardCharsets.UTF_8));
         Assert.assertEquals("JBSWY3DPEHPK3PXP", enrollment.getSecret());
         Assert.assertEquals("otpauth://totp/Philter:jordan?secret=JBSWY3DPEHPK3PXP&issuer=Philter", enrollment.getOtpauthUri());
     }
