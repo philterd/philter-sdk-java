@@ -20,6 +20,11 @@ compatible with Philter 4.0.0 and later.
 
 Development for Philter 4.x happens on the `main` branch. The `1.x` branch supports Philter 3 and earlier.
 
+Version 2.0.0 is not backward compatible with 1.x. Philter 4.0 changed the shape of several requests and responses,
+such as `updateContext`, which now sends its settings as a JSON body, and the document listing, which reads
+`documents` and gives each job a `type`. See the breaking changes in [RELEASE_NOTES.md](RELEASE_NOTES.md) before
+upgrading.
+
 The client requires Java 11 or later. Requests are made with the JDK's `java.net.http.HttpClient`, so the SDK adds
 no third-party HTTP dependency to your application.
 
@@ -276,12 +281,15 @@ Live integration tests (`PhilterClientTest`) run against a real Philter instance
 
 ```
 export PHILTER_ENDPOINT=https://localhost:8080/
-export PHILTER_API_KEY=your-api-key   # optional
-export PHILTER_INSECURE=true          # optional, to trust self-signed certificates
+export PHILTER_API_KEY="Bearer sk_..." # optional, sent verbatim, so include the scheme
+export PHILTER_INSECURE=true           # optional, to trust self-signed certificates
 mvn test
 ```
 
 Additional optional variable: `PHILTER_PDF_FILE` (to enable the PDF filtering test).
+
+The tests filter in a context named `sdk-it` with the `default` policy. Create the context before running them,
+and run Philter with a reachable PhEye service (`PHEYE_ENDPOINT`), since the `default` policy uses one.
 
 ## Release History
 

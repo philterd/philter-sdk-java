@@ -4037,7 +4037,7 @@ public class PhilterClientMockTest {
         Assert.assertEquals(1, documents.getTotal());
         final DocumentSummary document = documents.getDocuments().get(0);
         Assert.assertEquals("redaction", document.getType());
-        Assert.assertEquals("0d6cddfd-e0fa-42e9-9f36-7f1ca8a17b35", document.getDocumentId());
+        Assert.assertEquals("871f10b4-8a94-4ef6-a4d8-81397bd454c6", document.getDocumentId());
         Assert.assertEquals("scan.pdf", document.getFileName());
         Assert.assertEquals("PENDING", document.getStatus());
         Assert.assertNotNull(document.getTimestamp());
@@ -4047,8 +4047,8 @@ public class PhilterClientMockTest {
         Assert.assertEquals(64, document.getPolicyContentHash().length());
 
         respond(200, recorded("document-status.json"));
-        final DocumentStatus status = client().getDocumentState("0d6cddfd-e0fa-42e9-9f36-7f1ca8a17b35");
-        Assert.assertEquals("/api/documents/0d6cddfd-e0fa-42e9-9f36-7f1ca8a17b35/status", path);
+        final DocumentStatus status = client().getDocumentState("871f10b4-8a94-4ef6-a4d8-81397bd454c6");
+        Assert.assertEquals("/api/documents/871f10b4-8a94-4ef6-a4d8-81397bd454c6/status", path);
         Assert.assertEquals("redaction", status.getType());
         Assert.assertEquals("PENDING", status.getStatus());
         Assert.assertEquals(64, status.getEffectiveConfigurationHash().length());
