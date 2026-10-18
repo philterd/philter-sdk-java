@@ -115,6 +115,10 @@ the listing's response type.
 * **Limits:** `getLimits` returns the limits and rules Philter enforces (request and page sizes, password, name,
   policy, list, context, webhook, legal hold, user, audit export, and session key rules) and what the caller may
   do, so a client need not hard-code them.
+* **Models:** `getModels` lists the local PhEye models the deployment has in `PHEYE_MODELS_DIRECTORY`, ordered by
+  name, and `getModel` reads one by name (a 404 when there is none). Each `Model` has a `name`, which a policy gives
+  as a ph-eye filter's `phEyeConfiguration.modelPath`, `encoder`, `maxLength`, `maxWidth` (each `null` when the
+  model's configuration does not say), and `sizeBytes`. Both require the `policies:read` scope.
 * **Administration:** admin settings, the webhook (with `testWebhook`, `getWebhookDeliveries`, and changing the
   URL while keeping the secret), the audit log and its CSV export (paged by cursor with `exportAuditLogAfter`
   and `getNextCursor()`, so a range that includes today returns each event once), signing-key rotation, and

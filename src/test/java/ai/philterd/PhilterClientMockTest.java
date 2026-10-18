@@ -80,6 +80,7 @@ import ai.philterd.philter.model.RedactListTerms;
 import ai.philterd.philter.model.RedactList;
 import ai.philterd.philter.model.SignInOptions;
 import ai.philterd.philter.model.Limits;
+import ai.philterd.philter.model.Model;
 import ai.philterd.philter.model.ReidentifyResponse;
 import ai.philterd.philter.model.PolicyDiff;
 import ai.philterd.philter.model.ImportContextEntriesResponse;
@@ -5397,6 +5398,75 @@ public class PhilterClientMockTest {
         Assert.assertEquals(3, limits.getCaller().getContextCount());
         Assert.assertFalse(limits.getCaller().isCrossUserAccess());
         Assert.assertTrue(limits.getCaller().isLedgerDeletion());
+    }
+
+    @Test
+    public void getModelsListsTheModels() throws Exception {
+
+        respond(200, "{\"models\":[{\"encoder\":\"microsoft/deberta-v3-xsmall\",\"maxLength\":512,\"maxWidth\":12,"
+                + "\"name\":\"pii-en-xsmall\",\"sizeBytes\":98724945},{\"name\":\"pii-en-custom\",\"sizeBytes\":4096}]}");
+
+        final List<Model> models = client().getModels();
+
+        Assert.assertEquals("GET", method);
+        Assert.assertEquals("/api/models", path);
+        Assert.assertEquals(2, models.size());
+
+        final Model xsmall = models.get(0);
+        Assert.assertEquals("pii-en-xsmall", xsmall.getName());
+        Assert.assertEquals("microsoft/deberta-v3-xsmall", xsmall.getEncoder());
+        Assert.assertEquals(Integer.valueOf(512), xsmall.getMaxLength());
+        Assert.assertEquals(Integer.valueOf(12), xsmall.getMaxWidth());
+        Assert.assertEquals(98724945L, xsmall.getSizeBytes());
+
+        final Model custom = models.get(1);
+        Assert.assertEquals("pii-en-custom", custom.getName());
+        Assert.assertNull("absent when its configuration does not say", custom.getEncoder());
+        Assert.assertNull(custom.getMaxLength());
+        Assert.assertNull(custom.getMaxWidth());
+        Assert.assertEquals(4096L, custom.getSizeBytes());
+    }
+
+    @Test
+    public void getModelsIsEmptyWhenTheDeploymentHasNone() throws Exception {
+
+        respond(200, "{\"models\":[]}");
+
+        Assert.assertTrue(client().getModels().isEmpty());
+    }
+
+    @Test
+    public void getModelGetsOneModelByItsEncodedName() throws Exception {
+
+        respond(200, "{\"encoder\":\"microsoft/deberta-v3-xsmall\",\"name\":\"pii en.v2\",\"sizeBytes\":98724945}");
+
+        final Model model = client().getModel("pii en.v2");
+
+        Assert.assertEquals("GET", method);
+        Assert.assertEquals("/api/models/pii%20en.v2", rawPath);
+        Assert.assertEquals("pii en.v2", model.getName());
+        Assert.assertEquals("microsoft/deberta-v3-xsmall", model.getEncoder());
+        Assert.assertNull(model.getMaxLength());
+        Assert.assertNull(model.getMaxWidth());
+        Assert.assertEquals(98724945L, model.getSizeBytes());
+    }
+
+    @Test
+    public void modelRefusalsCarryTheirStatus() {
+
+        respond(404, "{\"message\":\"Not found.\",\"reason\":\"not_found\"}");
+        final ClientException unknown = Assert.assertThrows(ClientException.class, () -> client().getModel("absent"));
+        Assert.assertEquals(404, unknown.getStatusCode());
+        Assert.assertEquals(ErrorReasons.NOT_FOUND, unknown.getReason());
+
+        respond(403, "{\"message\":\"This API key does not have the 'policies:read' scope.\",\"reason\":\"missing_scope\"}");
+        final ClientException listNoScope = Assert.assertThrows(ClientException.class, () -> client().getModels());
+        Assert.assertEquals(403, listNoScope.getStatusCode());
+        Assert.assertEquals(ErrorReasons.MISSING_SCOPE, listNoScope.getReason());
+
+        final ClientException getNoScope = Assert.assertThrows(ClientException.class,
+                () -> client().getModel("pii-en-xsmall"));
+        Assert.assertEquals(403, getNoScope.getStatusCode());
     }
 
     @Test

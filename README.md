@@ -134,8 +134,8 @@ their authors, diffs, rollbacks, deleted policies, descriptions and notes, manag
 documents, legal holds, the redaction ledger, the audit log and its CSV export, PII counts (for Philter Diffuse and
 similar reporting), custom lists, redact lists, re-identification, user management (including roles and email
 addresses), sign-in with passwords, session keys, and MFA, webhooks, managing API keys, rotating the output signing
-key, admin settings, and administrator listings of policies, contexts, custom lists, ledger chains, and legal holds
-across all users.
+key, admin settings, the local PhEye models a policy can name, and administrator listings of policies, contexts,
+custom lists, ledger chains, and legal holds across all users.
 
 To create a policy, start from one of Philter's templates, which matches the schema Philter runs, and save it:
 
@@ -164,6 +164,21 @@ int maxDescription = limits.getPolicies().getDescriptionMaxLength();
 
 Optional<SignInOptions> options = client.getSignInOptions();
 ```
+
+List the local PhEye models the deployment has in `PHEYE_MODELS_DIRECTORY` with `getModels()`, or read one by name
+with `getModel(name)`. A policy uses a model by giving its name as a ph-eye filter's `phEyeConfiguration.modelPath`.
+Both require Philter 4.0.0 or later and the `policies:read` scope; a name with no model is a `ClientException` with
+status 404:
+
+```
+for (Model model : client.getModels()) {
+    System.out.println(model.getName() + " (" + model.getEncoder() + ", " + model.getSizeBytes() + " bytes)");
+}
+
+Model model = client.getModel("pii-en-xsmall");
+```
+
+`getEncoder()`, `getMaxLength()`, and `getMaxWidth()` are `null` when the model's configuration does not say.
 
 Replace one redact list without losing someone else's change: pass the revision you read, and a list changed since is
 refused with a `ClientException` whose reason is `ErrorReasons.REDACT_LIST_CHANGED`, so you can read it again and

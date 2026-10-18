@@ -19,6 +19,7 @@ nav:
   - Redacting PDF Documents: pdf.md
   - Webhook: webhook.md
   - Policies: policies.md
+  - Models: models.md
   - Contexts: contexts.md
   - Re-identification: re-identification.md
   - Custom Lists: custom-lists.md

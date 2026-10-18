@@ -65,6 +65,7 @@ import ai.philterd.philter.model.Page;
 import ai.philterd.philter.model.RedactList;
 import ai.philterd.philter.model.RedactListTerms;
 import ai.philterd.philter.model.Limits;
+import ai.philterd.philter.model.Model;
 import ai.philterd.philter.model.SignInOptions;
 import ai.philterd.philter.model.CompilePolicyResponse;
 import ai.philterd.philter.model.ContextEntriesExport;
@@ -4805,6 +4806,37 @@ public class PhilterClient {
 		all.setTotal(page.getTotal());
 		return all;
 
+	}
+
+	// Models.
+
+	/**
+	 * Lists the local PhEye models the deployment has in {@code PHEYE_MODELS_DIRECTORY}, ordered by name. A policy
+	 * uses one by giving its name as a ph-eye filter's {@code phEyeConfiguration.modelPath}, and the model then runs
+	 * inside Philter with no PhEye service. The models are the deployment's, the same for every user.
+	 *
+	 * <p>Requires Philter 4.0.0 or later and the {@code policies:read} scope. A key without the scope is refused with
+	 * an HTTP 403, thrown as a {@link ClientException}.</p>
+	 *
+	 * @return The models, empty when the deployment has none.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public List<Model> getModels() throws IOException {
+		return this.<Model>sendExpectingPage(json(uri("/api/models")).GET().build(), "models", Model.class).getItems();
+	}
+
+	/**
+	 * Gets one local PhEye model by name.
+	 *
+	 * <p>Requires Philter 4.0.0 or later and the {@code policies:read} scope. A name with no model is an HTTP 404,
+	 * and a key without the scope an HTTP 403, each thrown as a {@link ClientException}.</p>
+	 *
+	 * @param modelName The model's name.
+	 * @return The model.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public Model getModel(String modelName) throws IOException {
+		return sendExpectingJson(json(uri("/api/models/" + encode(modelName))).GET().build(), Model.class);
 	}
 
 	// Limits.

@@ -25,6 +25,7 @@ import ai.philterd.philter.model.DocumentSummary;
 import ai.philterd.philter.model.ExplainResponse;
 import ai.philterd.philter.model.FilterResponse;
 import ai.philterd.philter.model.GenericResponse;
+import ai.philterd.philter.model.Model;
 import ai.philterd.philter.model.StatusResponse;
 import ai.philterd.philter.model.exceptions.ClientException;
 import org.apache.logging.log4j.LogManager;
@@ -117,6 +118,20 @@ public class PhilterClientTest {
     public void signingKey() throws Exception {
         // The signing key endpoint is unauthenticated, like health.
         Assert.assertNotNull(client().getSigningKey());
+    }
+
+    // Models.
+
+    @Test
+    public void models() throws Exception {
+        // Each listed model can be read by its name, and a name with no model is a 404.
+        final List<Model> models = client().getModels();
+        for (final Model model : models) {
+            Assert.assertEquals(model.getName(), client().getModel(model.getName()).getName());
+        }
+        final ClientException ex = Assert.assertThrows(ClientException.class,
+                () -> client().getModel("sdk-it-no-such-model"));
+        Assert.assertEquals(404, ex.getStatusCode());
     }
 
     // Filtering and explanation.
