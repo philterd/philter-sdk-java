@@ -82,6 +82,7 @@ import ai.philterd.philter.model.SignInOptions;
 import ai.philterd.philter.model.Limits;
 import ai.philterd.philter.model.Model;
 import ai.philterd.philter.model.ReidentifyResponse;
+import ai.philterd.philter.model.ReidentifyStrategy;
 import ai.philterd.philter.model.PolicyDiff;
 import ai.philterd.philter.model.ImportContextEntriesResponse;
 import ai.philterd.philter.model.ContextEntriesExport;
@@ -5159,6 +5160,35 @@ public class PhilterClientMockTest {
 
         client().reidentifyValues(OWNER, new ReidentifyRequest());
         Assert.assertEquals(OWNER, queryParameter("owner"));
+    }
+
+    @Test
+    public void reidentifyValuesSendsTheStrategyByName() throws Exception {
+
+        final String results = "{\"results\":[]}";
+
+        final Map<ReidentifyStrategy, String> expected = Map.of(
+                ReidentifyStrategy.CRYPTO_REPLACE, "CRYPTO_REPLACE",
+                ReidentifyStrategy.FPE_ENCRYPT_REPLACE, "FPE_ENCRYPT_REPLACE");
+        Assert.assertEquals(ReidentifyStrategy.values().length, expected.size());
+
+        for (final Map.Entry<ReidentifyStrategy, String> e : expected.entrySet()) {
+            final ReidentifyRequest request = new ReidentifyRequest();
+            request.setStrategy(e.getKey());
+            Assert.assertEquals(e.getValue(), request.getStrategy());
+            respond(200, results);
+            client().reidentifyValues(request);
+            Assert.assertEquals("{\"strategy\":\"" + e.getValue() + "\"}", requestBodyAsString());
+        }
+
+        final ReidentifyRequest request = new ReidentifyRequest();
+        request.setStrategy("FPE_ENCRYPT_REPLACE");
+        respond(200, results);
+        client().reidentifyValues(request);
+        Assert.assertEquals("{\"strategy\":\"FPE_ENCRYPT_REPLACE\"}", requestBodyAsString());
+
+        request.setStrategy((ReidentifyStrategy) null);
+        Assert.assertNull(request.getStrategy());
     }
 
     @Test

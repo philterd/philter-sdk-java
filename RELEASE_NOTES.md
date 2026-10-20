@@ -98,7 +98,8 @@ the listing's response type.
 * **Documents, custom lists, redact lists, and re-identification.** `saveList` only creates (a name in use is a
   409 `list_exists`); `replaceList` replaces. `getRedactList` and `replaceRedactList` read and replace one
   redact list, with a revision check that refuses a write made against an older read (409 `redact_list_changed`,
-  `ErrorReasons.REDACT_LIST_CHANGED`).
+  `ErrorReasons.REDACT_LIST_CHANGED`). `ReidentifyRequest.setStrategy` also takes a `ReidentifyStrategy`
+  (`CRYPTO_REPLACE` or `FPE_ENCRYPT_REPLACE`); the `String` setter is unchanged.
 * **Redaction ledger and legal holds:** list, verify, export, and delete ledger chains (`deleteLedgerEntry`,
   `purgeLedger`). A chain Philter cannot check has a `getValidationError()` and `null` check results. An
   unreadable entry has a `getReadError()`, and exporting its chain is a 422 `entry_unreadable`. A `user` hold

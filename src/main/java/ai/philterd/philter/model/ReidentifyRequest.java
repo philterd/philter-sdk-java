@@ -65,6 +65,10 @@ public class ReidentifyRequest {
         this.strategy = strategy;
     }
 
+    public void setStrategy(ReidentifyStrategy strategy) {
+        this.strategy = strategy == null ? null : strategy.getName();
+    }
+
     public List<String> getValues() {
         return values;
     }

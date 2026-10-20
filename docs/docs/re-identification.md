@@ -7,15 +7,18 @@ Values redacted with one of Philter's reversible strategies can be re-identified
 | `CRYPTO_REPLACE` | Requires `policyName`, which names the policy whose key was used. |
 | `FPE_ENCRYPT_REPLACE` | `policyName` is not required. |
 
+The `ReidentifyStrategy` enum names both. `setStrategy(String)` is still available for sending a strategy name the enum does not have.
+
 A `reason` is required on every request; Philter records it in the audit log.
 
 ```java
 import ai.philterd.philter.model.ReidentifyRequest;
 import ai.philterd.philter.model.ReidentifyResponse;
+import ai.philterd.philter.model.ReidentifyStrategy;
 import java.util.List;
 
 ReidentifyRequest request = new ReidentifyRequest();
-request.setStrategy("CRYPTO_REPLACE");
+request.setStrategy(ReidentifyStrategy.CRYPTO_REPLACE);
 request.setPolicyName("my-policy");
 request.setReason("authorized support investigation");
 request.setValues(List.of("<redacted-value>"));
