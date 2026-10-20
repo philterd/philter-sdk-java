@@ -72,6 +72,8 @@ import ai.philterd.philter.model.ContextEntriesExport;
 import ai.philterd.philter.model.ImportContextEntriesResponse;
 import ai.philterd.philter.model.PolicyDiff;
 import ai.philterd.philter.model.ReidentifyResponse;
+import ai.philterd.philter.model.ReidentifyTextRequest;
+import ai.philterd.philter.model.ReidentifyTextResponse;
 import ai.philterd.philter.model.GetWebhookDeliveriesResponse;
 import ai.philterd.philter.model.WebhookDelivery;
 import ai.philterd.philter.model.WebhookTestResult;
@@ -1413,6 +1415,48 @@ public class PhilterClient {
 	 */
 	public ReidentifyResponse reidentifyValues(String owner, ReidentifyRequest request) throws IOException {
 		return gson.fromJson(reidentify(owner, request), ReidentifyResponse.class);
+	}
+
+	/**
+	 * Restores the {@code CRYPTO_REPLACE} values in a text. See
+	 * {@link #reidentifyText(String, ReidentifyTextRequest)}.
+	 * @param request The text, the policy whose key redacted it, and the reason.
+	 * @return The restored text and its token counts.
+	 * @throws IOException Thrown if the request can not be completed.
+	 */
+	public ReidentifyTextResponse reidentifyText(ReidentifyTextRequest request) throws IOException {
+		return reidentifyText(null, request);
+	}
+
+	/**
+	 * Restores the {@code CRYPTO_REPLACE} values in a text, such as an LLM's response to a redacted prompt. Philter
+	 * decrypts each {@code {{...}}} token with the named policy's key and puts the original value in its place.
+	 * A token that does not decrypt, because it was altered after redaction or encrypted under another key, is
+	 * left as it is and counted as failed; the response is still a success. Other strategies, including
+	 * {@code FPE_ENCRYPT_REPLACE}, are not restored: reverse those by value with
+	 * {@link #reidentifyValues(String, ReidentifyRequest)}.
+	 *
+	 * <p>Requires Philter 4.0.0 or later and the {@code reidentify} scope. A missing field or a policy without a
+	 * crypto key is an HTTP 400, a key without the scope an HTTP 403, a policy that does not exist an HTTP 404, and
+	 * a text larger than {@link Limits.Requests#getMaxBodyBytes()} an HTTP 413, each thrown as a
+	 * {@link ClientException}.</p>
+	 *
+	 * @param owner The owner of the policy. May be {@code null} for the caller. Another user's requires an
+	 * administrator and {@code ADMIN_CROSS_USER_ACCESS_ENABLED=true} on the Philter deployment; otherwise, or for an
+	 * owner that does not exist, Philter answers HTTP 404, thrown as a {@link ClientException}.
+	 * @param request The text, the policy whose key redacted it, and the reason.
+	 * @return The restored text and its token counts.
+	 * @throws IOException Thrown if the request can not be completed.
+	 */
+	public ReidentifyTextResponse reidentifyText(String owner, ReidentifyTextRequest request) throws IOException {
+
+		final HttpRequest httpRequest = json(uri("/api/reidentify/text", "owner", owner))
+				.header("Content-Type", APPLICATION_JSON)
+				.POST(text(gson.toJson(request)))
+				.build();
+
+		return sendExpectingJson(httpRequest, ReidentifyTextResponse.class);
+
 	}
 
 	// Status.

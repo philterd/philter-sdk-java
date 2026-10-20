@@ -4,7 +4,7 @@ Philter scopes its data to the user whose API key made the request. Every call i
 
 ## Acting on another user's data
 
-Endpoints that accept an `owner` have an overload taking that owner's username. It is the last argument everywhere except the listings that take `ListOptions`, where it comes just before the options, and `reidentifyValues(owner, request)`, where it comes first.
+Endpoints that accept an `owner` have an overload taking that owner's username. It is the last argument everywhere except the listings that take `ListOptions`, where it comes just before the options, and `reidentifyValues(owner, request)` and `reidentifyText(owner, request)`, where it comes first.
 
 ```java
 // Your own policies.

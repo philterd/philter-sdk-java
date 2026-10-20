@@ -228,8 +228,8 @@ try {
 ```
 
 Responses are typed. Compile PhiSQL with `compilePhiSql`, compare policy revisions with `diffPolicy`, re-identify
-values with `reidentifyValues`, and copy a context's mappings with `getContextEntriesExport` and
-`importContextEntriesExport`, without handling JSON:
+values with `reidentifyValues` or the values in a text with `reidentifyText`, and copy a context's mappings with
+`getContextEntriesExport` and `importContextEntriesExport`, without handling JSON:
 
 ```
 CompilePolicyResponse compiled = client.compilePhiSql("POLICY ssn_only; REDACT SSN WITH MASK;");

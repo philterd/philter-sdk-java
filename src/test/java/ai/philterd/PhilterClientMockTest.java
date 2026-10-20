@@ -83,6 +83,8 @@ import ai.philterd.philter.model.Limits;
 import ai.philterd.philter.model.Model;
 import ai.philterd.philter.model.ReidentifyResponse;
 import ai.philterd.philter.model.ReidentifyStrategy;
+import ai.philterd.philter.model.ReidentifyTextRequest;
+import ai.philterd.philter.model.ReidentifyTextResponse;
 import ai.philterd.philter.model.PolicyDiff;
 import ai.philterd.philter.model.ImportContextEntriesResponse;
 import ai.philterd.philter.model.ContextEntriesExport;
@@ -2899,6 +2901,7 @@ public class PhilterClientMockTest {
 
         // Re-identification.
         verifyOwner("/api/reidentify", "{}", () -> c.reidentify(OWNER, new ReidentifyRequest()));
+        verifyOwner("/api/reidentify/text", "{}", () -> c.reidentifyText(OWNER, new ReidentifyTextRequest()));
 
         // Webhook.
         verifyOwner("/api/webhook", "{}", () -> c.getWebhook(OWNER));
@@ -5160,6 +5163,69 @@ public class PhilterClientMockTest {
 
         client().reidentifyValues(OWNER, new ReidentifyRequest());
         Assert.assertEquals(OWNER, queryParameter("owner"));
+    }
+
+    @Test
+    public void reidentifyTextReturnsTheRestoredTextAndCounts() throws Exception {
+
+        respond(200, "{\"text\":\"Write to jane.doe@example.com about the claim.\","
+                + "\"found\":1,\"restored\":1,\"failed\":0}");
+
+        final ReidentifyTextRequest request = new ReidentifyTextRequest();
+        request.setText("Write to {{k7Xv2Q==}} about the claim.");
+        request.setPolicyName("my-policy");
+        request.setReason("authorized claims review");
+
+        final ReidentifyTextResponse response = client().reidentifyText(request);
+
+        Assert.assertEquals("POST", method);
+        Assert.assertEquals("/api/reidentify/text", path);
+        Assert.assertTrue(queryParameters.isEmpty());
+        Assert.assertEquals("application/json", header("Content-Type"));
+        Assert.assertEquals("{\"text\":\"Write to {{k7Xv2Q\\u003d\\u003d}} about the claim.\","
+                + "\"policyName\":\"my-policy\",\"reason\":\"authorized claims review\"}", requestBodyAsString());
+        Assert.assertEquals("Write to jane.doe@example.com about the claim.", response.getText());
+        Assert.assertEquals(1, response.getFound());
+        Assert.assertEquals(1, response.getRestored());
+        Assert.assertEquals(0, response.getFailed());
+    }
+
+    @Test
+    public void reidentifyTextReportsTokensThatDidNotDecryptWithoutFailing() throws Exception {
+
+        respond(200, "{\"text\":\"Call 555-0100 or {{bm90LWEta2V5}}.\",\"found\":2,\"restored\":1,\"failed\":1}");
+
+        final ReidentifyTextResponse response = client().reidentifyText(OWNER, new ReidentifyTextRequest());
+
+        Assert.assertEquals(OWNER, queryParameter("owner"));
+        Assert.assertEquals("Call 555-0100 or {{bm90LWEta2V5}}.", response.getText());
+        Assert.assertEquals(2, response.getFound());
+        Assert.assertEquals(1, response.getRestored());
+        Assert.assertEquals(1, response.getFailed());
+    }
+
+    @Test
+    public void reidentifyTextRaisesErrorStatuses() throws Exception {
+
+        for (final int status : new int[]{400, 403, 404}) {
+            respond(status, "{\"message\":\"Policy 'missing' not found.\"}");
+            try {
+                client().reidentifyText(new ReidentifyTextRequest());
+                Assert.fail("A " + status + " should have raised a ClientException.");
+            } catch (final ClientException expected) {
+                Assert.assertEquals(status, expected.getStatusCode());
+                Assert.assertEquals("Policy 'missing' not found.", expected.getErrorMessage());
+            }
+        }
+
+        // As for every call, a 401 is an UnauthorizedException rather than a ClientException.
+        respond(401, "{\"message\":\"Unauthorized.\"}");
+        try {
+            client().reidentifyText(new ReidentifyTextRequest());
+            Assert.fail("A 401 should have raised an UnauthorizedException.");
+        } catch (final UnauthorizedException expected) {
+            Assert.assertEquals("Unauthorized.", expected.getErrorMessage());
+        }
     }
 
     @Test
