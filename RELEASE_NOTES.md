@@ -3,10 +3,10 @@
 Release notes for the Philter SDK for Java. Dates for tagged releases are taken from their git tags and
 [GitHub releases](https://github.com/philterd/philter-sdk-java/releases).
 
-## 3.0.0 (unreleased)
+## 3.0.0 (2026-10-23)
 
-**Compatible with Philter 4.0.0.** A major version, not backward compatible with 1.x or 2.0.0. Not yet released;
-changes are relative to 1.5.0, and the ones 1.6.0 already made are marked.
+**Compatible with Philter 4.0.0.** A major version, not backward compatible with 1.x or 2.0.0. Changes are relative
+to 1.5.0, and the ones 1.6.0 already made are marked.
 
 **Skip 2.0.0.** A 2.0.0 was published to Maven Central on 2026-06-12. It was built on Retrofit and OkHttp against an
 early Philter 4.0 API that has since changed (for example, it updates a context with `PUT`, where Philter 4.0
