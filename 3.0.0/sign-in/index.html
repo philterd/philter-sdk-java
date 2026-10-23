@@ -1,0 +1,1428 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="User guide for the Philter SDK for Java, the API client for Philter.">
+      
+      
+        <meta name="author" content="philterd">
+      
+      
+        <link rel="canonical" href="https://philterd.github.io/philter-sdk-java/3.0.0/sign-in/">
+      
+      
+        <link rel="prev" href="../provisioning/">
+      
+      
+        <link rel="next" href="../admin-settings/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Sign-in, Passwords, and MFA - Philter SDK for Java</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="red" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#sign-in-passwords-and-mfa" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="Philter SDK for Java" class="md-header__button md-logo" aria-label="Philter SDK for Java" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Philter SDK for Java
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Sign-in, Passwords, and MFA
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+    
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/philterd/philter-sdk-java" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="Philter SDK for Java" class="md-nav__button md-logo" aria-label="Philter SDK for Java" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Philter SDK for Java
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/philterd/philter-sdk-java" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../concepts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Concepts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../creating-a-client/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Creating a Client
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../redacting-text/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Redacting Text
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../explain/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Inspecting Redactions (Explain)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../pdf/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Redacting PDF Documents
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../webhook/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Webhook
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../policies/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Policies
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../contexts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contexts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../re-identification/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Re-identification
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../custom-lists/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Custom Lists
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../redact-lists/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Always/Never Redact Lists
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../legal-holds/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Legal Holds
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ledger/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Redaction Ledger
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../audit-log/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Audit Log
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../pii-counts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PII Counts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../owners-and-pagination/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Owners and Pagination
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../limits/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Limits and Rules
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../provisioning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Users and API Keys
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sign-in, Passwords, and MFA
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sign-in, Passwords, and MFA
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#sign-in-options" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sign-in options
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#signing-in" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Signing in
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Signing in">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#failed-sign-ins" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Failed sign-ins
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#signing-in-on-behalf-of-a-person" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Signing in on behalf of a person
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#passwords" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Passwords
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#multi-factor-authentication" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Multi-factor authentication
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#session-keys" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Session keys
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Session keys">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#your-sessions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Your sessions
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../admin-settings/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Admin Settings
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../health/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Server Health
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../error-handling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Error Handling
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../end-to-end-example/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    End-to-End Example
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#sign-in-options" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sign-in options
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#signing-in" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Signing in
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Signing in">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#failed-sign-ins" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Failed sign-ins
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#signing-in-on-behalf-of-a-person" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Signing in on behalf of a person
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#passwords" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Passwords
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#multi-factor-authentication" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Multi-factor authentication
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#session-keys" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Session keys
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Session keys">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#your-sessions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Your sessions
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="sign-in-passwords-and-mfa">Sign-in, Passwords, and MFA</h1>
+<p>A user interface can sign a person in as their own Philter user, without holding an administrator key of its own. The interface sends the person's username and password, and Philter returns a short-lived session key for that user, which the interface uses for the person's requests. Philter stays the user store, the user's role and the key's scopes decide access, and the audit log names the person.</p>
+<p>Password sign-in is disabled unless the deployment sets <code>PASSWORD_SIGN_IN_ENABLED=true</code>. While it is disabled, the sign-in calls fail with an HTTP 404, raised as a <code>ClientException</code>. A user can only sign in once they have a password; see <a href="#passwords">Passwords</a>.</p>
+<h2 id="sign-in-options">Sign-in options</h2>
+<p>Before anyone signs in, a sign-in page can read the rules a new password must meet with <code>getSignInOptions()</code>. It sends no API key, even when the client has one.</p>
+<pre><code class="language-java">import ai.philterd.philter.model.SignInOptions;
+import java.util.Optional;
+
+Optional&lt;SignInOptions&gt; options = client.getSignInOptions();
+if (options.isPresent()) {
+    int minimum = options.get().getPassword().getMinCharacters();   // 16
+    int maximumBytes = options.get().getPassword().getMaxBytes();    // 72, in UTF-8
+} else {
+    // Password sign-in is not enabled on this deployment: hide the sign-in form.
+}
+</code></pre>
+<p>When password sign-in is not enabled (<code>PASSWORD_SIGN_IN_ENABLED</code> is off), Philter answers HTTP 404, as for its other sign-in endpoints, and <code>getSignInOptions()</code> returns an empty <code>Optional</code> rather than throwing. A Philter older than philterd/philter#159, which has no such endpoint, answers 404 too, so it also reads as password sign-in being off. Any other failure is thrown as usual. A signed-in client reads the same rules, with the rest of Philter's limits, from <a href="../limits/"><code>getLimits()</code></a>.</p>
+<h2 id="signing-in">Signing in</h2>
+<p><code>signIn</code> needs no API key. Its result is either a session key or, for a user enrolled in MFA, a challenge.</p>
+<pre><code class="language-java">import ai.philterd.philter.PhilterClient;
+import ai.philterd.philter.model.SignInResponse;
+
+SignInResponse result = client.signIn(&quot;jordan&quot;, password);
+
+if (result.isMfaRequired()) {
+    // Ask the person for a code from their authenticator app. The challenge expires in five minutes.
+    result = client.completeSignIn(result.getChallenge(), code);
+}
+
+// A client for the person's own requests, using the session key.
+PhilterClient session = new PhilterClient.PhilterClientBuilder()
+        .withEndpoint(&quot;https://localhost:8080&quot;)
+        .withApiKey(&quot;Bearer &quot; + result.getApiKey())
+        .build();
+</code></pre>
+<p>The session key holds every scope, with the user's role still deciding administrator access. It cannot create API keys. It expires after a period without a request (<code>getIdleExpiresAt()</code>, moved forward by each request) or at the end of its maximum lifetime (<code>getExpiresAt()</code>). A request with an expired or revoked key is refused with an <code>UnauthorizedException</code>, which a user interface should treat as the session having ended.</p>
+<p>Two flags restrict what the key can do:</p>
+<ul>
+<li><code>isPasswordChangeRequired()</code> - an administrator set the password, so the key can only change it with <code>changePassword</code> and sign out. Changing it revokes the key, and the person signs in again with the new password.</li>
+<li><code>isMfaEnrollmentRequired()</code> - the deployment requires MFA and the user is not enrolled, so the key can only <a href="#multi-factor-authentication">enroll</a> and sign out. Confirming enrollment revokes the key, and the person signs in again, with a code.</li>
+</ul>
+<p>Any other request with a restricted key is refused with an HTTP 403, raised as a <code>ClientException</code> that says what to do first.</p>
+<p>To sign out, call <code>signOut()</code> on the client holding the session key. It revokes that key. A long-lived key cannot revoke itself, so <code>signOut()</code> with one is an HTTP 409.</p>
+<pre><code class="language-java">session.signOut();
+</code></pre>
+<h3 id="failed-sign-ins">Failed sign-ins</h3>
+<table>
+<thead>
+<tr>
+<th>Situation</th>
+<th>Exception</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Wrong password, unknown username, a user without a password, or a deactivated user</td>
+<td><code>UnauthorizedException</code>. Philter does not say which, so it does not reveal which usernames exist.</td>
+</tr>
+<tr>
+<td>Wrong MFA code, or an unknown, used, or expired challenge</td>
+<td><code>UnauthorizedException</code>. The challenge is used up by any attempt, so sign in again with the password.</td>
+</tr>
+<tr>
+<td>The user's MFA is locked after five consecutive bad codes</td>
+<td><code>ClientException</code> (HTTP 403), until an administrator unlocks it.</td>
+</tr>
+<tr>
+<td>The username is locked after repeated failed sign-ins</td>
+<td><code>SignInLockedException</code>. Every sign-in for the username is refused, even with the right password, until the lock lapses or an administrator clears it with <code>unlockUserSignIn</code>.</td>
+</tr>
+<tr>
+<td>The client address made too many sign-in requests in the last minute</td>
+<td><code>SignInRateLimitedException</code>.</td>
+</tr>
+</tbody>
+</table>
+<p><code>SignInLockedException</code> and <code>SignInRateLimitedException</code> extend <code>SignInThrottledException</code>, which extends <code>ClientException</code>. Both carry <code>getRetryAfterSeconds()</code>, the most seconds to wait, and <code>getReason()</code>, <code>locked</code> or <code>rate_limited</code>.</p>
+<pre><code class="language-java">import ai.philterd.philter.model.exceptions.SignInLockedException;
+import ai.philterd.philter.model.exceptions.SignInRateLimitedException;
+import ai.philterd.philter.model.exceptions.UnauthorizedException;
+
+try {
+    SignInResponse result = client.signIn(username, password);
+} catch (UnauthorizedException e) {
+    // Invalid username or password.
+} catch (SignInLockedException e) {
+    // Too many failed sign-ins for this username; try again after e.getRetryAfterSeconds().
+} catch (SignInRateLimitedException e) {
+    // Too many sign-in requests from this address; try again after e.getRetryAfterSeconds().
+}
+</code></pre>
+<h3 id="signing-in-on-behalf-of-a-person">Signing in on behalf of a person</h3>
+<p>Philter rate-limits sign-ins by client address (<code>SIGN_IN_RATE_LIMIT_PER_MINUTE</code>) and records that address on <code>sign_in_succeeded</code> and <code>sign_in_failed</code> audit events. When an application signs people in through one client, every sign-in comes from the application's address, so its users share one rate-limit budget and the audit log cannot tell them apart. Pass each person's address instead:</p>
+<pre><code class="language-java">// The address of the person's connection to the application. If the application is itself behind a
+// load balancer, use the client address it resolves from that balancer's header, not the balancer's.
+String personAddress = httpRequest.getRemoteAddr();
+
+// The person's browser, from their request to the application.
+String personUserAgent = httpRequest.getHeader(&quot;User-Agent&quot;);
+
+SignInResponse result = client.signIn(username, password, personAddress, personUserAgent);
+if (result.isMfaRequired()) {
+    result = client.completeSignIn(result.getChallenge(), code, personAddress, personUserAgent);
+}
+</code></pre>
+<p>The address is sent as <code>X-Forwarded-For</code>. Philter uses it only when the request comes from an address in its <code>TRUSTED_PROXIES</code>, which by default is loopback only, so unless the application runs on the same host as Philter, list the application's address there; otherwise, and for a value that is not an IP address, it uses the address of the connection. A port is allowed and ignored. Pass an address the application determined itself, not one the person's browser supplied, such as their own <code>X-Forwarded-For</code>, which they can set to anything. A <code>null</code> or empty address, or one of only spaces, sends the client's <a href="../creating-a-client/#requests-on-behalf-of-a-person"><code>withClientAddress</code></a> value instead, or no header without one; a given address is sent instead of that value. Surrounding spaces are trimmed, and an address containing a comma, a control character such as a line break, a character outside ASCII, or a space within it is refused with an <code>IllegalArgumentException</code> before anything is sent.</p>
+<p>Philter also records the user agent of the request that issues a session key, so a person can tell their <a href="#your-sessions">sessions</a> apart. Without the person's user agent, every session the application signs in shows the application's own client (<code>Java-http-client/...</code>). The four-argument <code>signIn</code> and <code>completeSignIn</code> send the given user agent as the sign-in request's <code>User-Agent</code>. Pass it on both calls of an MFA sign-in, since the key is issued by the second. A <code>null</code> or empty user agent, or one of only spaces, sends the client's own, as the shorter overloads do. Surrounding spaces are trimmed, and characters outside printable ASCII, such as line breaks, are left out, so a user agent cannot add a header. Philter keeps at most 256 characters of it and does not check it, so it describes the device rather than proving anything about it. Only the sign-in requests send it; later requests with the session key send the client's own.</p>
+<h2 id="passwords">Passwords</h2>
+<p>A password is 16 characters to 72 bytes in UTF-8. Setting, changing, or resetting a password revokes the user's session keys; long-lived API keys are not affected.</p>
+<pre><code class="language-java">// A person changes their own password. Requires users:write; not an administrator.
+client.changePassword(currentPassword, newPassword);
+
+// An administrator sets or resets another user's password. The user must change it at next sign-in.
+client.setPassword(&quot;jordan&quot;, temporaryPassword);
+
+// An administrator creates a user with a password, which the user must change at next sign-in.
+client.createUser(&quot;jordan&quot;, &quot;jordan@example.com&quot;, &quot;user&quot;, temporaryPassword);
+</code></pre>
+<p><code>changePassword</code> needs the current password, so a stolen key cannot replace its own user's password unnoticed. A wrong current password is an HTTP 403, and a user without a password, whose first password an administrator sets, is an HTTP 409.</p>
+<p><code>setPassword</code> on the calling administrator's own user sets only the first password, with no change required. This is how the <code>admin</code> user gets a password: call it with the bootstrap API key. After that, the administrator changes it with <code>changePassword</code>.</p>
+<p><code>User.isPasswordSet()</code> and <code>User.isPasswordChangeRequired()</code> report a user's password state; the password and its hash are never returned.</p>
+<h2 id="multi-factor-authentication">Multi-factor authentication</h2>
+<p>A user who signs in with a password can add TOTP multi-factor authentication, with an authenticator app. MFA is available only when an administrator turns on <code>mfaAvailable</code> in the <a href="../admin-settings/">admin settings</a>; <code>mfaRequired</code> makes every user who signs in enroll. Enrolling and removing your own enrollment require <code>users:write</code> but not an administrator. A user who is not an administrator cannot read the admin settings, so <code>getCurrentUser()</code> returns <code>isMfaAvailable()</code> and <code>isMfaRequired()</code> for deciding whether to offer enrollment.</p>
+<pre><code class="language-java">import ai.philterd.philter.model.MfaEnrollment;
+
+// Start, with the person's current password: show the URI as a QR code, or have the person type in the
+// secret. Neither is returned again. A wrong password counts toward the sign-in lockout.
+MfaEnrollment enrollment = client.startMfaEnrollment(currentPassword);
+String qrCodeContent = enrollment.getOtpauthUri();
+
+// Confirm with a code from the app. This revokes the user's session keys.
+client.confirmMfaEnrollment(code);
+
+// Remove your own enrollment. It takes a valid code, so a stolen key cannot turn MFA off.
+client.removeMfaEnrollment(code);
+</code></pre>
+<p>After five consecutive bad codes the user's MFA is locked. An administrator unlocks it, or removes the enrollment for a person who has lost their device:</p>
+<pre><code class="language-java">client.unlockUserMfa(&quot;jordan&quot;);
+client.removeUserMfa(&quot;jordan&quot;);
+</code></pre>
+<p><code>User.isMfaEnabled()</code> and <code>User.isMfaLocked()</code> report a user's MFA state; the secret is never returned.</p>
+<h2 id="session-keys">Session keys</h2>
+<p><code>getApiKeys</code> lists session keys alongside long-lived keys. <code>ApiKey.isSession()</code> marks them, and <code>getExpiresAt()</code>, <code>getIdleExpiresAt()</code>, and <code>getLastUsedAt()</code> give their expiry and last use; they are <code>null</code> for long-lived keys. Revoke one with <code>revokeApiKey</code>, or every session key a user holds, signing the person out everywhere, with <code>revokeSessionKeys</code>, which requires an administrator:</p>
+<pre><code class="language-java">int revoked = client.revokeSessionKeys(&quot;jordan&quot;);
+</code></pre>
+<p>Pass <code>session</code> to <code>getApiKeys</code> to list only one kind of key; the total then counts only those.</p>
+<h3 id="your-sessions">Your sessions</h3>
+<p>A person can see where they are signed in and sign out the sessions they do not recognize. Each session key carries the client that signed in: <code>getClientAddress()</code> and <code>getUserAgent()</code> (such as a browser, at most 256 characters). For sessions an application signs in on a person's behalf, these are the address and user agent it passed; see <a href="#signing-in-on-behalf-of-a-person">Signing in on behalf of a person</a>. <code>isCurrent()</code> is <code>true</code> for the key making the request, so a user interface can mark the session it is using. Philter keeps the address and user agent only while the session lasts, and they are <code>null</code> for long-lived keys.</p>
+<pre><code class="language-java">import ai.philterd.philter.model.ApiKey;
+import ai.philterd.philter.model.GetApiKeysResponse;
+
+// With the client built from the sign-in result above. true lists only session keys, false only
+// long-lived keys, and null both.
+GetApiKeysResponse sessions = session.getApiKeys(null, null, null, true);
+for (ApiKey key : sessions.getApiKeys()) {
+    System.out.println(key.getUserAgent() + &quot; from &quot; + key.getClientAddress() + &quot;, last used &quot;
+            + key.getLastUsedAt() + (key.isCurrent() ? &quot; (this session)&quot; : &quot;&quot;));
+}
+
+// Sign out everywhere else, and stay signed in here.
+long revoked = session.signOutOtherSessions();
+</code></pre>
+<p><code>signOutOtherSessions()</code> revokes every session key your user holds except the one making the request. Called with a long-lived key, it revokes all of the user's session keys. Long-lived keys are never affected. It requires <code>api-keys:write</code> but not an administrator, because it only ends your own sessions. To end one session, revoke its key with <code>revokeApiKey</code>.</p>
+<p><code>SignInResponse.getId()</code> is also the session key's ID as the listing gives it, another way to recognize the current session.</p>
+<p><code>setApiKeyScopes</code> and <code>revokeApiKey</code> refuse the key making the request with an HTTP 409, so a session key cannot change its own scopes; it ends itself with <code>signOut()</code>.</p>
+<p>Session keys are checked against the database on every request, so a revoked or expired session key is refused on every Philter instance at once.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright 2026 Philterd, LLC
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": [], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>

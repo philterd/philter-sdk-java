@@ -1,0 +1,1351 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="User guide for the Philter SDK for Java, the API client for Philter.">
+      
+      
+        <meta name="author" content="philterd">
+      
+      
+        <link rel="canonical" href="https://philterd.github.io/philter-sdk-java/3.0.0/error-handling/">
+      
+      
+        <link rel="prev" href="../health/">
+      
+      
+        <link rel="next" href="../end-to-end-example/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Error Handling - Philter SDK for Java</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="red" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#error-handling" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="Philter SDK for Java" class="md-header__button md-logo" aria-label="Philter SDK for Java" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Philter SDK for Java
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Error Handling
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+    
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/philterd/philter-sdk-java" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="Philter SDK for Java" class="md-nav__button md-logo" aria-label="Philter SDK for Java" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Philter SDK for Java
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/philterd/philter-sdk-java" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../concepts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Concepts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../creating-a-client/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Creating a Client
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../redacting-text/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Redacting Text
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../explain/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Inspecting Redactions (Explain)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../pdf/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Redacting PDF Documents
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../webhook/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Webhook
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../policies/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Policies
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../contexts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contexts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../re-identification/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Re-identification
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../custom-lists/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Custom Lists
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../redact-lists/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Always/Never Redact Lists
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../legal-holds/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Legal Holds
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ledger/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Redaction Ledger
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../audit-log/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Audit Log
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../pii-counts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PII Counts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../owners-and-pagination/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Owners and Pagination
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../limits/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Limits and Rules
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../provisioning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Users and API Keys
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../sign-in/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sign-in, Passwords, and MFA
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../admin-settings/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Admin Settings
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../health/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Server Health
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Error Handling
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Error Handling
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#acting-on-the-reason" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Acting on the reason
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#request-ids" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Request ids
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../end-to-end-example/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    End-to-End Example
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#acting-on-the-reason" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Acting on the reason
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#request-ids" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Request ids
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="error-handling">Error Handling</h1>
+<p>Every operation declares a checked <code>IOException</code>, thrown when the request cannot be executed (network failure, timeout, and so on). In addition, non-successful HTTP responses are mapped to unchecked exceptions:</p>
+<table>
+<thead>
+<tr>
+<th>HTTP status</th>
+<th>Exception</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>401</td>
+<td><code>UnauthorizedException</code></td>
+</tr>
+<tr>
+<td>429 from <code>signIn</code> or <code>completeSignIn</code></td>
+<td><code>SignInLockedException</code> or <code>SignInRateLimitedException</code></td>
+</tr>
+<tr>
+<td>503</td>
+<td><code>ServiceUnavailableException</code></td>
+</tr>
+<tr>
+<td>any other non-2xx</td>
+<td><code>ClientException</code></td>
+</tr>
+</tbody>
+</table>
+<p>Philter explains a rejected request in the response body, and the <code>ClientException</code> message carries it (truncated at 512 characters) after the status code, so a 400 or a 403 says what was actually wrong:</p>
+<pre><code>Unknown error: HTTP 400: {&quot;message&quot;:&quot;'strategy' must be CRYPTO_REPLACE or FPE_ENCRYPT_REPLACE.&quot;}
+</code></pre>
+<p><code>UnauthorizedException</code> and <code>ServiceUnavailableException</code> carry what <code>ClientException</code> does: <code>getStatusCode()</code> (<code>401</code> or <code>503</code>), <code>getErrorMessage()</code>, <code>getReason()</code>, and <code>getRequestId()</code>. Their message is Philter's message, or <code>Unauthorized</code> or <code>Service unavailable</code> when the response has none, followed by the <a href="#request-ids">request id</a> when the response has one; <code>getErrorMessage()</code> and <code>getReason()</code> are then <code>null</code>.</p>
+<p>A 401's <code>getReason()</code> tells apart why the credentials were refused, so a user interface can, for example, send a person whose session ended back to sign in:</p>
+<table>
+<thead>
+<tr>
+<th><code>getReason()</code></th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>invalid_credentials</code></td>
+<td>The key is missing, malformed, or unknown, or is a revoked long-lived key.</td>
+</tr>
+<tr>
+<td><code>session_expired</code></td>
+<td>The session key expired, was revoked, or signed out. Sign in again.</td>
+</tr>
+<tr>
+<td><code>user_deactivated</code></td>
+<td>The key's user is deactivated.</td>
+</tr>
+</tbody>
+</table>
+<pre><code class="language-java">try {
+    client.listPolicies(null, null);
+} catch (UnauthorizedException e) {
+    if (ErrorReasons.SESSION_EXPIRED.equals(e.getReason())) {
+        // Show the sign-in page.
+    }
+}
+</code></pre>
+<p>Neither is a subclass of <code>ClientException</code>, so a <code>catch (ClientException e)</code> does not catch a 401 or a 503, and a multi-catch of <code>ClientException | ServiceUnavailableException</code> compiles. All three implement <code>PhilterError</code>, which has the four accessors, to handle any Philter error the same way:</p>
+<pre><code class="language-java">import ai.philterd.philter.model.exceptions.PhilterError;
+
+try {
+    client.listPolicies(null, null);
+} catch (RuntimeException e) {
+    if (e instanceof PhilterError) {
+        PhilterError error = (PhilterError) e;
+        log.warn(&quot;Philter refused the request: {} {} ({}, request id {})&quot;, error.getStatusCode(),
+                error.getErrorMessage(), error.getReason(), error.getRequestId());
+    }
+    throw e;
+}
+</code></pre>
+<p><code>SignInLockedException</code> and <code>SignInRateLimitedException</code> are subclasses of <code>ClientException</code>, so a handler for <code>ClientException</code> still catches them. See <a href="../sign-in/#failed-sign-ins">Failed sign-ins</a>.</p>
+<pre><code class="language-java">import ai.philterd.philter.model.FilterResponse;
+import ai.philterd.philter.model.exceptions.ServiceUnavailableException;
+import ai.philterd.philter.model.exceptions.UnauthorizedException;
+import ai.philterd.philter.model.exceptions.ClientException;
+import java.io.IOException;
+
+try {
+    FilterResponse response = client.filter(&quot;my-context&quot;, &quot;default&quot;, &quot;Some text...&quot;);
+    System.out.println(response.getFilteredText());
+} catch (UnauthorizedException e) {
+    // Bad or missing API key.
+} catch (ServiceUnavailableException e) {
+    // Philter is temporarily unavailable; consider retrying with backoff.
+} catch (ClientException e) {
+    // Other non-successful response.
+} catch (IOException e) {
+    // The request could not be completed.
+}
+</code></pre>
+<h2 id="acting-on-the-reason">Acting on the reason</h2>
+<p>Every error Philter returns is a JSON object with a <code>message</code>, a <code>reason</code>, and, for some invalid requests, a <code>field</code>. <code>ClientException</code> exposes them as <code>getErrorMessage()</code>, <code>getReason()</code>, and <code>getField()</code>, alongside the HTTP status as <code>getStatusCode()</code>.</p>
+<ul>
+<li><code>getReason()</code> is a stable, machine-readable code. Branch on it: it tells apart refusals that share a status, and it does not change when the wording does. <code>ErrorReasons</code> has a constant for every reason Philter gives. Philter gives one on every error: a specific reason where the refusal has one, and otherwise the one its status implies, such as <code>ErrorReasons.NOT_FOUND</code> for a <code>404</code>.</li>
+<li><code>getErrorMessage()</code> is written for people, so show it rather than branching on it. It is read from the whole body, so it is complete even when the exception message was truncated.</li>
+<li><code>getField()</code> names the parameter or body field Philter found invalid, such as <code>sort</code>, <code>password</code>, or <code>email</code>, on some <code>400</code> responses whose reason is <code>invalid_request</code>, so a form can mark the field. It is <code>null</code> otherwise.</li>
+</ul>
+<p>All three are <code>null</code> for a response that did not come from Philter, such as a proxy's error page; fall back to the status then. Compare with <code>ErrorReasons.X.equals(e.getReason())</code>, which is safe when the reason is <code>null</code>.</p>
+<pre><code class="language-java">import ai.philterd.philter.model.exceptions.ErrorReasons;
+
+try {
+    client.changePassword(currentPassword, newPassword);
+} catch (ClientException e) {
+    if (ErrorReasons.WRONG_PASSWORD.equals(e.getReason())) {
+        // The current password is not correct.
+    } else if (ErrorReasons.INVALID_REQUEST.equals(e.getReason())) {
+        // The new password was rejected; show the person why.
+        System.out.println(e.getErrorMessage());
+    } else if (ErrorReasons.CHANGED_CONCURRENTLY.equals(e.getReason())) {
+        // Another request changed the password first; try again.
+    } else {
+        // Such as missing_scope, or a 409 conflict for a user with no password yet, whose first one an
+        // administrator sets.
+        throw e;
+    }
+}
+</code></pre>
+<p>The reasons for each call's own refusals are below; <code>ErrorReasons</code> documents every reason, including the general ones such as <code>missing_scope</code>, <code>admin_required</code>, <code>session_expired</code>, and <code>not_found</code>, and Philter's <a href="https://github.com/philterd/philter/blob/main/docs/docs/api_and_sdks/api.md#errors">Errors documentation</a> lists them with their statuses.</p>
+<table>
+<thead>
+<tr>
+<th>Call</th>
+<th>Status</th>
+<th><code>getReason()</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>createContext</code></td>
+<td><code>409</code></td>
+<td><code>context_exists</code>: the caller already has a context with that name, even at the limit. <code>context_limit_reached</code>: the caller already has the most contexts a user may have.</td>
+</tr>
+<tr>
+<td><code>savePolicy</code></td>
+<td><code>409</code></td>
+<td><code>policy_exists</code>: the owner already has a policy with that name. Replace it with <code>replacePolicy</code>.</td>
+</tr>
+<tr>
+<td><code>replacePolicy</code></td>
+<td><code>409</code></td>
+<td><code>policy_managed</code>: a managed policy cannot be replaced; copy it with <code>copyPolicy</code> and change the copy. <code>policy_changed</code>: the policy changed since the read whose entity tag you passed, or while the request was writing; read it again and retry.</td>
+</tr>
+<tr>
+<td><code>deletePolicy</code></td>
+<td><code>409</code></td>
+<td><code>policy_default</code>: the <code>default</code> policy cannot be deleted. <code>policy_managed</code>: a managed policy cannot be deleted.</td>
+</tr>
+<tr>
+<td><code>copyPolicy</code></td>
+<td><code>409</code></td>
+<td><code>policy_exists</code>: the owner already has a policy with the new name.</td>
+</tr>
+<tr>
+<td><code>rollbackPolicy</code></td>
+<td><code>409</code></td>
+<td><code>policy_managed</code>: a managed policy cannot be rolled back. <code>policy_changed</code>: the policy changed since the read whose entity tag you passed, or while the request was writing; read it again and retry.</td>
+</tr>
+<tr>
+<td><code>setPolicyDetails</code></td>
+<td><code>409</code></td>
+<td><code>policy_managed</code>: a managed policy's description and notes cannot be changed. <code>policy_changed</code>: the policy changed since the read whose entity tag you passed, or while the request was writing; read it again and retry.</td>
+</tr>
+<tr>
+<td><code>saveList</code></td>
+<td><code>409</code></td>
+<td><code>list_exists</code>: the owner already has a list with that name. Replace it with <code>replaceList</code>.</td>
+</tr>
+<tr>
+<td><code>createHold</code></td>
+<td><code>409</code></td>
+<td><code>hold_exists</code>: a hold with that reference exists. <code>operation_in_progress</code>: an evidence or hold operation for the owner is active or needs recovery.</td>
+</tr>
+<tr>
+<td><code>deleteHold</code></td>
+<td><code>409</code></td>
+<td><code>operation_in_progress</code>, as for <code>createHold</code>.</td>
+</tr>
+<tr>
+<td><code>replaceRedactList</code></td>
+<td><code>409</code></td>
+<td><code>redact_list_changed</code>: the list changed after the revision you passed. Read it again and retry.</td>
+</tr>
+<tr>
+<td><code>testWebhook</code></td>
+<td><code>409</code></td>
+<td><code>webhook_not_set</code>: no webhook is set.</td>
+</tr>
+<tr>
+<td><code>getLedgerExport</code></td>
+<td><code>422</code></td>
+<td><code>entry_unreadable</code>: an entry in the chain could not be read, so the chain is not exported.</td>
+</tr>
+<tr>
+<td><code>signIn</code></td>
+<td><code>429</code></td>
+<td><code>locked</code>: the username is locked after repeated failures. <code>rate_limited</code>: the client address is over the sign-in rate limit. These are raised as <code>SignInLockedException</code> and <code>SignInRateLimitedException</code>.</td>
+</tr>
+<tr>
+<td><code>completeSignIn</code></td>
+<td><code>429</code></td>
+<td><code>rate_limited</code>, raised as <code>SignInRateLimitedException</code>. The MFA step has no username lockout.</td>
+</tr>
+</tbody>
+</table>
+<pre><code class="language-java">try {
+    client.createContext(&quot;tenant-a&quot;, false, false);
+} catch (ClientException e) {
+    if (ErrorReasons.CONTEXT_LIMIT_REACHED.equals(e.getReason())) {
+        // Offer to delete a context first.
+    } else if (ErrorReasons.CONTEXT_EXISTS.equals(e.getReason())) {
+        // Choose another name.
+    } else {
+        throw e;
+    }
+}
+</code></pre>
+<p><code>getStatusCode()</code> is <code>0</code> when the exception was not caused by a non-successful status, such as a response the client could not use. <code>SignInLockedException</code> and <code>SignInRateLimitedException</code> report <code>429</code>.</p>
+<h2 id="request-ids">Request ids</h2>
+<p>Philter gives every API request an id and returns it in the <code>X-Request-Id</code> response header, on successes and refusals alike. It records the same id as <code>request_id</code> on every audit event the request causes, so the id ties what a client saw to what Philter recorded. Log it with errors, and quote it when asking an administrator, or Philterd support, about a request.</p>
+<p>Every exception built from a Philter response carries it: <code>ClientException</code> (and so <code>SignInLockedException</code> and <code>SignInRateLimitedException</code>), <code>UnauthorizedException</code>, and <code>ServiceUnavailableException</code> all have <code>getRequestId()</code>, and their messages end with it, so a logged stack trace carries it without extra code:</p>
+<pre><code>Unknown error: HTTP 409: {&quot;message&quot;:&quot;A policy with this name already exists.&quot;,&quot;reason&quot;:&quot;policy_exists&quot;} (request id: 01929f2e-6c3a-7b1d-9e4f-3a2b1c0d9e8f)
+</code></pre>
+<p><code>getRequestId()</code> is <code>null</code> when the response had none, as from a Philter version before 4.0, or when the exception was not caused by a response. <code>getErrorMessage()</code> is unchanged: it is Philter's message alone, without the id, for showing to people.</p>
+<p>For a call that succeeded, <code>getLastRequestId()</code> returns the id of the most recent response the client received on the calling thread. Read it right after the call. It is kept per thread, so calls other threads make with the same client do not change it, and it is <code>null</code> when the thread's last call got no response, such as a connection failure.</p>
+<pre><code class="language-java">try {
+    client.replacePolicy(&quot;claims&quot;, policyJson);
+    log.info(&quot;Replaced the claims policy (request id {})&quot;, client.getLastRequestId());
+} catch (ClientException e) {
+    log.warn(&quot;Philter refused the change: {} (request id {})&quot;, e.getErrorMessage(), e.getRequestId());
+}
+</code></pre>
+<p>An administrator finds the request's audit events by their <code>request_id</code>, in the audit log's CSV export or with <code>getAuditLog</code>:</p>
+<pre><code class="language-java">GetAuditLogResponse page = admin.getAuditLog(null, from, to, null, 0, 100);
+page.getEvents().stream()
+        .filter(event -&gt; requestId.equals(event.getRequestId()))
+        .forEach(event -&gt; System.out.println(event.getEvent() + &quot; &quot; + event.getDetails()));
+</code></pre>
+<p>Redaction events are the exception: <code>document_redaction_initiated</code> and <code>document_redaction_completed</code> record the document id as their <code>request_id</code>, so a queued redaction's start and completion share one id. Find those by the document id, from <code>FilterResponse.getDocumentId()</code>.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright 2026 Philterd, LLC
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": [], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>
