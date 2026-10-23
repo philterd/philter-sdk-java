@@ -71,10 +71,7 @@ Upgrade from 1.x or 2.0.0 directly to 3.0.0.
   `listPoliciesAcrossUsers`, and `listManagedPolicies(ListOptions)` return `Page<PolicySummary>`, with each policy's
   `name`, `description`, `revision`, `createdAt`, `updatedAt`, and, across users, `owner`. `GetContextsResponse`
   and `GetContextsAcrossUsersResponse` hold `ContextSummary` items, with `name`, `createdAt`, and, across users,
-  `owner`. The timestamps are `Instant`s. The deprecated `getPolicies` and `getManagedPolicies` still return names,
-  `getPoliciesAcrossUsers` still returns `OwnedName`, and `listManagedPolicies()` and
-  `listManagedPolicies(offset, limit)` still return `ManagedPolicySummary`; `OwnedName` and `ManagedPolicySummary`
-  are deprecated.
+  `owner`. The timestamps are `Instant`s.
 * `createContext` sends `POST /api/contexts` with the name and the settings given as a JSON body (`name`,
   `entityTypeDisambiguation`, `disambiguationScope`, `ledger`), as Philter 4.0 requires. Its signatures are
   unchanged and `owner` is the only query parameter. A `null` setting is left out, and Philter gives it its
