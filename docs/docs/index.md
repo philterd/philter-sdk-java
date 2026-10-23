@@ -12,7 +12,7 @@ Releases are available from [Maven Central](https://central.sonatype.com/artifac
 <dependency>
     <groupId>ai.philterd</groupId>
     <artifactId>philter-sdk-java</artifactId>
-    <version>2.0.0</version>
+    <version>3.0.0</version>
 </dependency>
 ```
 
@@ -35,7 +35,7 @@ To track the latest development build, depend on the current `-SNAPSHOT` version
 <dependency>
     <groupId>ai.philterd</groupId>
     <artifactId>philter-sdk-java</artifactId>
-    <version>2.0.0-SNAPSHOT</version>
+    <version>3.0.0-SNAPSHOT</version>
 </dependency>
 ```
 
@@ -43,14 +43,17 @@ Snapshots are development builds: they are mutable and are periodically pruned, 
 
 ## Compatibility
 
-As of version 2.0.0, this client targets the **Philter 4.0.0** API. Earlier versions of the client are not compatible with Philter 4.0.0 and later.
+As of version 3.0.0, this client targets the **Philter 4.0.0** API. Earlier versions of the client are not compatible with Philter 4.0.0 and later.
 
 | philter-sdk-java | Philter API | Branch |
 |------------------|-------------|--------|
-| 2.0.0 and later  | 4.x         | `main` |
+| 3.0.0 and later  | 4.x         | `main` |
+| 2.0.0            | none (do not use) | |
 | 1.x              | 1.x to 3.x  | `1.x`  |
 
 Development for Philter 4.x happens on the `main` branch. The `1.x` branch supports Philter 3 and earlier.
+
+The 2.0.0 on Maven Central was published in June 2026 against an early Philter 4.0 API that has since changed, so it does not work with Philter 4.0.0. Use 3.0.0 or later.
 
 The client requires Java 11 or later. Requests are made with the JDK's `java.net.http.HttpClient`, so the SDK adds no third-party HTTP dependency to your application.
 

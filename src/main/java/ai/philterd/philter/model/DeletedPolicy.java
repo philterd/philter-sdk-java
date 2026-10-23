@@ -22,7 +22,7 @@ import java.time.Instant;
 
 /**
  * A deleted policy whose version history Philter keeps. Read its history with
- * {@code getPolicyVersions} and a revision with {@code getPolicyVersion}, by the policy's name; restore it
+ * {@code listPolicyVersions} and a revision with {@code getPolicyVersion}, by the policy's name; restore it
  * by saving a revision's JSON with {@code savePolicy}.
  */
 public class DeletedPolicy {

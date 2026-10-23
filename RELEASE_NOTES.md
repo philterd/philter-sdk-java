@@ -3,13 +3,36 @@
 Release notes for the Philter SDK for Java. Dates for tagged releases are taken from their git tags and
 [GitHub releases](https://github.com/philterd/philter-sdk-java/releases).
 
-## 2.0.0-SNAPSHOT (unreleased)
+## 3.0.0 (unreleased)
 
-**Compatible with Philter 4.0.0.** A major version, not backward compatible with 1.x. Not yet released; changes
-are relative to 1.5.0.
+**Compatible with Philter 4.0.0.** A major version, not backward compatible with 1.x or 2.0.0. Not yet released;
+changes are relative to 1.5.0, and the ones 1.6.0 already made are marked.
+
+**Skip 2.0.0.** A 2.0.0 was published to Maven Central on 2026-06-12. It was built on Retrofit and OkHttp against an
+early Philter 4.0 API that has since changed (for example, it updates a context with `PUT`, where Philter 4.0
+requires `PATCH`), and it was never tagged. 3.0.0 replaces it. Upgrade from 1.x or 2.0.0 directly to 3.0.0.
 
 ### Breaking changes
 
+* Every deprecated method, constant, and class is removed. Use the typed replacements:
+
+  | Removed | Use |
+  |---|---|
+  | `getPolicies`, `getPoliciesAcrossUsers`, `getManagedPolicies`, `listManagedPolicies()`, `listManagedPolicies(offset, limit)` | `listPolicies(owner, options)`, `listPoliciesAcrossUsers(options)`, `listManagedPolicies(options)` |
+  | `getPolicyVersions` | `listPolicyVersions(name, owner, options)` |
+  | `getHolds`, `getHoldsAcrossUsers` | `listHolds(owner, options)`, `listHoldsAcrossUsers(options)` |
+  | `getLists`, `getListsAcrossUsers`, `listCustomLists()`, `listCustomLists(owner)`, `listCustomListsAcrossUsers()`, `listCustomListsAcrossUsers(offset, limit)` | `listCustomLists(owner, options)`, `listCustomListsAcrossUsers(options)` |
+  | `getContexts`, `getContextsAcrossUsers`, `getContext` | `listContexts`, `listContextsAcrossUsers`, `getContextDetails` |
+  | `getContextEntries`, `exportContextEntries`, `importContextEntries` | `listContextEntries`, `getContextEntriesExport`, `importContextEntriesExport` |
+  | `getDocuments`, `getDocumentStatus` | `listDocuments`, `getDocumentState` |
+  | `getLedger`, `getLedgerAcrossUsers`, `getLedgerEntry`, `exportLedger`, `isLedgerValid` | `listLedgerChains`, `listLedgerChainsAcrossUsers`, `getLedgerChain`, `getLedgerExport`, `verifyLedgerChain` |
+  | `getRedactLists`, `createRedactList(String)`, `updateRedactList(String)` | `listRedactLists`, `createRedactList(RedactListsRequest)`, `updateRedactList(RedactListsRequest)` |
+  | `compilePolicy`, `getPolicyDiff`, `reidentify`, `getSigningKey` | `compilePhiSql`, `diffPolicy`, `reidentifyValues`, `getSigningKeyDetails` |
+  | `OwnedName`, `ManagedPolicySummary` | `PolicySummary` |
+  | `withMaxIdleConnections`, `withKeepAliveDurationMs`, `DEFAULT_MAX_IDLE_CONNECTIONS`, `DEFAULT_KEEP_ALIVE_DURATION_MS` (no-ops since 1.6.0) | The `jdk.httpclient.connectionPoolSize` and `jdk.httpclient.keepalive.timeout` system properties |
+
+  The removed methods returned raw JSON strings or a bare `List` without the total. `listCustomLists(owner)` read
+  every page; page through `listCustomLists(owner, options)` with `Page.getTotal()` instead.
 * `startMfaEnrollment` takes the user's current password, which Philter 4.0 requires to start enrollment. It and
   `changePassword` throw `SignInLockedException` while the user's sign-in is locked.
 * `updateContext` sends `PATCH /api/contexts/{name}` with the settings given as a JSON body
@@ -50,24 +73,16 @@ are relative to 1.5.0.
 * `filter` and `explain` no longer take a document ID. Philter returns it in the `x-document-id` header.
 * `savePolicy(json)` is replaced by `savePolicy(name, json)`, which only creates: a name in use is a 409
   `policy_exists`. Overwrite with `replacePolicy`. `Policy(policyName)` is renamed `getPolicy(policyName)`.
-* Removed `status()` (use `health()`) and alerts. `withSslConfiguration(...)` is replaced by
+* Removed `status()` (use `health()`) and alerts (alerts also in 1.6.0). `withSslConfiguration(...)` is replaced by
   `withClientCertificate(...)` and `withTrustStore(...)`, which use only the JDK.
-* The JDK's `java.net.http.HttpClient` replaces Retrofit and OkHttp. `withHttpClientBuilder(HttpClient.Builder)`
-  replaces `withOkHttpClientBuilder(...)` and does not get the connect timeout. `withMaxIdleConnections(...)`
-  and `withKeepAliveDurationMs(...)` are no-ops; use the `jdk.httpclient.connectionPoolSize` and
-  `jdk.httpclient.keepalive.timeout` system properties. `AbstractClient` is removed, and `UNAUTHORIZED` and
-  `SERVICE_UNAVAILABLE` moved to `PhilterClient`.
-* Listings read Philter's listing envelope (philterd/philter#160), so the policy, version, hold, and custom list
-  listings need a Philter that includes it; the others read an older response with a `total` of 0.
-  `/api/policies` (own, all users, managed, and deleted), `/versions`, `/api/holds`, and `/api/lists` now return
-  an object with the items and `total`, not a bare array; `/api/contexts` and `/api/documents` add `total`.
-  Custom lists are paged. The methods that returned a plain `List` (`getPolicies`, `getPoliciesAcrossUsers`,
-  `listManagedPolicies(offset, limit)`, `getPolicyVersions`, `getHolds`, `getHoldsAcrossUsers`,
-  `listCustomLists(owner)`, and `listCustomListsAcrossUsers(offset, limit)`) read the new shape and still return
-  one page's items, and are deprecated; `listCustomLists(owner)` still returns every list, reading each page.
-  The deprecated `String` methods, such as `getLists` and `getContexts`, return Philter's new body as it is.
+* The JDK's `java.net.http.HttpClient` replaces Retrofit and OkHttp (also in 1.6.0).
+  `withHttpClientBuilder(HttpClient.Builder)` replaces `withOkHttpClientBuilder(...)` and does not get the connect
+  timeout. `AbstractClient` is removed, and `UNAUTHORIZED` and `SERVICE_UNAVAILABLE` moved to `PhilterClient`.
+* Listings read Philter 4.0's listing envelope: `/api/policies` (own, all users, managed, and deleted),
+  `/versions`, `/api/holds`, and `/api/lists` return an object with the items and `total`, not a bare array, and
+  `/api/contexts` and `/api/documents` add `total`. Custom lists are paged.
 * `savePolicy` and `replacePolicy` return the policy's new entity tag instead of `void`. Calls that ignore the
-  result still compile, but code compiled against an earlier 2.0.0 snapshot must be recompiled.
+  result still compile, but code compiled against a 2.0.0-SNAPSHOT must be recompiled.
 
 ### Philter 4.0.0 API coverage
 
@@ -134,25 +149,9 @@ the listing's response type.
   every page. `GetPiiCountsResponse.isRecordingEnabled()` tells "no data" from "not recording". Requires the
   `pii-counts:read` scope and an administrator.
 
-Responses are typed models. Calls that returned raw JSON have typed alternatives, and the `String` versions are
-deprecated: `listContexts`, `getContextDetails`, `listLedgerChains`, `getLedgerExport`, `compilePhiSql` (for
-`compilePolicy`), `reidentifyValues` (for `reidentify`), `diffPolicy` (for `getPolicyDiff`), and
-`getContextEntriesExport` and `importContextEntriesExport`, whose export imports with no JSON to handle (for
-`exportContextEntries` and `importContextEntries`). `getManagedPolicies` is deprecated too. Policy JSON stays a
-string, so it can be edited and saved as it is.
-
-Some of this needs a Philter that includes the matching change: context, list, and hold names that can be used
-in a request path (philterd/philter#140); session key listing (#141); managed policy descriptions (#142); policy
-descriptions and notes in a request body, without which earlier clients fail (#144); unverifiable ledger chains
-(#145); the `policy_managed` reason (#146); unreadable ledger entries (#147); `user` holds without a
-`scopeValue` (#148); an audit event's source (#149); the disambiguation scope (#150); conditional policy edits
-and a policy's details in the same request (#154); paging the audit log export by cursor (#155); reading and
-replacing one redact list (#157); a reason and field on every error (#158); the listing envelopes, sorting, and
-search (#160), which the policy, version, hold, and custom list listings need to parse at all; limits and
-sign-in options (#159); audit event usernames and user ids (#161); policy templates (#164); webhook tests,
-delivery history, and keeping the secret (#165); deleted policies and version authors (#166); changing a user's
-email address, and the email rule on `createUser` (#168); session client details and signing out other sessions
-(#169); request ids (#156); and PII counts (#174).
+Responses are typed models, including the export a context imports with no JSON to handle
+(`getContextEntriesExport` and `importContextEntriesExport`). Policy JSON stays a string, so it can be edited and
+saved as it is.
 
 ### Errors
 
@@ -182,6 +181,16 @@ email address, and the email rule on `createUser` (#168); session client details
   `HttpClient.Builder`.
 * Mocked tests cover the whole client; integration tests run against a live Philter when `PHILTER_ENDPOINT`
   is set.
+
+## 1.6.0 (2026-09-10)
+
+Released from the `1.x` branch.
+
+* The JDK's `java.net.http.HttpClient` replaces Retrofit and OkHttp; the only runtime dependency is Gson.
+  `withHttpClientBuilder(HttpClient.Builder)` replaces `withOkHttpClientBuilder(...)`, and
+  `withMaxIdleConnections(...)` and `withKeepAliveDurationMs(...)` became no-ops.
+* Removed the alerts client methods.
+* Snapshots and releases are published to Maven Central.
 
 ## 1.5.0 (2025-03-19)
 

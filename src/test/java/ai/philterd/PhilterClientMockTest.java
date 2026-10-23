@@ -58,8 +58,6 @@ import ai.philterd.philter.model.GetUsersResponse;
 import ai.philterd.philter.model.LegalHoldRequest;
 import ai.philterd.philter.model.LegalHoldResponse;
 import ai.philterd.philter.model.OwnedLegalHoldResponse;
-import ai.philterd.philter.model.OwnedName;
-import ai.philterd.philter.model.ManagedPolicySummary;
 import ai.philterd.philter.model.PolicyDetails;
 import ai.philterd.philter.model.PolicyRollbackResponse;
 import ai.philterd.philter.model.PolicyVersionSummary;
@@ -609,7 +607,7 @@ public class PhilterClientMockTest {
 
         respond(200, "{}");
 
-        clientBuilder().withApiKey("secret-key").build().getPolicies();
+        clientBuilder().withApiKey("secret-key").build().listPolicies(null, null);
 
         Assert.assertEquals("secret-key", header("Authorization"));
     }
@@ -619,7 +617,7 @@ public class PhilterClientMockTest {
 
         respond(200, "{}");
 
-        client().getPolicies();
+        client().listPolicies(null, null);
 
         Assert.assertNull(header("Authorization"));
     }
@@ -639,7 +637,7 @@ public class PhilterClientMockTest {
                 .build();
 
         try {
-            client.getPolicies();
+            client.listPolicies(null, null);
             Assert.fail("The redirect should not have been followed.");
         } catch (final ClientException expected) {
             Assert.assertEquals("Unknown error: HTTP 302", expected.getMessage());
@@ -885,19 +883,6 @@ public class PhilterClientMockTest {
     // Policies.
 
     @Test
-    public void getPolicies() throws Exception {
-
-        respond(200, "{\"policies\":[{\"name\":\"default\"},{\"name\":\"strict\"}],\"total\":2}");
-
-        // Deprecated, and still returns the names.
-        final List<String> policies = client().getPolicies();
-
-        Assert.assertEquals(2, policies.size());
-        Assert.assertTrue(policies.contains("default"));
-        Assert.assertTrue(policies.contains("strict"));
-    }
-
-    @Test
     public void savePolicy() throws Exception {
 
         respond(201, "");
@@ -996,7 +981,7 @@ public class PhilterClientMockTest {
 
         respond(200, recorded("policies-managed.json"));
 
-        final List<ManagedPolicySummary> managed = client().listManagedPolicies(25, 50);
+        final List<PolicySummary> managed = client().listManagedPolicies(new ListOptions().offset(25).limit(50)).getItems();
 
         Assert.assertEquals("GET", method);
         Assert.assertEquals("/api/policies", path);
@@ -1008,21 +993,7 @@ public class PhilterClientMockTest {
         Assert.assertEquals("managed_healthcare_phi", managed.get(2).getName());
 
         respond(200, "{}");
-        Assert.assertTrue(client().listManagedPolicies().isEmpty());
-        Assert.assertEquals(Map.of("managed", "true"), queryParameters);
-    }
-
-    @Test
-    @SuppressWarnings("deprecation")
-    public void getManagedPoliciesStillReturnsTheNames() throws Exception {
-
-        respond(200, recorded("policies-managed.json"));
-
-        Assert.assertEquals(List.of("managed_common_pii", "managed_financial_pii", "managed_healthcare_phi"),
-                client().getManagedPolicies(25, 50));
-        Assert.assertEquals(Map.of("managed", "true", "offset", "25", "limit", "50"), queryParameters);
-
-        Assert.assertEquals(3, client().getManagedPolicies().size());
+        Assert.assertTrue(client().listManagedPolicies(null).getItems().isEmpty());
         Assert.assertEquals(Map.of("managed", "true"), queryParameters);
     }
 
@@ -1160,30 +1131,31 @@ public class PhilterClientMockTest {
     }
 
     @Test
-    public void getPolicyDiffWithoutRevisionsComparesTheTwoMostRecent() throws Exception {
+    public void diffPolicyWithoutRevisionsComparesTheTwoMostRecent() throws Exception {
 
-        final String diff = "{\"from\":3,\"to\":4,\"changes\":[{\"op\":\"add\",\"path\":\"/identifiers/ssn\","
-                + "\"value\":{}}]}";
-        respond(200, diff);
+        respond(200, "{\"from\":3,\"to\":4,\"changes\":[{\"op\":\"add\",\"path\":\"/identifiers/ssn\","
+                + "\"value\":{}}]}");
 
-        Assert.assertEquals(diff, client().getPolicyDiff("claims"));
+        final PolicyDiff diff = client().diffPolicy("claims");
+        Assert.assertEquals(3, diff.getFrom());
+        Assert.assertEquals(4, diff.getTo());
         Assert.assertEquals("GET", method);
         Assert.assertEquals("/api/policies/claims/diff", path);
         Assert.assertTrue("no revision numbers: " + queryParameters, queryParameters.isEmpty());
 
-        client().getPolicyDiff("claims", OWNER);
+        client().diffPolicy("claims", OWNER);
         Assert.assertEquals(Map.of("owner", OWNER), queryParameters);
     }
 
     @Test
-    public void getPolicyDiffWithRevisionsStillSendsBoth() throws Exception {
+    public void diffPolicyWithRevisionsSendsBoth() throws Exception {
 
         respond(200, "{\"from\":1,\"to\":2,\"changes\":[]}");
 
-        client().getPolicyDiff("claims", 1, 2);
+        client().diffPolicy("claims", 1, 2);
         Assert.assertEquals(Map.of("from", "1", "to", "2"), queryParameters);
 
-        client().getPolicyDiff("claims", 1, 2, OWNER);
+        client().diffPolicy("claims", 1, 2, OWNER);
         Assert.assertEquals(Map.of("from", "1", "to", "2", "owner", OWNER), queryParameters);
     }
 
@@ -1193,18 +1165,18 @@ public class PhilterClientMockTest {
         respond(400, "{\"message\":\"At least two retained revisions are required to produce a diff.\","
                 + "\"reason\":\"invalid_request\"}");
 
-        final ClientException ex = Assert.assertThrows(ClientException.class, () -> client().getPolicyDiff("new"));
+        final ClientException ex = Assert.assertThrows(ClientException.class, () -> client().diffPolicy("new"));
 
         Assert.assertEquals(400, ex.getStatusCode());
         Assert.assertEquals("At least two retained revisions are required to produce a diff.", ex.getErrorMessage());
     }
 
     @Test
-    public void getPolicyVersions() throws Exception {
+    public void listPolicyVersionsReadsEachRevision() throws Exception {
 
         respond(200, "{\"versions\":[{\"capturedTimestamp\":\"2026-01-01T00:00:00Z\",\"contentHash\":\"hash1\",\"revision\":1}],\"total\":1}");
 
-        final List<PolicyVersionSummary> versions = client().getPolicyVersions("default");
+        final List<PolicyVersionSummary> versions = client().listPolicyVersions("default", null, null).getItems();
 
         Assert.assertEquals(1, versions.size());
         Assert.assertEquals(1, versions.get(0).getRevision());
@@ -1220,7 +1192,7 @@ public class PhilterClientMockTest {
                 + "{\"capturedTimestamp\":\"2026-01-01T00:00:00Z\",\"contentHash\":\"hash1\",\"revision\":1,\"author\":null},"
                 + "{\"capturedTimestamp\":\"2025-12-01T00:00:00Z\",\"contentHash\":\"hash0\",\"revision\":0}],\"total\":3}");
 
-        final List<PolicyVersionSummary> versions = client().getPolicyVersions("default");
+        final List<PolicyVersionSummary> versions = client().listPolicyVersions("default", null, null).getItems();
 
         Assert.assertEquals("jordan", versions.get(0).getAuthor());
         Assert.assertNull("null author", versions.get(1).getAuthor());
@@ -2186,59 +2158,59 @@ public class PhilterClientMockTest {
         final PhilterClient c = client();
 
         // Filter and explain (compile, reidentify).
-        verify("POST", "/api/policies/compile", Map.of(), "compiled", () -> c.compilePolicy("policy"));
-        verify("POST", "/api/reidentify", Map.of("owner", "o1"), "result",
-                () -> c.reidentify("o1", new ReidentifyRequest()));
+        verify("POST", "/api/policies/compile", Map.of(), "{}", () -> c.compilePhiSql("policy"));
+        verify("POST", "/api/reidentify", Map.of("owner", "o1"), "{}",
+                () -> c.reidentifyValues("o1", new ReidentifyRequest()));
 
         // Status.
-        verify("GET", "/api/signing-key", Map.of(), "key", c::getSigningKey);
-        verify("GET", "/api/signing-key/k1", Map.of(), "key", () -> c.getSigningKey("k1"));
+        verify("GET", "/api/signing-key", Map.of(), "{}", c::getSigningKeyDetails);
+        verify("GET", "/api/signing-key/k1", Map.of(), "{}", () -> c.getSigningKeyDetails("k1"));
 
         // Policies.
         verify("GET", "/api/policies/p1", Map.of(), "{}", () -> c.getPolicy("p1"));
         verify("GET", "/api/policies/p1/versions/2", Map.of(), "{}", () -> c.getPolicyVersion("p1", 2));
         verify("GET", "/api/policies/p1/diff", Map.of("from", "1", "to", "2"), "{}",
-                () -> c.getPolicyDiff("p1", 1, 2));
+                () -> c.diffPolicy("p1", 1, 2));
 
         // Contexts.
-        verify("GET", "/api/contexts", Map.of(), "[]", c::getContexts);
-        verify("GET", "/api/contexts/c1", Map.of(), "{}", () -> c.getContext("c1"));
+        verify("GET", "/api/contexts", Map.of(), "{}", c::listContexts);
+        verify("GET", "/api/contexts/c1", Map.of(), "{}", () -> c.getContextDetails("c1"));
         verify("PATCH", "/api/contexts/c1", Map.of(), "{}", () -> c.updateContext("c1", true, false));
         verify("DELETE", "/api/contexts/c1", Map.of(), "", () -> c.deleteContext("c1"));
-        verify("GET", "/api/contexts/c1/entries", Map.of(), "[]", () -> c.getContextEntries("c1"));
+        verify("GET", "/api/contexts/c1/entries", Map.of(), "{}", () -> c.listContextEntries("c1"));
         verify("DELETE", "/api/contexts/c1/entries", Map.of(), "", () -> c.deleteContextEntries("c1"));
-        verify("GET", "/api/contexts/c1/entries/export", Map.of("owner", "o1"), "x",
-                () -> c.exportContextEntries("c1", "o1"));
+        verify("GET", "/api/contexts/c1/entries/export", Map.of("owner", "o1"), "{}",
+                () -> c.getContextEntriesExport("c1", "o1"));
         verify("POST", "/api/contexts/c1/entries/import", Map.of("on_conflict", "skip", "owner", "o1"), "{}",
-                () -> c.importContextEntries("c1", "skip", "o1", "[]"));
+                () -> c.importContextEntriesExport("c1", new ContextEntriesExport(), "skip", "o1"));
         verify("DELETE", "/api/contexts/c1/entries/e1", Map.of(), "", () -> c.deleteContextEntry("c1", "e1"));
 
         // Documents.
-        verify("GET", "/api/documents", Map.of(), "[]", c::getDocuments);
+        verify("GET", "/api/documents", Map.of(), "{}", c::listDocuments);
         verify("DELETE", "/api/documents/d1", Map.of(), "", () -> c.deleteDocument("d1"));
-        verify("GET", "/api/documents/d1/status", Map.of(), "{}", () -> c.getDocumentStatus("d1"));
+        verify("GET", "/api/documents/d1/status", Map.of(), "{}", () -> c.getDocumentState("d1"));
 
         // Legal holds.
-        verify("GET", "/api/holds", Map.of(), "{}", c::getHolds);
+        verify("GET", "/api/holds", Map.of(), "{}", () -> c.listHolds(null, null));
         verify("GET", "/api/holds/r1", Map.of(), "{}", () -> c.getHold("r1"));
         verify("DELETE", "/api/holds/r1", Map.of(), "", () -> c.deleteHold("r1"));
 
         // Redaction ledger.
-        verify("GET", "/api/ledger", Map.of("q", "term"), "x", () -> c.getLedger("term"));
-        verify("GET", "/api/ledger/d1", Map.of(), "x", () -> c.getLedgerEntry("d1"));
-        verify("GET", "/api/ledger/d1/export", Map.of(), "x", () -> c.exportLedger("d1"));
-        verify("GET", "/api/ledger/d1/valid", Map.of(), "true", () -> c.isLedgerValid("d1"));
+        verify("GET", "/api/ledger", Map.of("q", "term"), "{}", () -> c.listLedgerChains("term"));
+        verify("GET", "/api/ledger/d1", Map.of(), "{}", () -> c.getLedgerChain("d1"));
+        verify("GET", "/api/ledger/d1/export", Map.of(), "{}", () -> c.getLedgerExport("d1"));
+        verify("GET", "/api/ledger/d1/valid", Map.of(), "{}", () -> c.verifyLedgerChain("d1"));
         verify("DELETE", "/api/ledger/d1", Map.of(), "", () -> c.deleteLedgerEntry("d1"));
         verify("DELETE", "/api/ledger", Map.of("older_than_days", "30"), "{}", () -> c.purgeLedger(30));
 
         // Custom lists.
-        verify("GET", "/api/lists", Map.of(), "[]", c::getLists);
+        verify("GET", "/api/lists", Map.of(), "{}", () -> c.listCustomLists(null, null));
         verify("DELETE", "/api/lists/l1", Map.of(), "", () -> c.deleteList("l1"));
 
         // Redact lists.
-        verify("GET", "/api/redact-lists", Map.of(), "[]", c::getRedactLists);
-        verify("POST", "/api/redact-lists", Map.of(), "{}", () -> c.createRedactList("{}"));
-        verify("PUT", "/api/redact-lists", Map.of(), "{}", () -> c.updateRedactList("{}"));
+        verify("GET", "/api/redact-lists", Map.of(), "{}", c::listRedactLists);
+        verify("POST", "/api/redact-lists", Map.of(), "{}", () -> c.createRedactList(new RedactListsRequest()));
+        verify("PUT", "/api/redact-lists", Map.of(), "{}", () -> c.updateRedactList(new RedactListsRequest()));
     }
 
     /**
@@ -2315,7 +2287,7 @@ public class PhilterClientMockTest {
         final PhilterClient c = client();
 
         for (final String name : List.of(".", "..")) {
-            verify("GET", "/api/contexts/" + name + "/entries", Map.of(), "[]", () -> c.getContextEntries(name));
+            verify("GET", "/api/contexts/" + name + "/entries", Map.of(), "{}", () -> c.listContextEntries(name));
             Assert.assertEquals("/api/contexts/" + name.replace(".", "%2E") + "/entries", rawPath);
         }
 
@@ -2354,12 +2326,14 @@ public class PhilterClientMockTest {
     }
 
     @Test
-    public void getContextReturnsFilterTypeCounts() throws Exception {
+    public void getContextDetailsReturnsFilterTypeCounts() throws Exception {
 
-        final String body = "{\"size\":125,\"filterTypes\":{\"EMAIL_ADDRESS\":40,\"PERSON\":83},\"untyped\":2}";
-        respond(200, body);
+        respond(200, "{\"size\":125,\"filterTypes\":{\"EMAIL_ADDRESS\":40,\"PERSON\":83},\"untyped\":2}");
 
-        Assert.assertEquals(body, client().getContext("c1"));
+        final ContextDetails details = client().getContextDetails("c1");
+        Assert.assertEquals(125, details.getSize());
+        Assert.assertEquals(Map.of("EMAIL_ADDRESS", 40L, "PERSON", 83L), details.getFilterTypes());
+        Assert.assertEquals(2, details.getUntyped());
 
         Assert.assertEquals("GET", method);
         Assert.assertEquals("/api/contexts/c1", path);
@@ -2858,23 +2832,24 @@ public class PhilterClientMockTest {
         verifyOwner("/api/policies/p1/copy", "{}", () -> c.copyPolicy("p1", "p2", OWNER));
         verifyOwner("/api/policies/p1", "", () -> c.deletePolicy("p1", OWNER));
         verifyOwner("/api/policies/p1/versions/2", "{}", () -> c.getPolicyVersion("p1", 2, OWNER));
-        verifyOwner("/api/policies/p1/diff", "{}", () -> c.getPolicyDiff("p1", 1, 2, OWNER));
+        verifyOwner("/api/policies/p1/diff", "{}", () -> c.diffPolicy("p1", 1, 2, OWNER));
         verifyOwner("/api/policies/p1/rollback", "{}", () -> c.rollbackPolicy("p1", 2, OWNER));
 
         // Contexts.
         verifyOwner("/api/contexts", "{}", () -> c.createContext("c1", true, false, OWNER));
-        verifyOwner("/api/contexts/c1", "{}", () -> c.getContext("c1", OWNER));
+        verifyOwner("/api/contexts/c1", "{}", () -> c.getContextDetails("c1", OWNER));
         verifyOwner("/api/contexts/c1", "{}", () -> c.updateContext("c1", true, false, OWNER));
         verifyOwner("/api/contexts/c1", "", () -> c.deleteContext("c1", OWNER));
         verifyOwner("/api/contexts/c1/entries", "", () -> c.deleteContextEntries("c1", OWNER));
-        verifyOwner("/api/contexts/c1/entries/export", "x", () -> c.exportContextEntries("c1", OWNER));
-        verifyOwner("/api/contexts/c1/entries/import", "{}", () -> c.importContextEntries("c1", "skip", OWNER, "[]"));
+        verifyOwner("/api/contexts/c1/entries/export", "{}", () -> c.getContextEntriesExport("c1", OWNER));
+        verifyOwner("/api/contexts/c1/entries/import", "{}",
+                () -> c.importContextEntriesExport("c1", new ContextEntriesExport(), "skip", OWNER));
         verifyOwner("/api/contexts/c1/entries/e1", "", () -> c.deleteContextEntry("c1", "e1", OWNER));
 
         // Documents.
         verifyOwner("/api/documents/d1", "x", () -> c.getDocument("d1", OWNER));
         verifyOwner("/api/documents/d1", "", () -> c.deleteDocument("d1", OWNER));
-        verifyOwner("/api/documents/d1/status", "{}", () -> c.getDocumentStatus("d1", OWNER));
+        verifyOwner("/api/documents/d1/status", "{}", () -> c.getDocumentState("d1", OWNER));
 
         // Legal holds.
         verifyOwner("/api/holds", "{}", () -> c.createHold(hold, OWNER));
@@ -2882,25 +2857,25 @@ public class PhilterClientMockTest {
         verifyOwner("/api/holds/r1", "", () -> c.deleteHold("r1", OWNER));
 
         // Redaction ledger.
-        verifyOwner("/api/ledger/d1", "x", () -> c.getLedgerEntry("d1", OWNER));
-        verifyOwner("/api/ledger/d1/export", "x", () -> c.exportLedger("d1", OWNER));
-        verifyOwner("/api/ledger/d1/valid", "true", () -> c.isLedgerValid("d1", OWNER));
+        verifyOwner("/api/ledger/d1", "{}", () -> c.getLedgerChain("d1", OWNER));
+        verifyOwner("/api/ledger/d1/export", "{}", () -> c.getLedgerExport("d1", OWNER));
+        verifyOwner("/api/ledger/d1/valid", "{}", () -> c.verifyLedgerChain("d1", OWNER));
         verifyOwner("/api/ledger/d1", "", () -> c.deleteLedgerEntry("d1", OWNER));
         verifyOwner("/api/ledger", "{}", () -> c.purgeLedger(30, OWNER));
 
         // Custom lists.
-        verifyOwner("/api/lists", "[]", () -> c.getLists(OWNER));
+        verifyOwner("/api/lists", "{}", () -> c.listCustomLists(OWNER, null));
         verifyOwner("/api/lists/l1", "{}", () -> c.saveList("l1", "a description", List.of("alpha"), OWNER));
         verifyOwner("/api/lists/l1", "", () -> c.deleteList("l1", OWNER));
         verifyOwner("/api/lists/l1", "{}", () -> c.getList("l1", OWNER));
 
         // Redact lists.
-        verifyOwner("/api/redact-lists", "[]", () -> c.getRedactLists(OWNER));
-        verifyOwner("/api/redact-lists", "{}", () -> c.createRedactList("{}", OWNER));
-        verifyOwner("/api/redact-lists", "{}", () -> c.updateRedactList("{}", OWNER));
+        verifyOwner("/api/redact-lists", "{}", () -> c.listRedactLists(OWNER));
+        verifyOwner("/api/redact-lists", "{}", () -> c.createRedactList(new RedactListsRequest(), OWNER));
+        verifyOwner("/api/redact-lists", "{}", () -> c.updateRedactList(new RedactListsRequest(), OWNER));
 
         // Re-identification.
-        verifyOwner("/api/reidentify", "{}", () -> c.reidentify(OWNER, new ReidentifyRequest()));
+        verifyOwner("/api/reidentify", "{}", () -> c.reidentifyValues(OWNER, new ReidentifyRequest()));
         verifyOwner("/api/reidentify/text", "{}", () -> c.reidentifyText(OWNER, new ReidentifyTextRequest()));
 
         // Webhook.
@@ -2917,13 +2892,14 @@ public class PhilterClientMockTest {
 
         final PhilterClient c = client();
 
-        verifyPaged("/api/policies", "{}", () -> c.getPolicies(OWNER, 25, 50));
-        verifyPaged("/api/policies/p1/versions", "{}", () -> c.getPolicyVersions("p1", OWNER, 25, 50));
-        verifyPaged("/api/contexts", "[]", () -> c.getContexts(OWNER, 25, 50));
-        verifyPaged("/api/contexts/c1/entries", "[]", () -> c.getContextEntries("c1", OWNER, 25, 50));
-        verifyPaged("/api/documents", "[]", () -> c.getDocuments(OWNER, 25, 50));
-        verifyPaged("/api/holds", "{}", () -> c.getHolds(OWNER, 25, 50));
-        verifyPaged("/api/ledger", "[]", () -> c.getLedger("term", OWNER, 25, 50));
+        final ListOptions page = new ListOptions().offset(25).limit(50);
+        verifyPaged("/api/policies", "{}", () -> c.listPolicies(OWNER, page));
+        verifyPaged("/api/policies/p1/versions", "{}", () -> c.listPolicyVersions("p1", OWNER, page));
+        verifyPaged("/api/contexts", "{}", () -> c.listContexts(OWNER, 25, 50));
+        verifyPaged("/api/contexts/c1/entries", "{}", () -> c.listContextEntries("c1", OWNER, 25, 50));
+        verifyPaged("/api/documents", "{}", () -> c.listDocuments(OWNER, 25, 50));
+        verifyPaged("/api/holds", "{}", () -> c.listHolds(OWNER, page));
+        verifyPaged("/api/ledger", "{}", () -> c.listLedgerChains("term", OWNER, 25, 50));
         verifyPaged("/api/audit", "{}", () -> c.getAuditLog(null, null, null, OWNER, 25, 50));
     }
 
@@ -3453,14 +3429,14 @@ public class PhilterClientMockTest {
         Assert.assertEquals(List.of("2001:db8::7"), lastRecorded().forwardedFor);
         Assert.assertEquals(2, calls.get());
 
-        // A call that makes two requests reads it twice: every list, read a page at a time.
-        final StringBuilder first = new StringBuilder("{\"lists\":[");
+        // A call that makes two requests reads it twice: every PII count, read a page at a time.
+        final StringBuilder first = new StringBuilder("{\"counts\":[");
         for (int i = 0; i < 100; i++) {
-            first.append(i == 0 ? "" : ",").append("{\"name\":\"l").append(i).append("\"}");
+            first.append(i == 0 ? "" : ",").append("{\"id\":\"p").append(i).append("\"}");
         }
         queuedResponses.add(Map.entry(200, first.append("],\"total\":101}").toString().getBytes(StandardCharsets.UTF_8)));
-        queuedResponses.add(Map.entry(200, "{\"lists\":[{\"name\":\"l100\"}],\"total\":101}".getBytes(StandardCharsets.UTF_8)));
-        c.listCustomLists();
+        queuedResponses.add(Map.entry(200, "{\"counts\":[{\"id\":\"p100\"}],\"total\":101}".getBytes(StandardCharsets.UTF_8)));
+        c.getAllPiiCounts(null, null, null);
         Assert.assertEquals(4, calls.get());
         Assert.assertEquals(List.of("2001:db8::7"), requests.get(requests.size() - 2).forwardedFor);
         Assert.assertEquals(List.of("2001:db8::7"), lastRecorded().forwardedFor);
@@ -3617,7 +3593,7 @@ public class PhilterClientMockTest {
 
         respond(401, "{\"error\": \"Unauthorized\", \"message\": \"Invalid or missing credentials\"}");
 
-        final UnauthorizedException ex = Assert.assertThrows(UnauthorizedException.class, () -> client().getPolicies());
+        final UnauthorizedException ex = Assert.assertThrows(UnauthorizedException.class, () -> client().listPolicies(null, null));
 
         Assert.assertEquals("Invalid or missing credentials", ex.getMessage());
     }
@@ -3627,7 +3603,7 @@ public class PhilterClientMockTest {
 
         respond(401, "");
 
-        final UnauthorizedException ex = Assert.assertThrows(UnauthorizedException.class, () -> client().getPolicies());
+        final UnauthorizedException ex = Assert.assertThrows(UnauthorizedException.class, () -> client().listPolicies(null, null));
 
         Assert.assertEquals(PhilterClient.UNAUTHORIZED, ex.getMessage());
     }
@@ -3965,7 +3941,7 @@ public class PhilterClientMockTest {
     public void customListsParseTheRecordedResponses() throws Exception {
 
         respond(200, recorded("lists.json"));
-        final List<CustomListSummary> lists = client().listCustomLists();
+        final List<CustomListSummary> lists = client().listCustomLists(null, null).getItems();
         Assert.assertEquals("/api/lists", path);
         Assert.assertEquals(1, lists.size());
         Assert.assertEquals("customer-names", lists.get(0).getName());
@@ -3974,7 +3950,7 @@ public class PhilterClientMockTest {
         Assert.assertNull(lists.get(0).getOwner());
 
         respond(200, recorded("lists-all-users.json"));
-        final List<CustomListSummary> all = client().listCustomListsAcrossUsers(0, 5);
+        final List<CustomListSummary> all = client().listCustomListsAcrossUsers(new ListOptions().offset(0).limit(5)).getItems();
         Assert.assertEquals("true", queryParameter("all_users"));
         Assert.assertTrue(all.get(0).getOwner().endsWith("@example.com"));
 
@@ -4264,19 +4240,6 @@ public class PhilterClientMockTest {
         Assert.assertNull(byId.getJwk());
     }
 
-    @Test
-    @SuppressWarnings("deprecation")
-    public void theDeprecatedStringMethodsStillReturnTheBodyUnchanged() throws Exception {
-
-        final String body = recorded("ledger-chain.json");
-        respond(200, body);
-        Assert.assertEquals(body, client().getLedgerEntry("50f6010d-6f44-44a9-85a8-830b93d13c17"));
-
-        final String lists = recorded("lists.json");
-        respond(200, lists);
-        Assert.assertEquals(lists, client().getLists());
-    }
-
     // Create only creates; replace with PUT.
 
     @Test
@@ -4521,12 +4484,12 @@ public class PhilterClientMockTest {
     }
 
     @Test
-    public void getPoliciesAcrossUsersMapsNameAndOwner() throws Exception {
+    public void listPoliciesAcrossUsersMapsNameAndOwner() throws Exception {
 
         respond(200, "{\"policies\":[{\"name\":\"default\",\"owner\":\"alice@example.com\"},"
                 + "{\"name\":\"default\",\"owner\":\"bob@example.com\"}],\"total\":2}");
 
-        final List<OwnedName> policies = client().getPoliciesAcrossUsers(25, 50);
+        final List<PolicySummary> policies = client().listPoliciesAcrossUsers(new ListOptions().offset(25).limit(50)).getItems();
 
         assertAllUsersListing("/api/policies");
         Assert.assertEquals(2, policies.size());
@@ -4536,12 +4499,12 @@ public class PhilterClientMockTest {
     }
 
     @Test
-    public void getHoldsAcrossUsersMapsTheHoldAndItsOwner() throws Exception {
+    public void listHoldsAcrossUsersMapsTheHoldAndItsOwner() throws Exception {
 
         respond(200, "{\"holds\":[{\"reference\":\"case-1\",\"scopeType\":\"document\",\"scopeValue\":\"doc-1\","
                 + "\"reason\":\"Litigation\",\"setAt\":\"2026-10-05T12:00:00Z\",\"owner\":\"alice@example.com\"}],\"total\":1}");
 
-        final List<OwnedLegalHoldResponse> holds = client().getHoldsAcrossUsers(25, 50);
+        final List<OwnedLegalHoldResponse> holds = client().listHoldsAcrossUsers(new ListOptions().offset(25).limit(50)).getItems();
 
         assertAllUsersListing("/api/holds");
         Assert.assertEquals(1, holds.size());
@@ -4554,23 +4517,21 @@ public class PhilterClientMockTest {
     }
 
     @Test
-    public void rawJsonListingsAcrossUsersPassTheOwnersThrough() throws Exception {
+    public void listingsAcrossUsersReadEachOwner() throws Exception {
 
         final PhilterClient c = client();
 
-        final String contexts = "{\"contexts\":[{\"name\":\"tenant-a\",\"owner\":\"alice@example.com\"}]}";
-        respond(200, contexts);
-        Assert.assertEquals(contexts, c.getContextsAcrossUsers(25, 50));
+        respond(200, "{\"contexts\":[{\"name\":\"tenant-a\",\"owner\":\"alice@example.com\"}]}");
+        Assert.assertEquals("alice@example.com", c.listContextsAcrossUsers(25, 50).getContexts().get(0).getOwner());
         assertAllUsersListing("/api/contexts");
 
-        final String lists = "[{\"name\":\"names\",\"owner\":\"bob@example.com\"}]";
-        respond(200, lists);
-        Assert.assertEquals(lists, c.getListsAcrossUsers(25, 50));
+        respond(200, "{\"lists\":[{\"name\":\"names\",\"owner\":\"bob@example.com\"}],\"total\":1}");
+        Assert.assertEquals("bob@example.com", c.listCustomListsAcrossUsers(new ListOptions().offset(25).limit(50))
+                .getItems().get(0).getOwner());
         assertAllUsersListing("/api/lists");
 
-        final String chains = "{\"chains\":[{\"documentId\":\"doc-1\",\"owner\":\"alice@example.com\"}],\"total\":1}";
-        respond(200, chains);
-        Assert.assertEquals(chains, c.getLedgerAcrossUsers(25, 50));
+        respond(200, "{\"chains\":[{\"documentId\":\"doc-1\",\"owner\":\"alice@example.com\"}],\"total\":1}");
+        Assert.assertEquals("alice@example.com", c.listLedgerChainsAcrossUsers(25, 50).getChains().get(0).getOwner());
         assertAllUsersListing("/api/ledger");
         Assert.assertFalse("q on /api/ledger", queryParameters.containsKey("q"));
     }
@@ -4580,11 +4541,11 @@ public class PhilterClientMockTest {
 
         final PhilterClient c = client();
         final Map<String, Action> calls = new java.util.LinkedHashMap<>();
-        calls.put("/api/policies", c::getPoliciesAcrossUsers);
-        calls.put("/api/contexts", c::getContextsAcrossUsers);
-        calls.put("/api/lists", c::getListsAcrossUsers);
-        calls.put("/api/ledger", c::getLedgerAcrossUsers);
-        calls.put("/api/holds", c::getHoldsAcrossUsers);
+        calls.put("/api/policies", () -> c.listPoliciesAcrossUsers(null));
+        calls.put("/api/contexts", c::listContextsAcrossUsers);
+        calls.put("/api/lists", () -> c.listCustomListsAcrossUsers(null));
+        calls.put("/api/ledger", c::listLedgerChainsAcrossUsers);
+        calls.put("/api/holds", () -> c.listHoldsAcrossUsers(null));
 
         for (final Map.Entry<String, Action> call : calls.entrySet()) {
             respond(200, "{}");
@@ -4600,7 +4561,7 @@ public class PhilterClientMockTest {
         respond(404, "");
 
         try {
-            client().getPoliciesAcrossUsers();
+            client().listPoliciesAcrossUsers(null);
             Assert.fail("Expected a ClientException.");
         } catch (final ClientException ex) {
             Assert.assertTrue(ex.getMessage(), ex.getMessage().contains("HTTP 404"));
@@ -4634,24 +4595,11 @@ public class PhilterClientMockTest {
     }
 
     @Test
-    public void importContextEntriesReturnsJsonBodyAsString() throws Exception {
-
-        final String responseJson = "{\"imported\":3,\"skipped\":1}";
-        respond(200, responseJson);
-
-        // A JSON response body must still be returned as an unparsed String.
-        final String result = client().importContextEntries("c1", "skip", "o1", "[]");
-        Assert.assertEquals(responseJson, result);
-
-        Assert.assertEquals("[]", requestBodyAsString());
-    }
-
-    @Test
     public void paginationParametersAreSent() throws Exception {
 
         respond(200, "{}");
 
-        client().getPolicies("acme", 25, 50);
+        client().listPolicies("acme", new ListOptions().offset(25).limit(50));
 
         Assert.assertEquals("acme", queryParameter("owner"));
         Assert.assertEquals("25", queryParameter("offset"));
@@ -4663,7 +4611,7 @@ public class PhilterClientMockTest {
 
         respond(200, "{}");
 
-        client().getPolicies();
+        client().listPolicies(null, null);
 
         Assert.assertNull(queryParameter("owner"));
         Assert.assertNull(queryParameter("offset"));
@@ -4706,8 +4654,8 @@ public class PhilterClientMockTest {
         // Every character here changes meaning if it reaches the query string unescaped.
         final String tricky = "a b & c = d + e / ü";
 
-        respond(200, "[]");
-        client().getLedger(tricky);
+        respond(200, "{}");
+        client().listLedgerChains(tricky);
 
         // The server must be able to recover the value exactly.
         Assert.assertEquals(tricky, queryParameter("q"));
@@ -4760,7 +4708,7 @@ public class PhilterClientMockTest {
         respond(400, "{\"message\":\"'strategy' must be CRYPTO_REPLACE or FPE_ENCRYPT_REPLACE.\"}");
 
         try {
-            client().reidentify(null, new ReidentifyRequest());
+            client().reidentifyValues(null, new ReidentifyRequest());
             Assert.fail("A 400 should have raised a ClientException.");
         } catch (final ClientException expected) {
             Assert.assertTrue(expected.getMessage(), expected.getMessage().contains("400"));
@@ -4780,7 +4728,7 @@ public class PhilterClientMockTest {
 
         final long start = System.nanoTime();
         try {
-            client.getPolicies();
+            client.listPolicies(null, null);
             Assert.fail("The request should have timed out.");
         } catch (final IOException expected) {
             // HttpTimeoutException is an IOException, which is what the client contract promises.
@@ -4798,7 +4746,7 @@ public class PhilterClientMockTest {
         new PhilterClient.PhilterClientBuilder()
                 .withEndpoint("http://localhost:" + server.getAddress().getPort() + "/")
                 .build()
-                .getPolicies();
+                .listPolicies(null, null);
 
         Assert.assertEquals("/api/policies", path);
     }
@@ -4811,7 +4759,7 @@ public class PhilterClientMockTest {
         new PhilterClient.PhilterClientBuilder()
                 .withEndpoint("http://localhost:" + server.getAddress().getPort() + "/philter")
                 .build()
-                .getPolicies();
+                .listPolicies(null, null);
 
         // Paths are absolute, so a prefix on the endpoint is replaced rather than kept. Retrofit
         // behaved the same way. Philter behind a path-prefixed reverse proxy is not supported.
@@ -4823,7 +4771,7 @@ public class PhilterClientMockTest {
 
         respond(200, "{}");
 
-        clientBuilder().withApiKey("").build().getPolicies();
+        clientBuilder().withApiKey("").build().listPolicies(null, null);
 
         Assert.assertNull(header("Authorization"));
     }
@@ -4839,13 +4787,13 @@ public class PhilterClientMockTest {
 
         try {
 
-            final List<Callable<List<String>>> calls = new ArrayList<>();
+            final List<Callable<Page<PolicySummary>>> calls = new ArrayList<>();
             for (int i = 0; i < 40; i++) {
-                calls.add(client::getPolicies);
+                calls.add(() -> client.listPolicies(null, null));
             }
 
-            for (final Future<List<String>> result : pool.invokeAll(calls)) {
-                Assert.assertEquals(List.of("default"), result.get());
+            for (final Future<Page<PolicySummary>> result : pool.invokeAll(calls)) {
+                Assert.assertEquals("default", result.get().getItems().get(0).getName());
             }
 
         } finally {
@@ -5000,19 +4948,19 @@ public class PhilterClientMockTest {
     @Test(expected = UnauthorizedException.class)
     public void unauthorized() throws Exception {
         respond(401, "");
-        client().getPolicies();
+        client().listPolicies(null, null);
     }
 
     @Test(expected = ServiceUnavailableException.class)
     public void serviceUnavailable() throws Exception {
         respond(503, "");
-        client().getPolicies();
+        client().listPolicies(null, null);
     }
 
     @Test(expected = ClientException.class)
     public void unknownErrorBecomesClientException() throws Exception {
         respond(500, "");
-        client().getPolicies();
+        client().listPolicies(null, null);
     }
 
 
@@ -5042,13 +4990,13 @@ public class PhilterClientMockTest {
 
         respond(401, "{\"message\":\"Unauthorized.\"}");
         final UnauthorizedException unauthorized = Assert.assertThrows(UnauthorizedException.class,
-                () -> client().getPolicies());
+                () -> client().listPolicies(null, null));
         Assert.assertEquals(REQUEST_ID, unauthorized.getRequestId());
         Assert.assertEquals("Unauthorized. (request id: " + REQUEST_ID + ")", unauthorized.getMessage());
 
         respond(503, "");
         final ServiceUnavailableException unavailable = Assert.assertThrows(ServiceUnavailableException.class,
-                () -> client().getPolicies());
+                () -> client().listPolicies(null, null));
         Assert.assertEquals(REQUEST_ID, unavailable.getRequestId());
         Assert.assertTrue(unavailable.getMessage(), unavailable.getMessage().contains(REQUEST_ID));
 
@@ -5080,13 +5028,13 @@ public class PhilterClientMockTest {
 
         responseHeaders.put("X-Request-Id", REQUEST_ID);
         respond(200, "{}");
-        client.getPolicies();
+        client.listPolicies(null, null);
         Assert.assertEquals(REQUEST_ID, client.getLastRequestId());
 
         // A failed call sets it too.
         responseHeaders.put("X-Request-Id", "second-id");
         respond(400, "{\"message\":\"Bad.\"}");
-        Assert.assertThrows(ClientException.class, client::getPolicies);
+        Assert.assertThrows(ClientException.class, () -> client.listPolicies(null, null));
         Assert.assertEquals("second-id", client.getLastRequestId());
 
         // Another thread's call with the same client does not change this thread's.
@@ -5095,7 +5043,7 @@ public class PhilterClientMockTest {
         final ExecutorService other = Executors.newSingleThreadExecutor();
         try {
             Assert.assertEquals("other-thread", other.submit(() -> {
-                client.getPolicies();
+                client.listPolicies(null, null);
                 return client.getLastRequestId();
             }).get(10, TimeUnit.SECONDS));
         } finally {
@@ -5105,7 +5053,7 @@ public class PhilterClientMockTest {
 
         // A response without one clears it, rather than leaving the previous call's.
         responseHeaders.remove("X-Request-Id");
-        client.getPolicies();
+        client.listPolicies(null, null);
         Assert.assertNull(client.getLastRequestId());
     }
 
@@ -5115,11 +5063,11 @@ public class PhilterClientMockTest {
         responseHeaders.put("X-Request-Id", REQUEST_ID);
         respond(200, "{}");
         final PhilterClient client = client();
-        client.getPolicies();
+        client.listPolicies(null, null);
         Assert.assertEquals(REQUEST_ID, client.getLastRequestId());
 
         server.stop(0);
-        Assert.assertThrows(IOException.class, client::getPolicies);
+        Assert.assertThrows(IOException.class, () -> client.listPolicies(null, null));
         Assert.assertNull(client.getLastRequestId());
     }
 
@@ -5354,7 +5302,7 @@ public class PhilterClientMockTest {
 
         respond(401, "{\"message\":\"The session has ended. Sign in again.\",\"reason\":\"session_expired\"}");
 
-        final UnauthorizedException ex = Assert.assertThrows(UnauthorizedException.class, () -> client().getPolicies());
+        final UnauthorizedException ex = Assert.assertThrows(UnauthorizedException.class, () -> client().listPolicies(null, null));
 
         Assert.assertEquals(401, ex.getStatusCode());
         Assert.assertEquals("The session has ended. Sign in again.", ex.getErrorMessage());
@@ -5367,7 +5315,7 @@ public class PhilterClientMockTest {
 
         for (final String body : new String[]{"", "Unauthorized, as plain text"}) {
             respond(401, body);
-            final UnauthorizedException ex = Assert.assertThrows(UnauthorizedException.class, () -> client().getPolicies());
+            final UnauthorizedException ex = Assert.assertThrows(UnauthorizedException.class, () -> client().listPolicies(null, null));
             Assert.assertEquals(401, ex.getStatusCode());
             Assert.assertNull(ex.getErrorMessage());
             Assert.assertNull(ex.getReason());
@@ -5381,7 +5329,7 @@ public class PhilterClientMockTest {
         respond(503, "{\"message\":\"Philter is starting. Try again shortly.\",\"reason\":\"service_unavailable\"}");
 
         final ServiceUnavailableException ex = Assert.assertThrows(ServiceUnavailableException.class,
-                () -> client().getPolicies());
+                () -> client().listPolicies(null, null));
 
         Assert.assertEquals(503, ex.getStatusCode());
         Assert.assertEquals("Philter is starting. Try again shortly.", ex.getErrorMessage());
@@ -5395,7 +5343,7 @@ public class PhilterClientMockTest {
         for (final String body : new String[]{"", "<html>Bad gateway</html>"}) {
             respond(503, body);
             final ServiceUnavailableException ex = Assert.assertThrows(ServiceUnavailableException.class,
-                    () -> client().getPolicies());
+                    () -> client().listPolicies(null, null));
             Assert.assertEquals(503, ex.getStatusCode());
             Assert.assertNull(ex.getErrorMessage());
             Assert.assertNull(ex.getReason());
@@ -5410,7 +5358,7 @@ public class PhilterClientMockTest {
         final int[] statuses = {400, 401, 503};
         for (final int status : statuses) {
             respond(status, "{\"message\":\"m" + status + "\",\"reason\":\"r" + status + "\"}");
-            final RuntimeException thrown = Assert.assertThrows(RuntimeException.class, () -> client().getPolicies());
+            final RuntimeException thrown = Assert.assertThrows(RuntimeException.class, () -> client().listPolicies(null, null));
             Assert.assertTrue(thrown.getClass().getName(), thrown instanceof PhilterError);
             final PhilterError error = (PhilterError) thrown;
             Assert.assertEquals(status, error.getStatusCode());
@@ -5674,7 +5622,7 @@ public class PhilterClientMockTest {
         respond(400, "{\"message\":\"sort must be one of name, created, updated.\",\"reason\":\"invalid_request\","
                 + "\"field\":\"sort\"}");
 
-        final ClientException ex = Assert.assertThrows(ClientException.class, () -> client().getPolicies());
+        final ClientException ex = Assert.assertThrows(ClientException.class, () -> client().listPolicies(null, null));
 
         Assert.assertEquals(ErrorReasons.INVALID_REQUEST, ex.getReason());
         Assert.assertEquals("sort", ex.getField());
@@ -5686,7 +5634,7 @@ public class PhilterClientMockTest {
 
         respond(403, "{\"message\":\"This API key does not have the 'policies:read' scope.\",\"reason\":\"missing_scope\"}");
 
-        final ClientException ex = Assert.assertThrows(ClientException.class, () -> client().getPolicies());
+        final ClientException ex = Assert.assertThrows(ClientException.class, () -> client().listPolicies(null, null));
 
         Assert.assertEquals(ErrorReasons.MISSING_SCOPE, ex.getReason());
         Assert.assertNull(ex.getField());
@@ -5697,7 +5645,7 @@ public class PhilterClientMockTest {
 
         for (final String body : new String[]{"", "<html>Bad gateway</html>", "{\"error\":\"old shape\"}"}) {
             respond(502, body);
-            final ClientException ex = Assert.assertThrows(ClientException.class, () -> client().getPolicies());
+            final ClientException ex = Assert.assertThrows(ClientException.class, () -> client().listPolicies(null, null));
             Assert.assertEquals(502, ex.getStatusCode());
             Assert.assertNull(ex.getReason());
             Assert.assertNull(ex.getField());
@@ -5712,7 +5660,7 @@ public class PhilterClientMockTest {
                 500, ErrorReasons.INTERNAL_ERROR);
         for (final Map.Entry<Integer, String> entry : defaults.entrySet()) {
             respond(entry.getKey(), "{\"message\":\"m\",\"reason\":\"" + entry.getValue() + "\"}");
-            final ClientException ex = Assert.assertThrows(ClientException.class, () -> client().getPolicies());
+            final ClientException ex = Assert.assertThrows(ClientException.class, () -> client().listPolicies(null, null));
             Assert.assertEquals(entry.getValue(), ex.getReason());
         }
     }
@@ -5803,28 +5751,6 @@ public class PhilterClientMockTest {
         final Page<CustomListSummary> allLists = client().listCustomListsAcrossUsers(new ListOptions().limit(5));
         Assert.assertEquals(Map.of("all_users", "true", "limit", "5"), queryParameters);
         Assert.assertTrue(allLists.getItems().get(0).getOwner().endsWith("@example.com"));
-    }
-
-    @Test
-    public void listCustomListsWithoutOptionsStillReadsEveryList() throws Exception {
-
-        final StringBuilder first = new StringBuilder("{\"lists\":[");
-        for (int i = 0; i < 100; i++) {
-            first.append(i == 0 ? "" : ",").append("{\"name\":\"list-").append(i).append("\",\"size\":1}");
-        }
-        first.append("],\"total\":101}");
-        queuedResponses.add(Map.entry(200, first.toString().getBytes(StandardCharsets.UTF_8)));
-        queuedResponses.add(Map.entry(200, "{\"lists\":[{\"name\":\"list-100\",\"size\":1}],\"total\":101}"
-                .getBytes(StandardCharsets.UTF_8)));
-        requests.clear();
-
-        final List<CustomListSummary> lists = client().listCustomLists();
-
-        Assert.assertEquals(101, lists.size());
-        Assert.assertEquals("list-100", lists.get(100).getName());
-        Assert.assertEquals(2, requests.size());
-        Assert.assertEquals("0", requests.get(0).queryParameters.get("offset"));
-        Assert.assertEquals("100", requests.get(1).queryParameters.get("offset"));
     }
 
     @Test

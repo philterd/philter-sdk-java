@@ -78,8 +78,8 @@ Page<PolicySummary> policies = client.listPoliciesAcrossUsers(new ListOptions().
 Page<OwnedLegalHoldResponse> holds = client.listHoldsAcrossUsers(new ListOptions().limit(100));
 ```
 
-## Older listing methods
+## Offset and limit overloads
 
-The listing methods that returned a plain `List` (`getPolicies`, `getPoliciesAcrossUsers`, `listManagedPolicies(offset, limit)`, `getPolicyVersions`, `getHolds`, `getHoldsAcrossUsers`, `listCustomLists(owner)`, and `listCustomListsAcrossUsers(offset, limit)`) still work and are deprecated: they return one page's items without the total, and take no sorting or search. `listCustomLists(owner)` returns every list, reading each page in turn, as it did before Philter paged custom lists. `getPolicies` and `getManagedPolicies` still return policy names, `getPoliciesAcrossUsers` still returns `OwnedName` items, and `listManagedPolicies()` and `listManagedPolicies(offset, limit)` still return `ManagedPolicySummary` items, each read from the policy summaries Philter now returns. The listings that already returned a typed page, such as `listContexts(owner, offset, limit)` and `getUsers(offset, limit)`, keep their `offset` and `limit` overloads and now carry the total.
+Some listings, such as `listContexts(owner, offset, limit)` and `getUsers(offset, limit)`, also have an overload that takes `offset` and `limit` directly. It returns the same page and total, without sorting or search.
 
 `exportAuditLog` is paged with `offset` and `limit` too, but with its own defaults and a truncation flag; see [Audit Log](audit-log.md). `listRedactLists` is not a listing: it returns the two redact lists.

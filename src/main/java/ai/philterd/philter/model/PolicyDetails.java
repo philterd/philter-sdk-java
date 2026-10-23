@@ -82,7 +82,7 @@ public class PolicyDetails {
         this.notes = notes;
     }
 
-    /** The policy's current revision. See {@code getPolicyVersions}. */
+    /** The policy's current revision. See {@code listPolicyVersions}. */
     public int getRevision() {
         return revision;
     }

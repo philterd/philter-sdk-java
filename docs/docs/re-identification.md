@@ -33,7 +33,7 @@ for (ReidentifyResponse.ReidentifyResult result : response.getResults()) {
 client.reidentifyValues("someone@example.com", request);
 ```
 
-There is one result for each value, in the order sent. A value that cannot be re-identified does not fail the request: its result has an error and no decrypted value. `reidentify(owner, request)`, which returns the response as a JSON string, is deprecated.
+There is one result for each value, in the order sent. A value that cannot be re-identified does not fail the request: its result has an error and no decrypted value.
 
 Any other strategy name, a missing reason, or an empty value list is rejected with an HTTP 400, which the client raises as a `ClientException`.
 

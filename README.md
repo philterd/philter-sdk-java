@@ -10,17 +10,21 @@ for details on the available endpoints.
 
 ## Compatibility
 
-As of version 2.0.0, this client targets the **Philter 4.0.0** API. Earlier versions of the client are not
+As of version 3.0.0, this client targets the **Philter 4.0.0** API. Earlier versions of the client are not
 compatible with Philter 4.0.0 and later.
 
 | philter-sdk-java | Philter API | Branch |
 |------------------|-------------|--------|
-| 2.0.0 and later  | 4.x         | `main` |
+| 3.0.0 and later  | 4.x         | `main` |
+| 2.0.0            | none (do not use) | |
 | 1.x              | 1.x – 3.x   | `1.x`  |
 
 Development for Philter 4.x happens on the `main` branch. The `1.x` branch supports Philter 3 and earlier.
 
-Version 2.0.0 is not backward compatible with 1.x. Philter 4.0 changed the shape of several requests and
+The 2.0.0 on Maven Central was published in June 2026 against an early Philter 4.0 API that has since changed, so it
+does not work with Philter 4.0.0. Use 3.0.0 or later.
+
+Version 3.0.0 is not backward compatible with 1.x or 2.0.0. Philter 4.0 changed the shape of several requests and
 responses, for example:
 
 * `createContext` sends the name and settings, and `updateContext` the settings, as a JSON body.
@@ -30,6 +34,8 @@ responses, for example:
 * `saveList` and `replaceList` send the items and description as a JSON body.
 * `getLedgerChain` returns a page of the chain, with `getTotal()`, and takes `offset` and `limit`.
 * The policy and context listings return `PolicySummary` and `ContextSummary` items instead of names.
+
+The methods that returned raw JSON strings or a bare `List` are removed in favor of typed replacements.
 
 See the breaking changes in [RELEASE_NOTES.md](RELEASE_NOTES.md) before upgrading.
 
@@ -45,7 +51,7 @@ dependency to your Maven configuration:
 <dependency>
     <groupId>ai.philterd</groupId>
     <artifactId>philter-sdk-java</artifactId>
-    <version>2.0.0</version>
+    <version>3.0.0</version>
 </dependency>
 ```
 
@@ -68,7 +74,7 @@ To track the latest development build, depend on the current `-SNAPSHOT` version
 <dependency>
     <groupId>ai.philterd</groupId>
     <artifactId>philter-sdk-java</artifactId>
-    <version>2.0.0-SNAPSHOT</version>
+    <version>3.0.0-SNAPSHOT</version>
 </dependency>
 ```
 
@@ -198,10 +204,6 @@ Page<PolicySummary> page = client.listPolicies(null, new ListOptions().limit(50)
 System.out.println(page.getItems() + " of " + page.getTotal());
 ```
 
-This client reads the listing shape Philter returns since philterd/philter#160: an object with the items and `total`.
-`GET /api/policies`, `/api/holds`, `/api/lists`, and policy versions used to return bare arrays, so their listing methods
-need a Philter that includes that change. The older methods that return a plain `List` still work and are deprecated.
-
 Edit a policy without overwriting someone else's change: read it with its entity tag, and pass the tag back. If the
 policy changed since, the write is refused with `ErrorReasons.POLICY_CHANGED`:
 
@@ -239,9 +241,6 @@ PolicyDiff diff = client.diffPolicy("ssn_only");
 ImportContextEntriesResponse imported =
         client.importContextEntriesExport("tenant-b", client.getContextEntriesExport("tenant-a"));
 ```
-
-The older `compilePolicy`, `getPolicyDiff`, `reidentify`, `exportContextEntries`, and `importContextEntries`, which
-return JSON strings, still work and are deprecated.
 
 Export the audit log as CSV a page at a time with `exportAuditLogAfter`, following each page's cursor, which returns
 each event once even when the range includes today:

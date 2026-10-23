@@ -40,7 +40,7 @@ PhilterClient client = new PhilterClient.PhilterClientBuilder()
         .build();
 ```
 
-Connection pooling is tuned with the JDK's own system properties (`jdk.httpclient.connectionPoolSize`, `jdk.httpclient.keepalive.timeout`) rather than on the builder. `withMaxIdleConnections(...)` and `withKeepAliveDurationMs(...)` remain on the builder for source compatibility but have no effect.
+Connection pooling is tuned with the JDK's own system properties (`jdk.httpclient.connectionPoolSize`, `jdk.httpclient.keepalive.timeout`) rather than on the builder.
 
 ## TLS and client certificates
 

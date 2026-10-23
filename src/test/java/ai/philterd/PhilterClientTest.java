@@ -25,7 +25,10 @@ import ai.philterd.philter.model.DocumentSummary;
 import ai.philterd.philter.model.ExplainResponse;
 import ai.philterd.philter.model.FilterResponse;
 import ai.philterd.philter.model.GenericResponse;
+import ai.philterd.philter.model.ListOptions;
 import ai.philterd.philter.model.Model;
+import ai.philterd.philter.model.Page;
+import ai.philterd.philter.model.PolicySummary;
 import ai.philterd.philter.model.StatusResponse;
 import ai.philterd.philter.model.exceptions.ClientException;
 import org.apache.logging.log4j.LogManager;
@@ -117,7 +120,7 @@ public class PhilterClientTest {
     @Test
     public void signingKey() throws Exception {
         // The signing key endpoint is unauthenticated, like health.
-        Assert.assertNotNull(client().getSigningKey());
+        Assert.assertNotNull(client().getSigningKeyDetails().getKeyId());
     }
 
     // Models.
@@ -207,10 +210,10 @@ public class PhilterClientTest {
     // Policies.
 
     @Test
-    public void getPolicies() throws Exception {
-        final List<String> policies = client().getPolicies();
-        Assert.assertNotNull(policies);
-        LOGGER.info("Policies: {}", policies);
+    public void listPolicies() throws Exception {
+        final Page<PolicySummary> policies = client().listPolicies(null, null);
+        Assert.assertNotNull(policies.getItems());
+        LOGGER.info("Policies: {} of {}", policies.getItems().size(), policies.getTotal());
     }
 
     @Test
@@ -231,7 +234,8 @@ public class PhilterClientTest {
             final String fetched = client.getPolicy(name);
             Assert.assertNotNull(fetched);
             Assert.assertTrue("Saved policy should appear in the policy list.",
-                    client.getPolicies().contains(name));
+                    client.listPolicies(null, new ListOptions().search(name)).getItems().stream()
+                            .anyMatch(policy -> name.equals(policy.getName())));
         } finally {
             client.deletePolicy(name);
         }
@@ -248,7 +252,7 @@ public class PhilterClientTest {
         try {
             final GenericResponse created = client.createContext(name, false, false);
             Assert.assertNotNull(created);
-            Assert.assertNotNull(client.getContexts());
+            Assert.assertNotNull(client.listContexts());
         } finally {
             client.deleteContext(name);
         }
@@ -309,7 +313,8 @@ public class PhilterClientTest {
 
         // The new user comes with a "default" policy and context, so the key can redact straight away.
         Assert.assertNotNull(scoped.filter("default", "default", SENSITIVE_TEXT).getFilteredText());
-        Assert.assertThrows("A redact-only key cannot read policies.", ClientException.class, scoped::getPolicies);
+        Assert.assertThrows("A redact-only key cannot read policies.", ClientException.class,
+                () -> scoped.listPolicies(null, null));
     }
 
     private static String getEnv(final String name, final String defaultValue) {
