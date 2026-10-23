@@ -10,7 +10,8 @@ changes are relative to 1.5.0, and the ones 1.6.0 already made are marked.
 
 **Skip 2.0.0.** A 2.0.0 was published to Maven Central on 2026-06-12. It was built on Retrofit and OkHttp against an
 early Philter 4.0 API that has since changed (for example, it updates a context with `PUT`, where Philter 4.0
-requires `PATCH`), and it was never tagged. 3.0.0 replaces it. Upgrade from 1.x or 2.0.0 directly to 3.0.0.
+requires `PATCH`). Its commit is tagged `2.0.0`, and its GitHub release is marked not to use. 3.0.0 replaces it.
+Upgrade from 1.x or 2.0.0 directly to 3.0.0.
 
 ### Breaking changes
 
