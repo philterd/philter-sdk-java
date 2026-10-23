@@ -48,6 +48,8 @@ import ai.philterd.philter.model.CreatedApiKeyResponse;
 import ai.philterd.philter.model.CreatedUserResponse;
 import ai.philterd.philter.model.CurrentUser;
 import ai.philterd.philter.model.ExplainResponse;
+import ai.philterd.philter.model.Explanation;
+import ai.philterd.philter.model.Span;
 import ai.philterd.philter.model.FilterResponse;
 import ai.philterd.philter.model.GenericResponse;
 import ai.philterd.philter.model.GetApiKeysResponse;
@@ -587,7 +589,7 @@ public class PhilterClientMockTest {
 
         respond(200, "{\"filteredText\":\"redacted\",\"context\":\"ctx\",\"documentId\":\"doc-1\"," +
                 "\"explanation\":{\"appliedSpans\":[{\"filterType\":\"ssn\",\"characterStart\":0,\"characterEnd\":11}]," +
-                "\"ignoredSpans\":[]}}");
+                "\"identifiedSpans\":[]}}");
 
         final ExplainResponse response = client().explain("ctx", "default", "My SSN is 123-45-6789.");
 
@@ -598,6 +600,29 @@ public class PhilterClientMockTest {
         Assert.assertEquals("ssn", response.getExplanation().getAppliedSpans().get(0).getFilterType());
 
         Assert.assertEquals("/api/explain", path);
+    }
+
+    @Test
+    public void explainReadsEachSpansClassification() throws Exception {
+
+        // Classifications as Phileas 4.5.0 gives them: a driver's license span names the state whose format matched,
+        // a custom identifier span has the policy's classification, and an SSN span has none, so Philter leaves it out.
+        respond(200, "{\"filteredText\":\"MRN {{{REDACTED-id}}}, DL {{{REDACTED-drivers-license-number}}}, SSN {{{REDACTED-ssn}}}.\","
+                + "\"context\":\"ctx\",\"explanation\":{\"appliedSpans\":["
+                + "{\"filterType\":\"IDENTIFIER\",\"classification\":\"custom-identifier\",\"characterStart\":4,"
+                + "\"characterEnd\":14,\"text\":\"MRN-123456\"},"
+                + "{\"filterType\":\"DRIVERS_LICENSE_NUMBER\",\"classification\":\"NORTH CAROLINA\",\"characterStart\":19,"
+                + "\"characterEnd\":28,\"text\":\"123456789\"},"
+                + "{\"filterType\":\"SSN\",\"characterStart\":34,\"characterEnd\":45,\"text\":\"123-45-6789\"}]}}");
+
+        final Explanation explanation = client().explain("ctx", "default",
+                "MRN MRN-123456, DL 123456789, SSN 123-45-6789.").getExplanation();
+
+        Assert.assertEquals("custom-identifier", explanation.getAppliedSpans().get(0).getClassification());
+        final Span license = explanation.getAppliedSpans().get(1);
+        Assert.assertEquals("DRIVERS_LICENSE_NUMBER", license.getFilterType());
+        Assert.assertEquals("NORTH CAROLINA", license.getClassification());
+        Assert.assertNull("a span without one", explanation.getAppliedSpans().get(2).getClassification());
     }
 
     // Authentication.
@@ -800,7 +825,7 @@ public class PhilterClientMockTest {
     public void explainAsksForASignatureAndKeepsTheExactBody() throws Exception {
 
         // Whitespace and key order a re-serialization would not reproduce.
-        final String body = "{\"filteredText\":\"Zoë {{{REDACTED-ssn}}}\",  \"explanation\":{\"appliedSpans\":[],\"ignoredSpans\":[]},"
+        final String body = "{\"filteredText\":\"Zoë {{{REDACTED-ssn}}}\",  \"explanation\":{\"appliedSpans\":[],\"identifiedSpans\":[]},"
                 + "\"policyName\":\"default\"}";
         final String jwt = signatureFor(body);
         responseHeaders.put("X-Philter-Signature", jwt);
@@ -829,7 +854,7 @@ public class PhilterClientMockTest {
     @Test
     public void explainSendsNoSignByDefault() throws Exception {
 
-        final String body = "{\"filteredText\":\"{{{REDACTED-ssn}}}\",\"explanation\":{\"appliedSpans\":[],\"ignoredSpans\":[]}}";
+        final String body = "{\"filteredText\":\"{{{REDACTED-ssn}}}\",\"explanation\":{\"appliedSpans\":[],\"identifiedSpans\":[]}}";
         respond(200, body);
 
         final ExplainResponse response = client().explain("ctx", "default", "123-45-6789");

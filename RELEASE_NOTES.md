@@ -33,6 +33,10 @@ requires `PATCH`), and it was never tagged. 3.0.0 replaces it. Upgrade from 1.x 
 
   The removed methods returned raw JSON strings or a bare `List` without the total. `listCustomLists(owner)` read
   every page; page through `listCustomLists(owner, options)` with `Page.getTotal()` instead.
+* `FilteredSpan`, which no method returned, is removed. Explain responses use `Span`.
+* `Explanation.getIgnoredSpans()` and `setIgnoredSpans()` are removed. They read `ignoredSpans`, which Philter does
+  not send (Phileas has named its second list `identifiedSpans` since at least 2.12.3), so the getter always returned
+  `null`. `getAppliedSpans()` is unchanged.
 * `startMfaEnrollment` takes the user's current password, which Philter 4.0 requires to start enrollment. It and
   `changePassword` throw `SignInLockedException` while the user's sign-in is locked.
 * `updateContext` sends `PATCH /api/contexts/{name}` with the settings given as a JSON body
@@ -99,7 +103,8 @@ the listing's response type.
   with (`getPolicyName`, `getPolicyVersion`, `getPolicyContentHash`), which `getPolicyVersion(name, revision)`
   reads. Each also has a job `type` (`getType`), a string so a type a later Philter adds is still read;
   `redaction` is the only one Philter 4.0 returns. `filter` and `explain` take an optional filename and can
-  return a signed response (`X-Philter-Signature`).
+  return a signed response (`X-Philter-Signature`). Each explained `Span` has its `classification` when the filter
+  gives one, such as the state of a driver's license number or a custom identifier's classification.
 * **Policies:** versions (each with its `author`), diffs (`diffPolicy`, and `diffPolicy(name)` compares the two
   most recent revisions), rollback, deleted policies (`getDeletedPolicies`), templates (`getPolicyTemplate`),
   PhiSQL compilation (`compilePhiSql`), descriptions and notes, managed policies (`listManagedPolicies`), and

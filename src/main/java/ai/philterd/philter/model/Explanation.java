@@ -26,24 +26,12 @@ public class Explanation {
     @SerializedName("appliedSpans")
     private List<Span> appliedSpans;
 
-    @Expose
-    @SerializedName("ignoredSpans")
-    private List<Span> ignoredSpans;
-
     public List<Span> getAppliedSpans() {
         return appliedSpans;
     }
 
     public void setAppliedSpans(List<Span> appliedSpans) {
         this.appliedSpans = appliedSpans;
-    }
-
-    public List<Span> getIgnoredSpans() {
-        return ignoredSpans;
-    }
-
-    public void setIgnoredSpans(List<Span> ignoredSpans) {
-        this.ignoredSpans = ignoredSpans;
     }
 
 }

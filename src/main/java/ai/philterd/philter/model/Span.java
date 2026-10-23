@@ -40,6 +40,10 @@ public class Span {
     private String filterType;
 
     @Expose
+    @SerializedName("classification")
+    private String classification;
+
+    @Expose
     @SerializedName("context")
     private String context;
 
@@ -97,6 +101,20 @@ public class Span {
 
     public void setFilterType(String filterType) {
         this.filterType = filterType;
+    }
+
+    /**
+     * Gets what the filter classified the span as, beyond its filter type: for a driver's license number, the
+     * state whose format matched (such as {@code UTAH}); for a custom identifier or custom dictionary, the
+     * classification the policy gives it ({@code custom-identifier} by default for an identifier).
+     * @return The classification, or {@code null} when the filter gives none, as a PhEye span does.
+     */
+    public String getClassification() {
+        return classification;
+    }
+
+    public void setClassification(String classification) {
+        this.classification = classification;
     }
 
     public String getContext() {

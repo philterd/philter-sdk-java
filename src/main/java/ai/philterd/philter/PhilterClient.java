@@ -1221,7 +1221,9 @@ public class PhilterClient {
 	}
 
 	/**
-	 * Send text to Philter to be filtered and get an explanation.
+	 * Send text to Philter to be filtered and get an explanation. Each applied {@link Span} has its
+	 * filter type and, when the filter gives one, a {@link Span#getClassification() classification}, such as the
+	 * state of a driver's license number.
 	 * @param context The context. Contexts can be used to group text based on some arbitrary property.
 	 * @param policyName The name of the policy to apply to the text.
 	 * @param text The text to be filtered.
