@@ -34,6 +34,8 @@ requires `PATCH`), and it was never tagged. 3.0.0 replaces it. Upgrade from 1.x 
   The removed methods returned raw JSON strings or a bare `List` without the total. `listCustomLists(owner)` read
   every page; page through `listCustomLists(owner, options)` with `Page.getTotal()` instead.
 * `FilteredSpan`, which no method returned, is removed. Explain responses use `Span`.
+* `Span.getId()`, `getDocumentId()`, and their setters are removed. Philter's spans have neither field, so both
+  always returned `null`.
 * `Explanation.getIgnoredSpans()` and `setIgnoredSpans()` are removed. They read `ignoredSpans`, which Philter does
   not send (Phileas has named its second list `identifiedSpans` since at least 2.12.3), so the getter always returned
   `null`. `getAppliedSpans()` is unchanged.
@@ -74,7 +76,9 @@ requires `PATCH`), and it was never tagged. 3.0.0 replaces it. Upgrade from 1.x 
   default.
 * `withApiKey(...)` sends its value verbatim in the `Authorization` header, so include any scheme prefix such
   as `"Bearer "`.
-* `filter` and `explain` no longer take a document ID. Philter returns it in the `x-document-id` header.
+* `filter` and `explain` no longer take a document ID. Philter returns it in the `x-document-id` header, which
+  `getDocumentId()` reads on both responses. Earlier 3.0.0 snapshots read the explain response's ID from its body,
+  where Philter does not send it, so it was always `null`.
 * `savePolicy(json)` is replaced by `savePolicy(name, json)`, which only creates: a name in use is a 409
   `policy_exists`. Overwrite with `replacePolicy`. `Policy(policyName)` is renamed `getPolicy(policyName)`.
 * Removed `status()` (use `health()`) and alerts (alerts also in 1.6.0). `withSslConfiguration(...)` is replaced by

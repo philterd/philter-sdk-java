@@ -24,10 +24,6 @@ import com.google.gson.annotations.SerializedName;
 public class Span {
 
     @Expose
-    @SerializedName("id")
-    private String id;
-
-    @Expose
     @SerializedName("characterStart")
     private int characterStart;
 
@@ -48,10 +44,6 @@ public class Span {
     private String context;
 
     @Expose
-    @SerializedName("documentId")
-    private String documentId;
-
-    @Expose
     @SerializedName("confidence")
     private double confidence;
 
@@ -70,14 +62,6 @@ public class Span {
     @Expose
     @SerializedName("ignored")
     private boolean ignored;
-
-    public String getId() {
-        return id;
-    }
-
-    public void setId(String id) {
-        this.id = id;
-    }
 
     public int getCharacterStart() {
         return characterStart;
@@ -123,14 +107,6 @@ public class Span {
 
     public void setContext(String context) {
         this.context = context;
-    }
-
-    public String getDocumentId() {
-        return documentId;
-    }
-
-    public void setDocumentId(String documentId) {
-        this.documentId = documentId;
     }
 
     public double getConfidence() {

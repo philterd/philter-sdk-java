@@ -587,7 +587,10 @@ public class PhilterClientMockTest {
     @Test
     public void explain() throws Exception {
 
-        respond(200, "{\"filteredText\":\"redacted\",\"context\":\"ctx\",\"documentId\":\"doc-1\"," +
+        // Philter sends the document ID in X-Document-Id, not in the body.
+        documentIdHeaderName = "X-Document-Id";
+        documentIdHeader = "doc-1";
+        respond(200, "{\"filteredText\":\"redacted\",\"context\":\"ctx\"," +
                 "\"explanation\":{\"appliedSpans\":[{\"filterType\":\"ssn\",\"characterStart\":0,\"characterEnd\":11}]," +
                 "\"identifiedSpans\":[]}}");
 

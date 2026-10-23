@@ -1284,6 +1284,8 @@ public class PhilterClient {
 		if(explainResponse != null) {
 			explainResponse.setResponseBody(response.body());
 			explainResponse.setSignature(response.headers().firstValue(SIGNATURE_HEADER).orElse(null));
+			// Philter sends the document ID in a header, not in the body.
+			explainResponse.setDocumentId(response.headers().firstValue(DOCUMENT_ID_HEADER).orElse(null));
 		}
 
 		return explainResponse;
