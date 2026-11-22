@@ -41,7 +41,9 @@ import ai.philterd.philter.model.MfaEnrollment;
 import ai.philterd.philter.model.ApiKey;
 import ai.philterd.philter.model.AuditEvent;
 import ai.philterd.philter.model.AuditLogExport;
+import ai.philterd.philter.model.AsyncFilterResponse;
 import ai.philterd.philter.model.BinaryFilterResponse;
+import ai.philterd.philter.model.PagePolicy;
 import ai.philterd.philter.model.CreateApiKeyRequest;
 import ai.philterd.philter.model.CreateUserRequest;
 import ai.philterd.philter.model.CreatedApiKeyResponse;
@@ -488,6 +490,175 @@ public class PhilterClientMockTest {
         final String toPdfWithoutKey = lastRequest();
         client().filterToPdfAsync("ctx", "default", "a.pdf", file, null);
         Assert.assertEquals(toPdfWithoutKey, lastRequest());
+    }
+
+    /** Every {@code page_policy} value in the last request's query, decoded, in the order sent. */
+    private List<String> pagePolicyParameters() {
+        final List<String> values = new ArrayList<>();
+        if (rawQuery == null) {
+            return values;
+        }
+        for (final String pair : rawQuery.split("&")) {
+            if (pair.startsWith("page_policy=")) {
+                values.add(URLDecoder.decode(pair.substring("page_policy=".length()), StandardCharsets.UTF_8));
+            }
+        }
+        return values;
+    }
+
+    @Test
+    public void pagePoliciesAreSentAsSeparateEncodedParametersOnSynchronousRequests() throws Exception {
+
+        final byte[] pdf = {0x25, 0x50, 0x44, 0x46};
+        final File file = pdfFile();
+        final List<PagePolicy> one = List.of(new PagePolicy("1,3", "records"));
+        final List<PagePolicy> several = List.of(new PagePolicy("2-5,8", "records"), new PagePolicy("12-", "exhibits"));
+
+        respond(200, pdf);
+        responseHeaders.put("X-Philter-Page-Policies", "2-5,8=records@3; 12-=exhibits@1");
+
+        BinaryFilterResponse response = client().filter("ctx", "default", "a.pdf", file, one);
+        Assert.assertEquals(List.of("1,3:records"), pagePolicyParameters());
+        // The comma in the page set is encoded, so the value is never split or joined on it.
+        Assert.assertTrue(rawQuery, rawQuery.contains("page_policy=1%2C3%3Arecords"));
+        Assert.assertEquals("application/zip", header("Accept"));
+        Assert.assertEquals("false", queryParameter("async"));
+        Assert.assertEquals("default", queryParameter("p"));
+        Assert.assertEquals("2-5,8=records@3; 12-=exhibits@1", response.getPagePolicies());
+
+        response = client().filter("ctx", "default", "a.pdf", pdf, several);
+        Assert.assertEquals(List.of("2-5,8:records", "12-:exhibits"), pagePolicyParameters());
+        Assert.assertEquals("application/zip", header("Accept"));
+        Assert.assertEquals("2-5,8=records@3; 12-=exhibits@1", response.getPagePolicies());
+
+        response = client().filterToPdf("ctx", "default", "a.pdf", file, several);
+        Assert.assertEquals(List.of("2-5,8:records", "12-:exhibits"), pagePolicyParameters());
+        Assert.assertEquals("application/pdf", header("Accept"));
+        Assert.assertArrayEquals(pdf, response.getContent());
+
+        response = client().filterToPdf("ctx", "default", "a.pdf", pdf, one);
+        Assert.assertEquals(List.of("1,3:records"), pagePolicyParameters());
+        Assert.assertEquals("application/pdf", header("Accept"));
+        Assert.assertEquals("2-5,8=records@3; 12-=exhibits@1", response.getPagePolicies());
+    }
+
+    @Test
+    public void pagePoliciesAreSentAsSeparateEncodedParametersOnAsynchronousRequests() throws Exception {
+
+        final byte[] pdf = {0x25, 0x50, 0x44, 0x46};
+        final File file = pdfFile();
+        final List<PagePolicy> one = List.of(new PagePolicy("1,3", "records"));
+        final List<PagePolicy> several = List.of(new PagePolicy("2-5,8", "records"), new PagePolicy("12-", "exhibits"));
+
+        respond(202, "{\"documentId\":\"doc-pages\"}");
+        responseHeaders.put("X-Philter-Page-Policies", "1,3=records@2");
+
+        AsyncFilterResponse response = client().filterAsync("ctx", "default", "a.pdf", file, null, one);
+        Assert.assertEquals("doc-pages", response.getDocumentId());
+        Assert.assertEquals("1,3=records@2", response.getPagePolicies());
+        Assert.assertEquals(List.of("1,3:records"), pagePolicyParameters());
+        Assert.assertTrue(rawQuery, rawQuery.contains("page_policy=1%2C3%3Arecords"));
+        Assert.assertEquals("true", queryParameter("async"));
+        Assert.assertEquals("application/zip", header("Accept"));
+        Assert.assertFalse(queryParameters.containsKey("fairness_key"));
+
+        response = client().filterAsync("ctx", "default", "a.pdf", pdf, "group:42", several);
+        Assert.assertEquals("doc-pages", response.getDocumentId());
+        Assert.assertEquals(List.of("2-5,8:records", "12-:exhibits"), pagePolicyParameters());
+        Assert.assertEquals("group:42", queryParameter("fairness_key"));
+        Assert.assertEquals("application/zip", header("Accept"));
+
+        response = client().filterToPdfAsync("ctx", "default", "a.pdf", file, null, several);
+        Assert.assertEquals(List.of("2-5,8:records", "12-:exhibits"), pagePolicyParameters());
+        Assert.assertEquals("application/pdf", header("Accept"));
+        Assert.assertEquals("1,3=records@2", response.getPagePolicies());
+
+        response = client().filterToPdfAsync("ctx", "default", "a.pdf", pdf, null, one);
+        Assert.assertEquals(List.of("1,3:records"), pagePolicyParameters());
+        Assert.assertEquals("application/pdf", header("Accept"));
+        Assert.assertEquals("true", queryParameter("async"));
+        Assert.assertEquals("doc-pages", response.getDocumentId());
+    }
+
+    @Test
+    public void requestsWithoutPagePoliciesSendNoneAndReportNone() throws Exception {
+
+        final byte[] pdf = {0x25, 0x50, 0x44, 0x46};
+
+        respond(200, pdf);
+
+        Assert.assertNull(client().filter("ctx", "default", "a.pdf", pdf).getPagePolicies());
+        Assert.assertTrue(pagePolicyParameters().isEmpty());
+        final String withoutPolicies = lastRequest();
+
+        // A null or empty list is the same request as the overload without one.
+        Assert.assertNull(client().filter("ctx", "default", "a.pdf", pdf, null).getPagePolicies());
+        Assert.assertEquals(withoutPolicies, lastRequest());
+        client().filter("ctx", "default", "a.pdf", pdf, List.of());
+        Assert.assertEquals(withoutPolicies, lastRequest());
+
+        Assert.assertNull(client().filterToPdf("ctx", "default", "a.pdf", pdf).getPagePolicies());
+        Assert.assertTrue(pagePolicyParameters().isEmpty());
+
+        respond(202, "{\"documentId\":\"doc-async\"}");
+
+        Assert.assertEquals("doc-async", client().filterAsync("ctx", "default", "a.pdf", pdf));
+        Assert.assertTrue(pagePolicyParameters().isEmpty());
+        final String asyncWithoutPolicies = lastRequest();
+
+        final AsyncFilterResponse response = client().filterAsync("ctx", "default", "a.pdf", pdf, null, List.of());
+        Assert.assertEquals("doc-async", response.getDocumentId());
+        Assert.assertNull(response.getPagePolicies());
+        Assert.assertEquals(asyncWithoutPolicies, lastRequest());
+
+        Assert.assertNull(client().filterToPdfAsync("ctx", "default", "a.pdf", pdf, null, null).getPagePolicies());
+        Assert.assertTrue(pagePolicyParameters().isEmpty());
+    }
+
+    @Test
+    public void anInvalidPageSetIsA400WithPhiltersMessage() {
+
+        respond(400, "{\"message\":\"page_policy '3-2:records': the page set 3-2 is not valid.\","
+                + "\"reason\":\"invalid_request\"}");
+
+        final List<PagePolicy> pagePolicies = List.of(new PagePolicy("3-2", "records"));
+
+        ClientException ex = Assert.assertThrows(ClientException.class,
+                () -> client().filterToPdf("ctx", "default", "a.pdf", new byte[]{1}, pagePolicies));
+        Assert.assertEquals(400, ex.getStatusCode());
+        Assert.assertEquals("page_policy '3-2:records': the page set 3-2 is not valid.", ex.getErrorMessage());
+
+        ex = Assert.assertThrows(ClientException.class,
+                () -> client().filterToPdfAsync("ctx", "default", "a.pdf", new byte[]{1}, null, pagePolicies));
+        Assert.assertEquals(400, ex.getStatusCode());
+        Assert.assertEquals("page_policy '3-2:records': the page set 3-2 is not valid.", ex.getErrorMessage());
+    }
+
+    @Test
+    public void aPagePolicyNamingAMissingPolicyIsA404WithPhiltersMessage() {
+
+        respond(404, "{\"message\":\"The policy 'records' does not exist.\",\"reason\":\"not_found\"}");
+
+        final List<PagePolicy> pagePolicies = List.of(new PagePolicy("2-5", "records"));
+
+        ClientException ex = Assert.assertThrows(ClientException.class,
+                () -> client().filter("ctx", "default", "a.pdf", new byte[]{1}, pagePolicies));
+        Assert.assertEquals(404, ex.getStatusCode());
+        Assert.assertEquals("The policy 'records' does not exist.", ex.getErrorMessage());
+
+        ex = Assert.assertThrows(ClientException.class,
+                () -> client().filterAsync("ctx", "default", "a.pdf", new byte[]{1}, null, pagePolicies));
+        Assert.assertEquals(404, ex.getStatusCode());
+        Assert.assertEquals("The policy 'records' does not exist.", ex.getErrorMessage());
+    }
+
+    @Test
+    public void aPagePolicyNeedsPagesAndAPolicy() {
+        Assert.assertThrows(IllegalArgumentException.class, () -> new PagePolicy(null, "records"));
+        Assert.assertThrows(IllegalArgumentException.class, () -> new PagePolicy(" ", "records"));
+        Assert.assertThrows(IllegalArgumentException.class, () -> new PagePolicy("1-2", null));
+        Assert.assertThrows(IllegalArgumentException.class, () -> new PagePolicy("1-2", ""));
+        Assert.assertEquals("12-:exhibits", new PagePolicy("12-", "exhibits").toString());
     }
 
     @Test

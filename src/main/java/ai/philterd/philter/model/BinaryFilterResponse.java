@@ -20,11 +20,17 @@ public class BinaryFilterResponse {
     private byte[] content;
     private String context;
     private String documentId;
+    private String pagePolicies;
 
     public BinaryFilterResponse(String context, String documentId, byte[] content) {
+        this(context, documentId, content, null);
+    }
+
+    public BinaryFilterResponse(String context, String documentId, byte[] content, String pagePolicies) {
         this.context = context;
         this.documentId = documentId;
         this.content = content;
+        this.pagePolicies = pagePolicies;
     }
 
     public byte[] getContent() {
@@ -49,6 +55,21 @@ public class BinaryFilterResponse {
 
     public void setDocumentId(String documentId) {
         this.documentId = documentId;
+    }
+
+    /**
+     * The {@code X-Philter-Page-Policies} response header: the policy and version that redacted each
+     * page set of a request sent with {@link PagePolicy page policies}, as {@code pages=policy@version}
+     * separated by {@code ; }, such as {@code 2-5,8=records@3; 12-=exhibits@1}. Pages not listed were
+     * redacted with the request's policy.
+     * @return The header's value, or {@code null} when the response has none.
+     */
+    public String getPagePolicies() {
+        return pagePolicies;
+    }
+
+    public void setPagePolicies(String pagePolicies) {
+        this.pagePolicies = pagePolicies;
     }
 
 }

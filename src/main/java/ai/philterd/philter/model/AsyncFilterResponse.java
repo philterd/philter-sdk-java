@@ -28,12 +28,30 @@ public class AsyncFilterResponse {
     @SerializedName("documentId")
     private String documentId;
 
+    // From the response header rather than the JSON body, so Gson leaves it alone.
+    private transient String pagePolicies;
+
     public String getDocumentId() {
         return documentId;
     }
 
     public void setDocumentId(String documentId) {
         this.documentId = documentId;
+    }
+
+    /**
+     * The {@code X-Philter-Page-Policies} response header: the policy and version that will redact each
+     * page set of a document submitted with {@link PagePolicy page policies}, pinned when Philter accepted
+     * it, as {@code pages=policy@version} separated by {@code ; }, such as
+     * {@code 2-5,8=records@3; 12-=exhibits@1}. Pages not listed are redacted with the request's policy.
+     * @return The header's value, or {@code null} when the response has none.
+     */
+    public String getPagePolicies() {
+        return pagePolicies;
+    }
+
+    public void setPagePolicies(String pagePolicies) {
+        this.pagePolicies = pagePolicies;
     }
 
 }

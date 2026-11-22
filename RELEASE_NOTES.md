@@ -7,6 +7,15 @@ Release notes for the Philter SDK for Java. Dates for tagged releases are taken 
 
 Not yet released; changes are relative to 3.0.0.
 
+### New features
+
+* PDFs can be redacted with different policies for different pages in one request. The PDF methods, `filter`,
+  `filterToPdf`, `filterAsync`, and `filterToPdfAsync`, each with a `File` or a `byte[]`, have overloads that take a
+  `List<PagePolicy>`; each assignment is sent as its own `page_policy` parameter. Pages not assigned are redacted
+  with the request's policy. `BinaryFilterResponse.getPagePolicies()` returns the `X-Philter-Page-Policies` header,
+  the policy and version that redacted each page set. The asynchronous overloads return an `AsyncFilterResponse`
+  with the document ID and that header. Requires Philter 4.1.0 or later. The existing overloads are unchanged.
+
 ## 3.0.0 (2026-10-23)
 
 **Compatible with Philter 4.0.0.** A major version, not backward compatible with 1.x or 2.0.0. Changes are relative

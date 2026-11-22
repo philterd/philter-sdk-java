@@ -43,6 +43,7 @@ import ai.philterd.philter.model.ApiKey;
 import ai.philterd.philter.model.AsyncFilterResponse;
 import ai.philterd.philter.model.AuditLogExport;
 import ai.philterd.philter.model.BinaryFilterResponse;
+import ai.philterd.philter.model.PagePolicy;
 import ai.philterd.philter.model.CreateApiKeyRequest;
 import ai.philterd.philter.model.CreateUserRequest;
 import ai.philterd.philter.model.CreatedApiKeyResponse;
@@ -163,6 +164,7 @@ public class PhilterClient {
 	private static final String DOCUMENT_ID_HEADER = "x-document-id";
 
 	private static final String SIGNATURE_HEADER = "X-Philter-Signature";
+	private static final String PAGE_POLICIES_HEADER = "X-Philter-Page-Policies";
 
 	private static final String EXPORT_ROWS_HEADER = "X-Philter-Export-Rows";
 	private static final String EXPORT_TRUNCATED_HEADER = "X-Philter-Export-Truncated";
@@ -944,7 +946,7 @@ public class PhilterClient {
 	 * @throws IOException Thrown if the request can not be completed.
 	 */
 	public BinaryFilterResponse filter(String context, String policyName, String filename, byte[] content) throws IOException {
-		return filterBinary(context, policyName, filename, content, "application/zip");
+		return filterBinary(context, policyName, filename, content, "application/zip", null);
 	}
 
 	/**
@@ -976,20 +978,110 @@ public class PhilterClient {
 	 * @throws IOException Thrown if the request can not be completed.
 	 */
 	public BinaryFilterResponse filterToPdf(String context, String policyName, String filename, byte[] content) throws IOException {
-		return filterBinary(context, policyName, filename, content, "application/pdf");
+		return filterBinary(context, policyName, filename, content, "application/pdf", null);
+	}
+
+	/**
+	 * Send a PDF document to Philter to be filtered, waiting for the filtered document, with different
+	 * policies for different pages. The policy and version that redacted each page set are on
+	 * {@link BinaryFilterResponse#getPagePolicies()}.
+	 * @param context The context. Contexts can be used to group text based on some arbitrary property.
+	 * @param policyName The name of the policy to apply to the pages not assigned another.
+	 * @param filename The name of the file being filtered. May be {@code null}.
+	 * @param file The PDF file to be filtered.
+	 * @param pagePolicies The policies for sets of pages, in order, each sent as its own {@code page_policy}
+	 *                     parameter. Pages not assigned are redacted with {@code policyName}, whose
+	 *                     {@code config.pdf} settings render the whole document. Philter refuses a malformed
+	 *                     or overlapping page set, or one beyond the PDF's last page, with a 400, and a policy
+	 *                     that does not exist with a 404. Requires Philter 4.1.0 or later. May be {@code null}
+	 *                     or empty to send none.
+	 * @return The filtered document as a ZIP archive.
+	 * @throws IOException Thrown if the request can not be completed.
+	 */
+	public BinaryFilterResponse filter(String context, String policyName, String filename, File file,
+	                                   List<PagePolicy> pagePolicies) throws IOException {
+		return filter(context, policyName, filename, Files.readAllBytes(file.toPath()), pagePolicies);
+	}
+
+	/**
+	 * Send a PDF document held in memory to Philter to be filtered, waiting for the filtered document, with
+	 * different policies for different pages. The policy and version that redacted each page set are on
+	 * {@link BinaryFilterResponse#getPagePolicies()}.
+	 * @param context The context. Contexts can be used to group text based on some arbitrary property.
+	 * @param policyName The name of the policy to apply to the pages not assigned another.
+	 * @param filename The name of the file being filtered, recorded against the document. May be {@code null}.
+	 * @param content The PDF.
+	 * @param pagePolicies The policies for sets of pages, in order, each sent as its own {@code page_policy}
+	 *                     parameter. Pages not assigned are redacted with {@code policyName}, whose
+	 *                     {@code config.pdf} settings render the whole document. Philter refuses a malformed
+	 *                     or overlapping page set, or one beyond the PDF's last page, with a 400, and a policy
+	 *                     that does not exist with a 404. Requires Philter 4.1.0 or later. May be {@code null}
+	 *                     or empty to send none.
+	 * @return The filtered document as a ZIP archive.
+	 * @throws IOException Thrown if the request can not be completed.
+	 */
+	public BinaryFilterResponse filter(String context, String policyName, String filename, byte[] content,
+	                                   List<PagePolicy> pagePolicies) throws IOException {
+		return filterBinary(context, policyName, filename, content, "application/zip", pagePolicies);
+	}
+
+	/**
+	 * Send a PDF document to Philter to be filtered, waiting for the filtered document and receiving it
+	 * as a PDF, with different policies for different pages. The policy and version that redacted each
+	 * page set are on {@link BinaryFilterResponse#getPagePolicies()}.
+	 * @param context The context. Contexts can be used to group text based on some arbitrary property.
+	 * @param policyName The name of the policy to apply to the pages not assigned another.
+	 * @param filename The name of the file being filtered. May be {@code null}.
+	 * @param file The PDF file to be filtered.
+	 * @param pagePolicies The policies for sets of pages, in order, each sent as its own {@code page_policy}
+	 *                     parameter. Pages not assigned are redacted with {@code policyName}, whose
+	 *                     {@code config.pdf} settings render the whole document. Philter refuses a malformed
+	 *                     or overlapping page set, or one beyond the PDF's last page, with a 400, and a policy
+	 *                     that does not exist with a 404. Requires Philter 4.1.0 or later. May be {@code null}
+	 *                     or empty to send none.
+	 * @return The filtered document as a PDF.
+	 * @throws IOException Thrown if the request can not be completed.
+	 */
+	public BinaryFilterResponse filterToPdf(String context, String policyName, String filename, File file,
+	                                        List<PagePolicy> pagePolicies) throws IOException {
+		return filterToPdf(context, policyName, filename, Files.readAllBytes(file.toPath()), pagePolicies);
+	}
+
+	/**
+	 * Send a PDF document held in memory to Philter to be filtered, waiting for the filtered document and
+	 * receiving it as a PDF, with different policies for different pages. The policy and version that
+	 * redacted each page set are on {@link BinaryFilterResponse#getPagePolicies()}.
+	 * @param context The context. Contexts can be used to group text based on some arbitrary property.
+	 * @param policyName The name of the policy to apply to the pages not assigned another.
+	 * @param filename The name of the file being filtered, recorded against the document. May be {@code null}.
+	 * @param content The PDF.
+	 * @param pagePolicies The policies for sets of pages, in order, each sent as its own {@code page_policy}
+	 *                     parameter. Pages not assigned are redacted with {@code policyName}, whose
+	 *                     {@code config.pdf} settings render the whole document. Philter refuses a malformed
+	 *                     or overlapping page set, or one beyond the PDF's last page, with a 400, and a policy
+	 *                     that does not exist with a 404. Requires Philter 4.1.0 or later. May be {@code null}
+	 *                     or empty to send none.
+	 * @return The filtered document as a PDF.
+	 * @throws IOException Thrown if the request can not be completed.
+	 */
+	public BinaryFilterResponse filterToPdf(String context, String policyName, String filename, byte[] content,
+	                                        List<PagePolicy> pagePolicies) throws IOException {
+		return filterBinary(context, policyName, filename, content, "application/pdf", pagePolicies);
 	}
 
 	private BinaryFilterResponse filterBinary(String context, String policyName, String filename, byte[] content,
-	                                          String accept) throws IOException {
+	                                          String accept, List<PagePolicy> pagePolicies) throws IOException {
 
-		final HttpRequest request = binaryFilterRequest(context, policyName, filename, content, accept, false, null);
+		final HttpRequest request = binaryFilterRequest(context, policyName, filename, content, accept, false, null,
+				pagePolicies);
 
 		final HttpResponse<byte[]> response = send(request, HttpResponse.BodyHandlers.ofByteArray());
 
 		if(isSuccessful(response)) {
 
 			final String documentId = response.headers().firstValue(DOCUMENT_ID_HEADER).orElse(null);
-			return new BinaryFilterResponse(context, documentId, response.body());
+			final String appliedPagePolicies = response.headers().firstValue(PAGE_POLICIES_HEADER).orElse(null);
+			return new BinaryFilterResponse(context, documentId, response.body(), appliedPagePolicies);
 
 		}
 
@@ -1091,7 +1183,8 @@ public class PhilterClient {
 	 */
 	public String filterAsync(String context, String policyName, String filename, byte[] content,
 	                          String fairnessKey) throws IOException {
-		return filterBinaryAsync(context, policyName, filename, content, "application/zip", fairnessKey);
+		return filterBinaryAsync(context, policyName, filename, content, "application/zip", fairnessKey, null)
+				.getDocumentId();
 	}
 
 	/**
@@ -1192,27 +1285,160 @@ public class PhilterClient {
 	 */
 	public String filterToPdfAsync(String context, String policyName, String filename, byte[] content,
 	                               String fairnessKey) throws IOException {
-		return filterBinaryAsync(context, policyName, filename, content, "application/pdf", fairnessKey);
+		return filterBinaryAsync(context, policyName, filename, content, "application/pdf", fairnessKey, null)
+				.getDocumentId();
 	}
 
-	private String filterBinaryAsync(String context, String policyName, String filename, byte[] content,
-	                                 String accept, String fairnessKey) throws IOException {
+	/**
+	 * Submits a PDF document to Philter to be filtered asynchronously, with the result stored as a ZIP archive
+	 * and different policies for different pages. Poll {@link #getDocumentState(String)} with the returned
+	 * document ID and retrieve the result with {@link #getDocument(String)}. Philter validates the page
+	 * policies before it queues the document.
+	 * @param context The context. Contexts can be used to group text based on some arbitrary property.
+	 * @param policyName The name of the policy to apply to the pages not assigned another.
+	 * @param filename The name of the file being filtered. May be {@code null}.
+	 * @param file The PDF file to be filtered.
+	 * @param fairnessKey A key that shares Philter's queue fairly among the people a single API key submits
+	 *                    for. See {@link #filterAsync(String, String, String, byte[], String)}. May be
+	 *                    {@code null} to send no key.
+	 * @param pagePolicies The policies for sets of pages, in order, each sent as its own {@code page_policy}
+	 *                     parameter. Pages not assigned are redacted with {@code policyName}, whose
+	 *                     {@code config.pdf} settings render the whole document. Philter refuses a malformed
+	 *                     or overlapping page set, or one beyond the PDF's last page, with a 400, and a policy
+	 *                     that does not exist with a 404. Requires Philter 4.1.0 or later. May be {@code null}
+	 *                     or empty to send none.
+	 * @return The ID Philter assigned to the document, and on {@link AsyncFilterResponse#getPagePolicies()}
+	 *         the policy and version pinned for each page set.
+	 * @throws IOException Thrown if the request can not be completed.
+	 */
+	public AsyncFilterResponse filterAsync(String context, String policyName, String filename, File file,
+	                                       String fairnessKey, List<PagePolicy> pagePolicies) throws IOException {
+		return filterAsync(context, policyName, filename, Files.readAllBytes(file.toPath()), fairnessKey, pagePolicies);
+	}
 
-		final HttpRequest request = binaryFilterRequest(context, policyName, filename, content, accept, true, fairnessKey);
+	/**
+	 * Submits a PDF document to Philter to be filtered asynchronously, with the result stored as a ZIP archive
+	 * and different policies for different pages. Poll {@link #getDocumentState(String)} with the returned
+	 * document ID and retrieve the result with {@link #getDocument(String)}. Philter validates the page
+	 * policies before it queues the document.
+	 * @param context The context. Contexts can be used to group text based on some arbitrary property.
+	 * @param policyName The name of the policy to apply to the pages not assigned another.
+	 * @param filename The name of the file being filtered. May be {@code null}.
+	 * @param content The PDF.
+	 * @param fairnessKey A key that shares Philter's queue fairly among the people a single API key submits
+	 *                    for. See {@link #filterAsync(String, String, String, byte[], String)}. May be
+	 *                    {@code null} to send no key.
+	 * @param pagePolicies The policies for sets of pages, in order, each sent as its own {@code page_policy}
+	 *                     parameter. Pages not assigned are redacted with {@code policyName}, whose
+	 *                     {@code config.pdf} settings render the whole document. Philter refuses a malformed
+	 *                     or overlapping page set, or one beyond the PDF's last page, with a 400, and a policy
+	 *                     that does not exist with a 404. Requires Philter 4.1.0 or later. May be {@code null}
+	 *                     or empty to send none.
+	 * @return The ID Philter assigned to the document, and on {@link AsyncFilterResponse#getPagePolicies()}
+	 *         the policy and version pinned for each page set.
+	 * @throws IOException Thrown if the request can not be completed.
+	 */
+	public AsyncFilterResponse filterAsync(String context, String policyName, String filename, byte[] content,
+	                                       String fairnessKey, List<PagePolicy> pagePolicies) throws IOException {
+		return filterBinaryAsync(context, policyName, filename, content, "application/zip", fairnessKey, pagePolicies);
+	}
+
+	/**
+	 * Submits a PDF document to Philter to be filtered asynchronously, with the result stored as a PDF
+	 * and different policies for different pages. Poll {@link #getDocumentState(String)} with the returned
+	 * document ID and retrieve the result with {@link #getDocument(String)}. Philter validates the page
+	 * policies before it queues the document.
+	 * @param context The context. Contexts can be used to group text based on some arbitrary property.
+	 * @param policyName The name of the policy to apply to the pages not assigned another.
+	 * @param filename The name of the file being filtered. May be {@code null}.
+	 * @param file The PDF file to be filtered.
+	 * @param fairnessKey A key that shares Philter's queue fairly among the people a single API key submits
+	 *                    for. See {@link #filterAsync(String, String, String, byte[], String)}. May be
+	 *                    {@code null} to send no key.
+	 * @param pagePolicies The policies for sets of pages, in order, each sent as its own {@code page_policy}
+	 *                     parameter. Pages not assigned are redacted with {@code policyName}, whose
+	 *                     {@code config.pdf} settings render the whole document. Philter refuses a malformed
+	 *                     or overlapping page set, or one beyond the PDF's last page, with a 400, and a policy
+	 *                     that does not exist with a 404. Requires Philter 4.1.0 or later. May be {@code null}
+	 *                     or empty to send none.
+	 * @return The ID Philter assigned to the document, and on {@link AsyncFilterResponse#getPagePolicies()}
+	 *         the policy and version pinned for each page set.
+	 * @throws IOException Thrown if the request can not be completed.
+	 */
+	public AsyncFilterResponse filterToPdfAsync(String context, String policyName, String filename, File file,
+	                                            String fairnessKey, List<PagePolicy> pagePolicies) throws IOException {
+		return filterToPdfAsync(context, policyName, filename, Files.readAllBytes(file.toPath()), fairnessKey,
+				pagePolicies);
+	}
+
+	/**
+	 * Submits a PDF document to Philter to be filtered asynchronously, with the result stored as a PDF
+	 * and different policies for different pages. Poll {@link #getDocumentState(String)} with the returned
+	 * document ID and retrieve the result with {@link #getDocument(String)}. Philter validates the page
+	 * policies before it queues the document.
+	 * @param context The context. Contexts can be used to group text based on some arbitrary property.
+	 * @param policyName The name of the policy to apply to the pages not assigned another.
+	 * @param filename The name of the file being filtered. May be {@code null}.
+	 * @param content The PDF.
+	 * @param fairnessKey A key that shares Philter's queue fairly among the people a single API key submits
+	 *                    for. See {@link #filterAsync(String, String, String, byte[], String)}. May be
+	 *                    {@code null} to send no key.
+	 * @param pagePolicies The policies for sets of pages, in order, each sent as its own {@code page_policy}
+	 *                     parameter. Pages not assigned are redacted with {@code policyName}, whose
+	 *                     {@code config.pdf} settings render the whole document. Philter refuses a malformed
+	 *                     or overlapping page set, or one beyond the PDF's last page, with a 400, and a policy
+	 *                     that does not exist with a 404. Requires Philter 4.1.0 or later. May be {@code null}
+	 *                     or empty to send none.
+	 * @return The ID Philter assigned to the document, and on {@link AsyncFilterResponse#getPagePolicies()}
+	 *         the policy and version pinned for each page set.
+	 * @throws IOException Thrown if the request can not be completed.
+	 */
+	public AsyncFilterResponse filterToPdfAsync(String context, String policyName, String filename, byte[] content,
+	                                            String fairnessKey, List<PagePolicy> pagePolicies) throws IOException {
+		return filterBinaryAsync(context, policyName, filename, content, "application/pdf", fairnessKey, pagePolicies);
+	}
+
+	private AsyncFilterResponse filterBinaryAsync(String context, String policyName, String filename, byte[] content,
+	                                              String accept, String fairnessKey, List<PagePolicy> pagePolicies)
+			throws IOException {
+
+		final HttpRequest request = binaryFilterRequest(context, policyName, filename, content, accept, true, fairnessKey,
+				pagePolicies);
+
+		final HttpResponse<String> response = send(request, HttpResponse.BodyHandlers.ofString());
+
+		if(!isSuccessful(response)) {
+			throw toException(response, response.body());
+		}
 
 		// Philter answers an accepted submission with 202 and a JSON body carrying the document ID.
-		final AsyncFilterResponse response = sendExpectingJson(request, AsyncFilterResponse.class);
+		AsyncFilterResponse accepted = gson.fromJson(response.body(), AsyncFilterResponse.class);
+		if(accepted == null) {
+			accepted = new AsyncFilterResponse();
+		}
+		accepted.setPagePolicies(response.headers().firstValue(PAGE_POLICIES_HEADER).orElse(null));
 
-		return response == null ? null : response.getDocumentId();
+		return accepted;
 
 	}
 
 	private HttpRequest binaryFilterRequest(String context, String policyName, String filename, byte[] content,
-	                                        String accept, boolean async, String fairnessKey) {
+	                                        String accept, boolean async, String fairnessKey,
+	                                        List<PagePolicy> pagePolicies) {
 
 		// Philter refuses a fairness key on a synchronous request, so only asynchronous calls pass one.
-		return request(uri("/api/filter", "c", context, "p", policyName, "filename", filename, "async", async,
-				"fairness_key", fairnessKey))
+		final List<Object> parameters = new ArrayList<>(Arrays.asList("c", context, "p", policyName,
+				"filename", filename, "async", async, "fairness_key", fairnessKey));
+
+		// Each assignment is its own parameter: a page set holds commas, so the values cannot be joined.
+		if(pagePolicies != null) {
+			for(final PagePolicy pagePolicy : pagePolicies) {
+				parameters.add("page_policy");
+				parameters.add(Objects.requireNonNull(pagePolicy, "pagePolicies must not contain null").toString());
+			}
+		}
+
+		return request(uri("/api/filter", parameters.toArray()))
 				.header("Accept", accept)
 				.header("Content-Type", "application/pdf")
 				.POST(HttpRequest.BodyPublishers.ofByteArray(content))
