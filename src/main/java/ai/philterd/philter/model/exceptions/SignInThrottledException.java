@@ -24,21 +24,13 @@ package ai.philterd.philter.model.exceptions;
  */
 public class SignInThrottledException extends ClientException {
 
-    private final Integer retryAfterSeconds;
-
     public SignInThrottledException(String message, String reason, Integer retryAfterSeconds) {
         this(message, reason, retryAfterSeconds, null);
     }
 
     /** As above, carrying the response's request id from {@code X-Request-Id}, or {@code null}. */
     public SignInThrottledException(String message, String reason, Integer retryAfterSeconds, String requestId) {
-        super(message, 429, message, reason, requestId);
-        this.retryAfterSeconds = retryAfterSeconds;
-    }
-
-    /** The most seconds to wait before trying again, from {@code Retry-After}, or {@code null} if absent. */
-    public Integer getRetryAfterSeconds() {
-        return retryAfterSeconds;
+        super(message, 429, message, reason, requestId, null, retryAfterSeconds);
     }
 
 }

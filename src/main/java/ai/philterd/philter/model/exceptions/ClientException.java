@@ -53,7 +53,24 @@ package ai.philterd.philter.model.exceptions;
  *   {@link SignInLockedException} and {@link SignInRateLimitedException}.</li>
  *   <li>{@code completeSignIn}, {@code 429}: {@code rate_limited}, raised as
  *   {@link SignInRateLimitedException}. The MFA step has no username lockout.</li>
+ *   <li>{@code setUserRole} and {@code deactivateUser}, {@code 409}: {@code admin_change_in_progress} (another
+ *   change to the administrators holds Philter's guard; with MongoDB storage only).</li>
  * </ul>
+ *
+ * <p>Some refusals are worth retrying, and Philter says how long to wait in a {@code Retry-After} header, read
+ * by {@link #getRetryAfterSeconds()}:</p>
+ * <ul>
+ *   <li>{@code setUserRole} and {@code deactivateUser}, {@code 409} {@code admin_change_in_progress}: the
+ *   seconds left on the guard's lease.</li>
+ *   <li>The asynchronous filter methods ({@code filterAsync}, {@code filterToPdfAsync}, {@code filterWordAsync},
+ *   {@code filterExcelAsync}), {@code 429} {@code rate_limited}: the account's queue of asynchronous documents
+ *   is full.</li>
+ *   <li>{@code deleteDocument}, {@code 409} {@code conflict}: the document is being processed, or a webhook
+ *   notification for it has not been sent yet.</li>
+ *   <li>The sign-in and password checks, {@code 429}, raised as {@link SignInThrottledException}.</li>
+ * </ul>
+ * <p>An asynchronous filter method refused with a {@code 503}, because the queue across all accounts is full or
+ * queue admission is busy, is a {@link ServiceUnavailableException}, which carries {@code Retry-After} too.</p>
  */
 public class ClientException extends RuntimeException implements PhilterError {
 
@@ -62,6 +79,7 @@ public class ClientException extends RuntimeException implements PhilterError {
     private final String reason;
     private final String requestId;
     private final String field;
+    private final Integer retryAfterSeconds;
 
     /**
      * An exception not caused by a non-successful HTTP status, such as a response missing a header the
@@ -117,12 +135,28 @@ public class ClientException extends RuntimeException implements PhilterError {
      */
     public ClientException(String message, int statusCode, String errorMessage, String reason, String requestId,
                            String field) {
+        this(message, statusCode, errorMessage, reason, requestId, field, null);
+    }
+
+    /**
+     * As above, with the seconds the response's {@code Retry-After} asked the caller to wait.
+     * @param message The message.
+     * @param statusCode The HTTP status code, or {@code 0} when the status was successful.
+     * @param errorMessage The {@code message} field of Philter's JSON error body, or {@code null}.
+     * @param reason The {@code reason} field of Philter's JSON error body, or {@code null}.
+     * @param requestId The response's {@code X-Request-Id}, or {@code null} when it had none.
+     * @param field The {@code field} field of Philter's JSON error body, or {@code null}.
+     * @param retryAfterSeconds The response's {@code Retry-After} in seconds, or {@code null} when it had none.
+     */
+    public ClientException(String message, int statusCode, String errorMessage, String reason, String requestId,
+                           String field, Integer retryAfterSeconds) {
         super(withRequestId(message, requestId));
         this.statusCode = statusCode;
         this.errorMessage = errorMessage;
         this.reason = reason;
         this.requestId = requestId;
         this.field = field;
+        this.retryAfterSeconds = retryAfterSeconds;
     }
 
     /** The message with the request id appended, when there is one. */
@@ -174,6 +208,16 @@ public class ClientException extends RuntimeException implements PhilterError {
      */
     public String getField() {
         return field;
+    }
+
+    /**
+     * The seconds Philter asked the caller to wait before retrying, from the response's {@code Retry-After}
+     * header. {@code null} when the response had none, or its value was not a whole number of seconds (such as
+     * an HTTP date). See the class description for the refusals that send one.
+     */
+    @Override
+    public Integer getRetryAfterSeconds() {
+        return retryAfterSeconds;
     }
 
 }

@@ -157,6 +157,12 @@ public final class ErrorReasons {
     /** 409: the user is the last active administrator. */
     public static final String LAST_ADMIN = "last_admin";
 
+    /**
+     * 409: another change to the administrators is in progress, with MongoDB storage only. Retry after
+     * {@link ClientException#getRetryAfterSeconds()}.
+     */
+    public static final String ADMIN_CHANGE_IN_PROGRESS = "admin_change_in_progress";
+
     /** 409: a user with that username already exists, active or deactivated. */
     public static final String ALREADY_EXISTS = "already_exists";
 

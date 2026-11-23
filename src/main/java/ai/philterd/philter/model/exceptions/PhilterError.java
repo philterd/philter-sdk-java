@@ -40,4 +40,12 @@ public interface PhilterError {
     /** The response's {@code X-Request-Id}, or {@code null} when it had none. */
     String getRequestId();
 
+    /**
+     * The seconds Philter asked the caller to wait before retrying, from the response's {@code Retry-After}
+     * header, or {@code null} when it had none or its value was not a whole number of seconds.
+     */
+    default Integer getRetryAfterSeconds() {
+        return null;
+    }
+
 }

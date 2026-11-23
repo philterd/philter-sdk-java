@@ -9,6 +9,12 @@ Not yet released; changes are relative to 3.0.0.
 
 ### New features
 
+* `ClientException` and `ServiceUnavailableException` have `getRetryAfterSeconds()`, the response's `Retry-After` in
+  seconds, as the sign-in exceptions already did, and `PhilterError` has it too. Philter sends it on a `409`
+  `admin_change_in_progress` from `setUserRole` or `deactivateUser`, a `429` or `503` from an asynchronous filter call,
+  and a `409` from `deleteDocument`. `ErrorReasons.ADMIN_CHANGE_IN_PROGRESS` is added. A `Retry-After` that is not a
+  whole number of seconds, including a negative one, reads as `null`; the sign-in exceptions read a negative value as
+  `null` too, where before they returned it.
 * `LegalHoldResponse.getSetBy()`, and so `OwnedLegalHoldResponse.getSetBy()`, returns the username of the user who
   placed a hold, from Philter's `setBy` field. It is `null` against a Philter that does not send the field, such as
   4.0.0.

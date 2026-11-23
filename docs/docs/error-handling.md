@@ -35,7 +35,7 @@ try {
 }
 ```
 
-Neither is a subclass of `ClientException`, so a `catch (ClientException e)` does not catch a 401 or a 503, and a multi-catch of `ClientException | ServiceUnavailableException` compiles. All three implement `PhilterError`, which has the four accessors, to handle any Philter error the same way:
+Neither is a subclass of `ClientException`, so a `catch (ClientException e)` does not catch a 401 or a 503, and a multi-catch of `ClientException | ServiceUnavailableException` compiles. All three implement `PhilterError`, which has the four accessors and `getRetryAfterSeconds()` (see [Retrying after a delay](#retrying-after-a-delay)), to handle any Philter error the same way:
 
 ```java
 import ai.philterd.philter.model.exceptions.PhilterError;
@@ -125,6 +125,7 @@ The reasons for each call's own refusals are below; `ErrorReasons` documents eve
 | `getLedgerExport` | `422` | `entry_unreadable`: an entry in the chain could not be read, so the chain is not exported. |
 | `signIn` | `429` | `locked`: the username is locked after repeated failures. `rate_limited`: the client address is over the sign-in rate limit. These are raised as `SignInLockedException` and `SignInRateLimitedException`. |
 | `completeSignIn` | `429` | `rate_limited`, raised as `SignInRateLimitedException`. The MFA step has no username lockout. |
+| `setUserRole`, `deactivateUser` | `409` | `admin_change_in_progress`: another change to the administrators is in progress, with MongoDB storage only. Retry after `getRetryAfterSeconds()`. |
 
 ```java
 try {
@@ -141,6 +142,33 @@ try {
 ```
 
 `getStatusCode()` is `0` when the exception was not caused by a non-successful status, such as a response the client could not use. `SignInLockedException` and `SignInRateLimitedException` report `429`.
+
+## Retrying after a delay
+
+Some refusals are worth retrying, and Philter says how long to wait in a `Retry-After` header. `getRetryAfterSeconds()` on `ClientException` and `ServiceUnavailableException` returns it in seconds, and is `null` when the response has none or its value is not a whole number of seconds.
+
+| Call | Status | Exception and `getReason()` | Why |
+|------|--------|-----------------------------|-----|
+| `setUserRole`, `deactivateUser` | `409` | `ClientException`, `admin_change_in_progress` | Another change to the administrators holds Philter's guard (MongoDB storage only). The delay is the time left on its lease. |
+| `filterAsync`, `filterToPdfAsync`, `filterWordAsync`, `filterExcelAsync` | `429` | `ClientException`, `rate_limited` | The account's queue of asynchronous documents is full. |
+| `filterAsync`, `filterToPdfAsync`, `filterWordAsync`, `filterExcelAsync` | `503` | `ServiceUnavailableException`, `service_unavailable` | The queue across all accounts is full, or queue admission is busy or needs recovery. |
+| `deleteDocument` | `409` | `ClientException`, `conflict` | The document is being processed, or a webhook notification for it has not been sent yet. |
+| `signIn`, `completeSignIn`, and the password checks | `429` | `SignInLockedException`, `SignInRateLimitedException` | See [Failed sign-ins](sign-in.md#failed-sign-ins). |
+
+Philter currently asks for 5 seconds on the queue and document refusals.
+
+```java
+try {
+    documentId = client.filterAsync("my-context", "default", "report.pdf", pdf);
+} catch (ClientException | ServiceUnavailableException e) {
+    Integer delay = e.getRetryAfterSeconds();
+    if (delay == null) {
+        throw e;
+    }
+    Thread.sleep(delay * 1000L);
+    // Submit again.
+}
+```
 
 ## Request ids
 

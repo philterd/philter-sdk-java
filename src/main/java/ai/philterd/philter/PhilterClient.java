@@ -628,16 +628,31 @@ public class PhilterClient {
 		} else if(code == 503) {
 			final String message = messageOf(body);
 			return new ServiceUnavailableException(message == null ? SERVICE_UNAVAILABLE : message, message,
-					fieldOf(body, "reason"), requestId);
+					fieldOf(body, "reason"), requestId, retryAfterOf(response));
 		} else {
 			return new ClientException(describe(code, body), code, messageOf(body), fieldOf(body, "reason"), requestId,
-					fieldOf(body, "field"));
+					fieldOf(body, "field"), retryAfterOf(response));
 		}
 
 	}
 
 	/** The response header carrying the id Philter gave the request. */
 	private static final String REQUEST_ID_HEADER = "X-Request-Id";
+
+	/**
+	 * The response's {@code Retry-After} in seconds, or {@code null} when it has none or the value is not a
+	 * whole number of seconds, such as the HTTP-date form, which Philter does not send.
+	 */
+	private static Integer retryAfterOf(final HttpResponse<?> response) {
+		return response.headers().firstValue("Retry-After").map(value -> {
+			try {
+				final int seconds = Integer.parseInt(value.trim());
+				return seconds < 0 ? null : seconds;
+			} catch (final NumberFormatException ex) {
+				return null;
+			}
+		}).orElse(null);
+	}
 
 	/** The response's {@code X-Request-Id}, or {@code null} when it has none. */
 	private static String requestIdOf(final HttpResponse<?> response) {
@@ -685,13 +700,7 @@ public class PhilterClient {
 		if(response.statusCode() == 429) {
 
 			final String message = messageOf(response.body());
-			final Integer retryAfter = response.headers().firstValue("Retry-After").map(value -> {
-				try {
-					return Integer.valueOf(value.trim());
-				} catch (final NumberFormatException ex) {
-					return null;
-				}
-			}).orElse(null);
+			final Integer retryAfter = retryAfterOf(response);
 
 			final String reason = fieldOf(response.body(), "reason");
 

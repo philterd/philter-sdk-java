@@ -844,6 +844,116 @@ public class PhilterClientMockTest {
     }
 
     @Test
+    public void anAdministratorChangeInProgressCarriesRetryAfter() {
+
+        respond(409, "{\"message\":\"Another change to the administrators is still in progress; try again.\","
+                + "\"reason\":\"admin_change_in_progress\"}");
+        responseHeaders.put("Retry-After", "12");
+
+        ClientException ex = Assert.assertThrows(ClientException.class, () -> client().setUserRole("jordan", "admin"));
+        Assert.assertEquals(409, ex.getStatusCode());
+        Assert.assertEquals(ErrorReasons.ADMIN_CHANGE_IN_PROGRESS, ex.getReason());
+        Assert.assertEquals(Integer.valueOf(12), ex.getRetryAfterSeconds());
+
+        ex = Assert.assertThrows(ClientException.class, () -> client().deactivateUser("jordan"));
+        Assert.assertEquals(ErrorReasons.ADMIN_CHANGE_IN_PROGRESS, ex.getReason());
+        Assert.assertEquals(Integer.valueOf(12), ex.getRetryAfterSeconds());
+        // The same value through the interface a generic handler uses.
+        Assert.assertEquals(Integer.valueOf(12), ((PhilterError) ex).getRetryAfterSeconds());
+    }
+
+    @Test
+    public void aFullAccountQueueCarriesRetryAfter() {
+
+        respond(429, "{\"message\":\"Account async queue limit reached.\",\"reason\":\"rate_limited\"}");
+        responseHeaders.put("Retry-After", "5");
+
+        final ClientException pdf = Assert.assertThrows(ClientException.class,
+                () -> client().filterAsync("ctx", "default", "a.pdf", new byte[]{1}));
+        Assert.assertEquals(429, pdf.getStatusCode());
+        Assert.assertEquals("Account async queue limit reached.", pdf.getErrorMessage());
+        Assert.assertEquals(Integer.valueOf(5), pdf.getRetryAfterSeconds());
+
+        final ClientException word = Assert.assertThrows(ClientException.class,
+                () -> client().filterWordAsync("ctx", "default", "a.docx", new byte[]{1}));
+        Assert.assertEquals(Integer.valueOf(5), word.getRetryAfterSeconds());
+    }
+
+    @Test
+    public void aFullGlobalQueueCarriesRetryAfter() {
+
+        respond(503, "{\"message\":\"Global async queue limit reached.\",\"reason\":\"service_unavailable\"}");
+        responseHeaders.put("Retry-After", "5");
+
+        final ServiceUnavailableException ex = Assert.assertThrows(ServiceUnavailableException.class,
+                () -> client().filterToPdfAsync("ctx", "default", "a.pdf", new byte[]{1}));
+        Assert.assertEquals("Global async queue limit reached.", ex.getErrorMessage());
+        Assert.assertEquals(Integer.valueOf(5), ex.getRetryAfterSeconds());
+        Assert.assertEquals(Integer.valueOf(5), ((PhilterError) ex).getRetryAfterSeconds());
+    }
+
+    @Test
+    public void aDocumentDeletionThatMustWaitCarriesRetryAfter() {
+
+        respond(409, "{\"message\":\"Notification dispatch is pending. Retry deletion later.\",\"reason\":\"conflict\"}");
+        responseHeaders.put("Retry-After", "5");
+
+        final ClientException ex = Assert.assertThrows(ClientException.class, () -> client().deleteDocument("d1"));
+        Assert.assertEquals(409, ex.getStatusCode());
+        Assert.assertEquals(ErrorReasons.CONFLICT, ex.getReason());
+        Assert.assertEquals(Integer.valueOf(5), ex.getRetryAfterSeconds());
+    }
+
+    @Test
+    public void aRefusalWithoutRetryAfterHasNone() {
+
+        respond(409, "{\"message\":\"The user is the last active administrator.\",\"reason\":\"last_admin\"}");
+        Assert.assertNull(Assert.assertThrows(ClientException.class,
+                () -> client().deactivateUser("jordan")).getRetryAfterSeconds());
+
+        respond(503, "{\"message\":\"Philter is starting. Try again shortly.\",\"reason\":\"service_unavailable\"}");
+        Assert.assertNull(Assert.assertThrows(ServiceUnavailableException.class,
+                () -> client().filterAsync("ctx", "default", "a.pdf", new byte[]{1})).getRetryAfterSeconds());
+
+        respond(401, "{\"message\":\"Unauthorized.\",\"reason\":\"invalid_credentials\"}");
+        Assert.assertNull(Assert.assertThrows(UnauthorizedException.class,
+                () -> client().deleteDocument("d1")).getRetryAfterSeconds());
+    }
+
+    @Test
+    public void aRetryAfterThatIsNotAWholeNumberOfSecondsIsNull() {
+
+        for (final String value : new String[]{"Wed, 21 Oct 2026 07:28:00 GMT", "1.5", "soon", "-5", ""}) {
+
+            respond(429, "{\"message\":\"Account async queue limit reached.\",\"reason\":\"rate_limited\"}");
+            responseHeaders.put("Retry-After", value);
+            Assert.assertNull(value, Assert.assertThrows(ClientException.class,
+                    () -> client().filterAsync("ctx", "default", "a.pdf", new byte[]{1})).getRetryAfterSeconds());
+
+            respond(503, "{\"message\":\"Global async queue limit reached.\",\"reason\":\"service_unavailable\"}");
+            Assert.assertNull(value, Assert.assertThrows(ServiceUnavailableException.class,
+                    () -> client().filterAsync("ctx", "default", "a.pdf", new byte[]{1})).getRetryAfterSeconds());
+        }
+
+        // Surrounding whitespace is not a reason to drop the value.
+        respond(409, "{\"message\":\"Busy.\",\"reason\":\"admin_change_in_progress\"}");
+        responseHeaders.put("Retry-After", " 7 ");
+        Assert.assertEquals(Integer.valueOf(7), Assert.assertThrows(ClientException.class,
+                () -> client().setUserRole("jordan", "admin")).getRetryAfterSeconds());
+    }
+
+    @Test
+    public void exceptionsCanStillBeBuiltWithTheExistingConstructors() {
+        Assert.assertNull(new ClientException("m").getRetryAfterSeconds());
+        Assert.assertNull(new ClientException("m", 409, "e", "r", "id", "f").getRetryAfterSeconds());
+        Assert.assertEquals(Integer.valueOf(3), new ClientException("m", 409, "e", "r", "id", "f", 3).getRetryAfterSeconds());
+        Assert.assertNull(new ServiceUnavailableException("m", "e", "r", "id").getRetryAfterSeconds());
+        Assert.assertEquals(Integer.valueOf(3), new ServiceUnavailableException("m", "e", "r", "id", 3).getRetryAfterSeconds());
+        Assert.assertEquals(Integer.valueOf(60), new SignInRateLimitedException("m", 60).getRetryAfterSeconds());
+        Assert.assertEquals("admin_change_in_progress", ErrorReasons.ADMIN_CHANGE_IN_PROGRESS);
+    }
+
+    @Test
     public void synchronousRequestsSendNoFairnessKey() throws Exception {
 
         respond(200, new byte[]{0x25, 0x50, 0x44, 0x46});

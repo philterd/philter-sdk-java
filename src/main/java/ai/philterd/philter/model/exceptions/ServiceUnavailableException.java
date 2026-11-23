@@ -16,7 +16,8 @@
 package ai.philterd.philter.model.exceptions;
 
 /**
- * Philter answered with an HTTP 503: it cannot serve the request right now. Try again later.
+ * Philter answered with an HTTP 503: it cannot serve the request right now. Try again later, after
+ * {@link #getRetryAfterSeconds()} when Philter gives it.
  *
  * <p>Like {@link ClientException}, it carries the status, Philter's message and reason, and the request id,
  * through {@link PhilterError}. It is not a {@code ClientException}, so a {@code catch} of one does not catch the
@@ -27,6 +28,7 @@ public class ServiceUnavailableException extends RuntimeException implements Phi
     private final String errorMessage;
     private final String reason;
     private final String requestId;
+    private final Integer retryAfterSeconds;
 
     public ServiceUnavailableException(String message) {
         this(message, null);
@@ -49,10 +51,24 @@ public class ServiceUnavailableException extends RuntimeException implements Phi
      * @param requestId The response's {@code X-Request-Id}, or {@code null} when it had none.
      */
     public ServiceUnavailableException(String message, String errorMessage, String reason, String requestId) {
+        this(message, errorMessage, reason, requestId, null);
+    }
+
+    /**
+     * As above, with the seconds the response's {@code Retry-After} asked the caller to wait.
+     * @param message The message. The request id, when there is one, is appended to it.
+     * @param errorMessage The {@code message} field of Philter's JSON error body, or {@code null}.
+     * @param reason The {@code reason} field of Philter's JSON error body, or {@code null}.
+     * @param requestId The response's {@code X-Request-Id}, or {@code null} when it had none.
+     * @param retryAfterSeconds The response's {@code Retry-After} in seconds, or {@code null} when it had none.
+     */
+    public ServiceUnavailableException(String message, String errorMessage, String reason, String requestId,
+                                       Integer retryAfterSeconds) {
         super(ClientException.withRequestId(message, requestId));
         this.errorMessage = errorMessage;
         this.reason = reason;
         this.requestId = requestId;
+        this.retryAfterSeconds = retryAfterSeconds;
     }
 
     /** Always {@code 503}. */
@@ -78,6 +94,17 @@ public class ServiceUnavailableException extends RuntimeException implements Phi
     @Override
     public String getRequestId() {
         return requestId;
+    }
+
+    /**
+     * The seconds Philter asked the caller to wait before retrying, from the response's {@code Retry-After}
+     * header, or {@code null} when the response had none or its value was not a whole number of seconds.
+     * Philter sends one when an asynchronous filter call is refused because the queue across all accounts is
+     * full or queue admission is busy.
+     */
+    @Override
+    public Integer getRetryAfterSeconds() {
+        return retryAfterSeconds;
     }
 
 }
