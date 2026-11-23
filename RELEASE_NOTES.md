@@ -9,6 +9,11 @@ Not yet released; changes are relative to 3.0.0.
 
 ### New features
 
+* `Model` has `getSha256()`, the SHA-256 of the model's `model.onnx` as lowercase hex. It identifies a model's
+  weights, which its name does not, so evaluation results can record which weights produced them. `getModels()` and
+  `getModel(name)` return it. Philter 4.1.0 and later send it; from 4.0.x it is `null` (philterd/philter#100).
+* `getModels()` reads the list from `localModels`, the field Philter 4.1.0 returns it in, and from `models`, which
+  4.1.0 deprecates, when a response has no `localModels`, so it still works against Philter 4.0.x.
 * `Limits.Caller` has `getUsername()`, the username of the user the API key belongs to, which an administrator passes as
   `owner` to reach that user's resources, such as the ledger chain of a document the key redacted. Philter 4.1.0 and
   later send it; from an earlier Philter it is `null` (philterd/philter#207).

@@ -5977,7 +5977,39 @@ public class PhilterClientMockTest {
     }
 
     @Test
-    public void getModelsListsTheModels() throws Exception {
+    public void getModelsReadsLocalModelsWithTheirIdentity() throws Exception {
+
+        final String sha256 = "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08";
+        final String list = "[{\"encoder\":\"microsoft/deberta-v3-xsmall\",\"maxLength\":512,\"maxWidth\":12,"
+                + "\"name\":\"pii-en-xsmall\",\"sha256\":\"" + sha256 + "\",\"sizeBytes\":98724945},"
+                + "{\"name\":\"pii-en-custom\",\"sha256\":\"" + sha256.replace('9', '0') + "\",\"sizeBytes\":4096}]";
+        respond(200, "{\"localModels\":" + list + ",\"models\":" + list + "}");
+
+        final List<Model> models = client().getModels();
+
+        Assert.assertEquals("GET", method);
+        Assert.assertEquals("/api/models", path);
+        Assert.assertEquals(2, models.size());
+        Assert.assertEquals("pii-en-xsmall", models.get(0).getName());
+        Assert.assertEquals(sha256, models.get(0).getSha256());
+        Assert.assertEquals("pii-en-custom", models.get(1).getName());
+        Assert.assertEquals(sha256.replace('9', '0'), models.get(1).getSha256());
+    }
+
+    @Test
+    public void getModelsPrefersLocalModelsOverTheDeprecatedModels() throws Exception {
+
+        respond(200, "{\"localModels\":[{\"name\":\"current\",\"sizeBytes\":1}],"
+                + "\"models\":[{\"name\":\"deprecated\",\"sizeBytes\":1}]}");
+
+        final List<Model> models = client().getModels();
+
+        Assert.assertEquals(1, models.size());
+        Assert.assertEquals("current", models.get(0).getName());
+    }
+
+    @Test
+    public void getModelsReadsModelsFromPhilter40() throws Exception {
 
         respond(200, "{\"models\":[{\"encoder\":\"microsoft/deberta-v3-xsmall\",\"maxLength\":512,\"maxWidth\":12,"
                 + "\"name\":\"pii-en-xsmall\",\"sizeBytes\":98724945},{\"name\":\"pii-en-custom\",\"sizeBytes\":4096}]}");
@@ -6001,13 +6033,17 @@ public class PhilterClientMockTest {
         Assert.assertNull(custom.getMaxLength());
         Assert.assertNull(custom.getMaxWidth());
         Assert.assertEquals(4096L, custom.getSizeBytes());
+
+        Assert.assertNull("Philter 4.0.x does not send it", xsmall.getSha256());
     }
 
     @Test
     public void getModelsIsEmptyWhenTheDeploymentHasNone() throws Exception {
 
-        respond(200, "{\"models\":[]}");
+        respond(200, "{\"localModels\":[],\"models\":[]}");
+        Assert.assertTrue(client().getModels().isEmpty());
 
+        respond(200, "{\"models\":[]}");
         Assert.assertTrue(client().getModels().isEmpty());
     }
 
@@ -6025,6 +6061,19 @@ public class PhilterClientMockTest {
         Assert.assertNull(model.getMaxLength());
         Assert.assertNull(model.getMaxWidth());
         Assert.assertEquals(98724945L, model.getSizeBytes());
+        Assert.assertNull("Philter 4.0.x does not send it", model.getSha256());
+    }
+
+    @Test
+    public void getModelReturnsItsSha256() throws Exception {
+
+        final String sha256 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+        respond(200, "{\"name\":\"pii-en-xsmall\",\"sha256\":\"" + sha256 + "\",\"sizeBytes\":98724945}");
+
+        final Model model = client().getModel("pii-en-xsmall");
+
+        Assert.assertEquals("/api/models/pii-en-xsmall", rawPath);
+        Assert.assertEquals(sha256, model.getSha256());
     }
 
     @Test

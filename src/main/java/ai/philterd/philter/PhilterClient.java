@@ -4458,11 +4458,30 @@ public class PhilterClient {
 	 * <p>Requires Philter 4.0.0 or later and the {@code policies:read} scope. A key without the scope is refused with
 	 * an HTTP 403, thrown as a {@link ClientException}.</p>
 	 *
+	 * <p>Philter 4.1.0 and later return the list as {@code localModels}; 4.0.x returned it as {@code models}, which
+	 * later versions still send but deprecate. This reads {@code localModels}, and {@code models} when a response
+	 * has no {@code localModels}.</p>
+	 *
 	 * @return The models, empty when the deployment has none.
 	 * @throws IOException Thrown if the call can not be executed.
 	 */
 	public List<Model> getModels() throws IOException {
-		return this.<Model>sendExpectingPage(json(uri("/api/models")).GET().build(), "models", Model.class).getItems();
+
+		final JsonElement body = JsonParser.parseString(sendExpectingString(json(uri("/api/models")).GET().build()));
+		if(body == null || !body.isJsonObject()) {
+			throw new ClientException("The models response is not an object with localModels.", 0, null, null,
+					getLastRequestId());
+		}
+
+		final JsonObject envelope = body.getAsJsonObject();
+		JsonElement items = envelope.get("localModels");
+		if(items == null || items.isJsonNull()) {
+			items = envelope.get("models");
+		}
+
+		return items == null || items.isJsonNull() ? new ArrayList<>()
+				: gson.fromJson(items, TypeToken.getParameterized(List.class, Model.class).getType());
+
 	}
 
 	/**

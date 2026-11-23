@@ -130,7 +130,9 @@ public class PhilterClientTest {
         // Each listed model can be read by its name, and a name with no model is a 404.
         final List<Model> models = client().getModels();
         for (final Model model : models) {
-            Assert.assertEquals(model.getName(), client().getModel(model.getName()).getName());
+            final Model one = client().getModel(model.getName());
+            Assert.assertEquals(model.getName(), one.getName());
+            Assert.assertEquals(model.getSha256(), one.getSha256());
         }
         final ClientException ex = Assert.assertThrows(ClientException.class,
                 () -> client().getModel("sdk-it-no-such-model"));

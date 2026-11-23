@@ -184,7 +184,10 @@ for (Model model : client.getModels()) {
 Model model = client.getModel("pii-en-xsmall");
 ```
 
-`getEncoder()`, `getMaxLength()`, and `getMaxWidth()` are `null` when the model's configuration does not say.
+`getEncoder()`, `getMaxLength()`, and `getMaxWidth()` are `null` when the model's configuration does not say. From
+Philter 4.1.0, `getSha256()` is the SHA-256 of the model's `model.onnx`, which identifies its weights where the name
+does not; it is `null` from Philter 4.0.x. `getModels()` reads the list from Philter 4.1.0's `localModels` field, or
+from the deprecated `models` field 4.0.x sends.
 
 Replace one redact list without losing someone else's change: pass the revision you read, and a list changed since is
 refused with a `ClientException` whose reason is `ErrorReasons.REDACT_LIST_CHANGED`, so you can read it again and

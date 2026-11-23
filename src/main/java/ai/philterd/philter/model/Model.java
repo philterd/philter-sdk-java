@@ -41,6 +41,10 @@ public class Model {
     private Integer maxWidth;
 
     @Expose
+    @SerializedName("sha256")
+    private String sha256;
+
+    @Expose
     @SerializedName("sizeBytes")
     private long sizeBytes;
 
@@ -81,6 +85,19 @@ public class Model {
 
     public void setMaxWidth(Integer maxWidth) {
         this.maxWidth = maxWidth;
+    }
+
+    /**
+     * The SHA-256 of its {@code model.onnx}, as lowercase hex. It identifies the weights, which the name does not: a
+     * model replaced with different weights keeps its name and gets a new value. Sent by Philter 4.1.0 and later;
+     * {@code null} from an earlier Philter.
+     */
+    public String getSha256() {
+        return sha256;
+    }
+
+    public void setSha256(String sha256) {
+        this.sha256 = sha256;
     }
 
     /**
