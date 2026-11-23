@@ -661,6 +661,188 @@ public class PhilterClientMockTest {
         Assert.assertEquals("12-:exhibits", new PagePolicy("12-", "exhibits").toString());
     }
 
+    private static final String WORD = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+    private static final String EXCEL = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
+    /** A stand-in for an Office document: a ZIP's first bytes. Philter, not the client, checks the body. */
+    private static final byte[] OFFICE = {0x50, 0x4B, 0x03, 0x04, 0x14, 0x00};
+
+    private File officeFile(final String suffix) throws Exception {
+        final File file = File.createTempFile("office", suffix);
+        file.deleteOnExit();
+        Files.write(file.toPath(), OFFICE);
+        return file;
+    }
+
+    @Test
+    public void filterWordSendsAndReceivesAWordDocument() throws Exception {
+
+        final byte[] redacted = {0x50, 0x4B, 0x03, 0x04, 0x0A};
+
+        respond(200, redacted);
+        documentIdHeader = "doc-word";
+
+        BinaryFilterResponse response = client().filterWord("ctx", "default", "letter.docx", officeFile(".docx"));
+        Assert.assertArrayEquals(redacted, response.getContent());
+        Assert.assertEquals("doc-word", response.getDocumentId());
+        Assert.assertEquals("ctx", response.getContext());
+        Assert.assertEquals("POST", method);
+        Assert.assertEquals("/api/filter", path);
+        Assert.assertEquals(WORD, header("Content-Type"));
+        Assert.assertEquals(WORD, header("Accept"));
+        Assert.assertEquals("false", queryParameter("async"));
+        Assert.assertEquals("ctx", queryParameter("c"));
+        Assert.assertEquals("default", queryParameter("p"));
+        Assert.assertEquals("letter.docx", queryParameter("filename"));
+        Assert.assertFalse(queryParameters.containsKey("fairness_key"));
+        Assert.assertArrayEquals(OFFICE, requestBody);
+
+        response = client().filterWord("ctx", "default", null, OFFICE);
+        Assert.assertArrayEquals(redacted, response.getContent());
+        Assert.assertEquals(WORD, header("Content-Type"));
+        Assert.assertEquals(WORD, header("Accept"));
+        Assert.assertFalse(queryParameters.containsKey("filename"));
+        Assert.assertArrayEquals(OFFICE, requestBody);
+    }
+
+    @Test
+    public void filterExcelSendsAndReceivesAnExcelWorkbook() throws Exception {
+
+        final byte[] redacted = {0x50, 0x4B, 0x03, 0x04, 0x0B};
+
+        respond(200, redacted);
+        documentIdHeader = "doc-excel";
+
+        BinaryFilterResponse response = client().filterExcel("ctx", "default", "claims.xlsx", officeFile(".xlsx"));
+        Assert.assertArrayEquals(redacted, response.getContent());
+        Assert.assertEquals("doc-excel", response.getDocumentId());
+        Assert.assertEquals(EXCEL, header("Content-Type"));
+        Assert.assertEquals(EXCEL, header("Accept"));
+        Assert.assertEquals("false", queryParameter("async"));
+        Assert.assertEquals("claims.xlsx", queryParameter("filename"));
+        Assert.assertArrayEquals(OFFICE, requestBody);
+
+        response = client().filterExcel("ctx", "default", "claims.xlsx", OFFICE);
+        Assert.assertArrayEquals(redacted, response.getContent());
+        Assert.assertEquals(EXCEL, header("Content-Type"));
+        Assert.assertEquals(EXCEL, header("Accept"));
+        Assert.assertArrayEquals(OFFICE, requestBody);
+    }
+
+    @Test
+    public void filterWordAndExcelAsynchronously() throws Exception {
+
+        final File docx = officeFile(".docx");
+        final File xlsx = officeFile(".xlsx");
+
+        respond(202, "{\"documentId\":\"doc-office\"}");
+
+        Assert.assertEquals("doc-office", client().filterWordAsync("ctx", "default", "a.docx", docx));
+        Assert.assertEquals(WORD, header("Content-Type"));
+        Assert.assertEquals(WORD, header("Accept"));
+        Assert.assertEquals("true", queryParameter("async"));
+        Assert.assertFalse(queryParameters.containsKey("fairness_key"));
+        Assert.assertArrayEquals(OFFICE, requestBody);
+        final String wordWithoutKey = lastRequest();
+
+        // A null key is the same request as the overload without one.
+        Assert.assertEquals("doc-office", client().filterWordAsync("ctx", "default", "a.docx", OFFICE));
+        Assert.assertEquals(wordWithoutKey, lastRequest());
+        Assert.assertEquals("doc-office", client().filterWordAsync("ctx", "default", "a.docx", OFFICE, null));
+        Assert.assertEquals(wordWithoutKey, lastRequest());
+
+        Assert.assertEquals("doc-office", client().filterWordAsync("ctx", "default", "a.docx", docx, "group:42"));
+        Assert.assertEquals("group:42", queryParameter("fairness_key"));
+        Assert.assertEquals(WORD, header("Content-Type"));
+        Assert.assertEquals("doc-office", client().filterWordAsync("ctx", "default", "a.docx", OFFICE, "user_7.a-b"));
+        Assert.assertEquals("user_7.a-b", queryParameter("fairness_key"));
+        Assert.assertEquals(WORD, header("Accept"));
+
+        Assert.assertEquals("doc-office", client().filterExcelAsync("ctx", "default", "a.xlsx", xlsx));
+        Assert.assertEquals(EXCEL, header("Content-Type"));
+        Assert.assertEquals(EXCEL, header("Accept"));
+        Assert.assertEquals("true", queryParameter("async"));
+        Assert.assertFalse(queryParameters.containsKey("fairness_key"));
+        final String excelWithoutKey = lastRequest();
+
+        Assert.assertEquals("doc-office", client().filterExcelAsync("ctx", "default", "a.xlsx", OFFICE));
+        Assert.assertEquals(excelWithoutKey, lastRequest());
+        Assert.assertEquals("doc-office", client().filterExcelAsync("ctx", "default", "a.xlsx", xlsx, null));
+        Assert.assertEquals(excelWithoutKey, lastRequest());
+
+        Assert.assertEquals("doc-office", client().filterExcelAsync("ctx", "default", "a.xlsx", xlsx, "group:42"));
+        Assert.assertEquals("group:42", queryParameter("fairness_key"));
+        Assert.assertEquals("doc-office", client().filterExcelAsync("ctx", "default", "a.xlsx", OFFICE, "user_7.a-b"));
+        Assert.assertEquals("user_7.a-b", queryParameter("fairness_key"));
+        Assert.assertEquals(EXCEL, header("Content-Type"));
+        Assert.assertEquals(EXCEL, header("Accept"));
+    }
+
+    @Test
+    public void aCompletedOfficeDocumentDownloadsAsItsBytes() throws Exception {
+
+        final byte[] redacted = {0x50, 0x4B, 0x03, 0x04, 0x0C};
+
+        respond(200, redacted);
+        contentTypeHeader = WORD;
+
+        Assert.assertArrayEquals(redacted, client().getDocument("doc-office"));
+        Assert.assertEquals("GET", method);
+        Assert.assertEquals("/api/documents/doc-office", path);
+    }
+
+    @Test
+    public void aBodyThatIsNotTheDeclaredOfficeTypeIsA415WithPhiltersMessage() {
+
+        respond(415, "{\"message\":\"The body was declared as Word but is an Excel workbook.\","
+                + "\"reason\":\"unsupported_media_type\"}");
+
+        ClientException ex = Assert.assertThrows(ClientException.class,
+                () -> client().filterWord("ctx", "default", "a.docx", OFFICE));
+        Assert.assertEquals(415, ex.getStatusCode());
+        Assert.assertEquals("The body was declared as Word but is an Excel workbook.", ex.getErrorMessage());
+
+        ex = Assert.assertThrows(ClientException.class,
+                () -> client().filterWordAsync("ctx", "default", "a.docx", OFFICE));
+        Assert.assertEquals(415, ex.getStatusCode());
+        Assert.assertEquals("The body was declared as Word but is an Excel workbook.", ex.getErrorMessage());
+    }
+
+    @Test
+    public void anOfficeDocumentOverTheLimitsIsA413WithPhiltersMessage() {
+
+        respond(413, "{\"message\":\"The workbook decompresses to more than the 104857600 byte limit.\","
+                + "\"reason\":\"payload_too_large\"}");
+
+        ClientException ex = Assert.assertThrows(ClientException.class,
+                () -> client().filterExcel("ctx", "default", "a.xlsx", OFFICE));
+        Assert.assertEquals(413, ex.getStatusCode());
+        Assert.assertEquals("The workbook decompresses to more than the 104857600 byte limit.", ex.getErrorMessage());
+
+        ex = Assert.assertThrows(ClientException.class,
+                () -> client().filterExcelAsync("ctx", "default", "a.xlsx", OFFICE, "group:42"));
+        Assert.assertEquals(413, ex.getStatusCode());
+        Assert.assertEquals("The workbook decompresses to more than the 104857600 byte limit.", ex.getErrorMessage());
+    }
+
+    @Test
+    public void pdfRequestsStillDeclareAPdf() throws Exception {
+
+        respond(200, new byte[]{0x25, 0x50, 0x44, 0x46});
+
+        client().filter("ctx", "default", "a.pdf", new byte[]{1});
+        Assert.assertEquals("application/pdf", header("Content-Type"));
+        client().filterToPdf("ctx", "default", "a.pdf", new byte[]{1});
+        Assert.assertEquals("application/pdf", header("Content-Type"));
+
+        respond(202, "{\"documentId\":\"doc-async\"}");
+
+        client().filterAsync("ctx", "default", "a.pdf", new byte[]{1});
+        Assert.assertEquals("application/pdf", header("Content-Type"));
+        client().filterToPdfAsync("ctx", "default", "a.pdf", new byte[]{1}, null, null);
+        Assert.assertEquals("application/pdf", header("Content-Type"));
+    }
+
     @Test
     public void synchronousRequestsSendNoFairnessKey() throws Exception {
 

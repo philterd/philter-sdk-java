@@ -9,6 +9,10 @@ Not yet released; changes are relative to 3.0.0.
 
 ### New features
 
+* Word (`.docx`) and Excel (`.xlsx`) documents can be redacted. `filterWord` and `filterExcel` wait for the redacted
+  document, and `filterWordAsync` and `filterExcelAsync` submit it and return its ID, with an optional fairness key.
+  Each takes a `File` or a `byte[]`, sends the Office type as both `Content-Type` and `Accept`, and gets back a
+  document of the same format. Download an asynchronous result with `getDocument`. Requires Philter 4.1.0 or later.
 * PDFs can be redacted with different policies for different pages in one request. The PDF methods, `filter`,
   `filterToPdf`, `filterAsync`, and `filterToPdfAsync`, each with a `File` or a `byte[]`, have overloads that take a
   `List<PagePolicy>`; each assignment is sent as its own `page_policy` parameter. Pages not assigned are redacted

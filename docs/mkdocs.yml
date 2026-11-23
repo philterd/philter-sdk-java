@@ -17,6 +17,7 @@ nav:
   - Redacting Text: redacting-text.md
   - Inspecting Redactions (Explain): explain.md
   - Redacting PDF Documents: pdf.md
+  - Redacting Word and Excel Documents: word-and-excel.md
   - Webhook: webhook.md
   - Policies: policies.md
   - Models: models.md

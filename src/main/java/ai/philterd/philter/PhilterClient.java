@@ -166,6 +166,10 @@ public class PhilterClient {
 	private static final String SIGNATURE_HEADER = "X-Philter-Signature";
 	private static final String PAGE_POLICIES_HEADER = "X-Philter-Page-Policies";
 
+	private static final String APPLICATION_PDF = "application/pdf";
+	private static final String WORD = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+	private static final String EXCEL = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
 	private static final String EXPORT_ROWS_HEADER = "X-Philter-Export-Rows";
 	private static final String EXPORT_TRUNCATED_HEADER = "X-Philter-Export-Truncated";
 	private static final String EXPORT_NEXT_OFFSET_HEADER = "X-Philter-Export-Next-Offset";
@@ -946,7 +950,7 @@ public class PhilterClient {
 	 * @throws IOException Thrown if the request can not be completed.
 	 */
 	public BinaryFilterResponse filter(String context, String policyName, String filename, byte[] content) throws IOException {
-		return filterBinary(context, policyName, filename, content, "application/zip", null);
+		return filterBinary(context, policyName, filename, content, APPLICATION_PDF, "application/zip", null);
 	}
 
 	/**
@@ -978,7 +982,7 @@ public class PhilterClient {
 	 * @throws IOException Thrown if the request can not be completed.
 	 */
 	public BinaryFilterResponse filterToPdf(String context, String policyName, String filename, byte[] content) throws IOException {
-		return filterBinary(context, policyName, filename, content, "application/pdf", null);
+		return filterBinary(context, policyName, filename, content, APPLICATION_PDF, "application/pdf", null);
 	}
 
 	/**
@@ -1022,7 +1026,7 @@ public class PhilterClient {
 	 */
 	public BinaryFilterResponse filter(String context, String policyName, String filename, byte[] content,
 	                                   List<PagePolicy> pagePolicies) throws IOException {
-		return filterBinary(context, policyName, filename, content, "application/zip", pagePolicies);
+		return filterBinary(context, policyName, filename, content, APPLICATION_PDF, "application/zip", pagePolicies);
 	}
 
 	/**
@@ -1066,14 +1070,15 @@ public class PhilterClient {
 	 */
 	public BinaryFilterResponse filterToPdf(String context, String policyName, String filename, byte[] content,
 	                                        List<PagePolicy> pagePolicies) throws IOException {
-		return filterBinary(context, policyName, filename, content, "application/pdf", pagePolicies);
+		return filterBinary(context, policyName, filename, content, APPLICATION_PDF, "application/pdf", pagePolicies);
 	}
 
 	private BinaryFilterResponse filterBinary(String context, String policyName, String filename, byte[] content,
-	                                          String accept, List<PagePolicy> pagePolicies) throws IOException {
+	                                          String contentType, String accept, List<PagePolicy> pagePolicies)
+			throws IOException {
 
-		final HttpRequest request = binaryFilterRequest(context, policyName, filename, content, accept, false, null,
-				pagePolicies);
+		final HttpRequest request = binaryFilterRequest(context, policyName, filename, content, contentType, accept,
+				false, null, pagePolicies);
 
 		final HttpResponse<byte[]> response = send(request, HttpResponse.BodyHandlers.ofByteArray());
 
@@ -1183,7 +1188,7 @@ public class PhilterClient {
 	 */
 	public String filterAsync(String context, String policyName, String filename, byte[] content,
 	                          String fairnessKey) throws IOException {
-		return filterBinaryAsync(context, policyName, filename, content, "application/zip", fairnessKey, null)
+		return filterBinaryAsync(context, policyName, filename, content, APPLICATION_PDF, "application/zip", fairnessKey, null)
 				.getDocumentId();
 	}
 
@@ -1285,7 +1290,7 @@ public class PhilterClient {
 	 */
 	public String filterToPdfAsync(String context, String policyName, String filename, byte[] content,
 	                               String fairnessKey) throws IOException {
-		return filterBinaryAsync(context, policyName, filename, content, "application/pdf", fairnessKey, null)
+		return filterBinaryAsync(context, policyName, filename, content, APPLICATION_PDF, "application/pdf", fairnessKey, null)
 				.getDocumentId();
 	}
 
@@ -1340,7 +1345,8 @@ public class PhilterClient {
 	 */
 	public AsyncFilterResponse filterAsync(String context, String policyName, String filename, byte[] content,
 	                                       String fairnessKey, List<PagePolicy> pagePolicies) throws IOException {
-		return filterBinaryAsync(context, policyName, filename, content, "application/zip", fairnessKey, pagePolicies);
+		return filterBinaryAsync(context, policyName, filename, content, APPLICATION_PDF, "application/zip", fairnessKey,
+				pagePolicies);
 	}
 
 	/**
@@ -1395,15 +1401,16 @@ public class PhilterClient {
 	 */
 	public AsyncFilterResponse filterToPdfAsync(String context, String policyName, String filename, byte[] content,
 	                                            String fairnessKey, List<PagePolicy> pagePolicies) throws IOException {
-		return filterBinaryAsync(context, policyName, filename, content, "application/pdf", fairnessKey, pagePolicies);
+		return filterBinaryAsync(context, policyName, filename, content, APPLICATION_PDF, "application/pdf", fairnessKey,
+				pagePolicies);
 	}
 
 	private AsyncFilterResponse filterBinaryAsync(String context, String policyName, String filename, byte[] content,
-	                                              String accept, String fairnessKey, List<PagePolicy> pagePolicies)
-			throws IOException {
+	                                              String contentType, String accept, String fairnessKey,
+	                                              List<PagePolicy> pagePolicies) throws IOException {
 
-		final HttpRequest request = binaryFilterRequest(context, policyName, filename, content, accept, true, fairnessKey,
-				pagePolicies);
+		final HttpRequest request = binaryFilterRequest(context, policyName, filename, content, contentType, accept,
+				true, fairnessKey, pagePolicies);
 
 		final HttpResponse<String> response = send(request, HttpResponse.BodyHandlers.ofString());
 
@@ -1423,7 +1430,7 @@ public class PhilterClient {
 	}
 
 	private HttpRequest binaryFilterRequest(String context, String policyName, String filename, byte[] content,
-	                                        String accept, boolean async, String fairnessKey,
+	                                        String contentType, String accept, boolean async, String fairnessKey,
 	                                        List<PagePolicy> pagePolicies) {
 
 		// Philter refuses a fairness key on a synchronous request, so only asynchronous calls pass one.
@@ -1440,10 +1447,276 @@ public class PhilterClient {
 
 		return request(uri("/api/filter", parameters.toArray()))
 				.header("Accept", accept)
-				.header("Content-Type", "application/pdf")
+				.header("Content-Type", contentType)
 				.POST(HttpRequest.BodyPublishers.ofByteArray(content))
 				.build();
 
+	}
+
+	/**
+	 * Send a Word document to Philter to be redacted, waiting for the redacted document, which is returned in the
+	 * same format.
+	 *
+	 * <p>Requires Philter 4.1.0 or later. Only the Transitional Office Open XML format is redacted. Philter
+	 * refuses a body that is not a Word document, such as an Excel workbook sent as Word, any other ZIP file, a legacy
+	 * {@code .doc} file, or a password-protected document, with a 415, and one over its Office size limits
+	 * with a 413.</p>
+	 *
+	 * @param context The context. Contexts can be used to group text based on some arbitrary property.
+	 * @param policyName The name of the policy to apply to the document.
+	 * @param filename The name of the file being filtered, recorded against the document. May be {@code null}.
+	 * @param file The Word file ({@code .docx}) to be redacted.
+	 * @return The redacted document and the ID Philter recorded it under.
+	 * @throws IOException Thrown if the request can not be completed.
+	 */
+	public BinaryFilterResponse filterWord(String context, String policyName, String filename, File file) throws IOException {
+		return filterWord(context, policyName, filename, Files.readAllBytes(file.toPath()));
+	}
+
+	/**
+	 * Send a Word document held in memory to Philter to be redacted, waiting for the redacted document, which is
+	 * returned in the same format. Sends the same request as the {@link File} overload.
+	 *
+	 * <p>Requires Philter 4.1.0 or later. Only the Transitional Office Open XML format is redacted. Philter
+	 * refuses a body that is not a Word document, such as an Excel workbook sent as Word, any other ZIP file, a legacy
+	 * {@code .doc} file, or a password-protected document, with a 415, and one over its Office size limits
+	 * with a 413.</p>
+	 *
+	 * @param context The context. Contexts can be used to group text based on some arbitrary property.
+	 * @param policyName The name of the policy to apply to the document.
+	 * @param filename The name of the file being filtered, recorded against the document. May be {@code null}.
+	 * @param content The Word ({@code .docx}) bytes.
+	 * @return The redacted document and the ID Philter recorded it under.
+	 * @throws IOException Thrown if the request can not be completed.
+	 */
+	public BinaryFilterResponse filterWord(String context, String policyName, String filename, byte[] content) throws IOException {
+		return filterBinary(context, policyName, filename, content, WORD, WORD, null);
+	}
+
+	/**
+	 * Submits a Word document to Philter to be redacted asynchronously. Philter accepts the document and returns
+	 * immediately; poll {@link #getDocumentState(String)} with the returned document ID and retrieve the
+	 * redacted document, in the same format, with {@link #getDocument(String)}.
+	 *
+	 * <p>Requires Philter 4.1.0 or later. Only the Transitional Office Open XML format is redacted. Philter
+	 * refuses a body that is not a Word document, such as an Excel workbook sent as Word, any other ZIP file, a legacy
+	 * {@code .doc} file, or a password-protected document, with a 415, and one over its Office size limits
+	 * with a 413.</p>
+	 *
+	 * @param context The context. Contexts can be used to group text based on some arbitrary property.
+	 * @param policyName The name of the policy to apply to the document.
+	 * @param filename The name of the file being filtered, recorded against the document. May be {@code null}.
+	 * @param file The Word file ({@code .docx}) to be redacted.
+	 * @return The ID Philter assigned to the document.
+	 * @throws IOException Thrown if the request can not be completed.
+	 */
+	public String filterWordAsync(String context, String policyName, String filename, File file) throws IOException {
+		return filterWordAsync(context, policyName, filename, file, null);
+	}
+
+	/**
+	 * Submits a Word document to Philter to be redacted asynchronously, with a fairness key. Philter accepts the
+	 * document and returns immediately; poll {@link #getDocumentState(String)} with the returned document ID
+	 * and retrieve the redacted document, in the same format, with {@link #getDocument(String)}.
+	 *
+	 * <p>Requires Philter 4.1.0 or later. Only the Transitional Office Open XML format is redacted. Philter
+	 * refuses a body that is not a Word document, such as an Excel workbook sent as Word, any other ZIP file, a legacy
+	 * {@code .doc} file, or a password-protected document, with a 415, and one over its Office size limits
+	 * with a 413.</p>
+	 *
+	 * @param context The context. Contexts can be used to group text based on some arbitrary property.
+	 * @param policyName The name of the policy to apply to the document.
+	 * @param filename The name of the file being filtered, recorded against the document. May be {@code null}.
+	 * @param file The Word file ({@code .docx}) to be redacted.
+	 * @param fairnessKey A key that shares Philter's queue fairly among the people a single API key submits
+	 *                    for. See {@link #filterAsync(String, String, String, byte[], String)}. May be
+	 *                    {@code null} to send no key.
+	 * @return The ID Philter assigned to the document.
+	 * @throws IOException Thrown if the request can not be completed.
+	 */
+	public String filterWordAsync(String context, String policyName, String filename, File file,
+	                              String fairnessKey) throws IOException {
+		return filterWordAsync(context, policyName, filename, Files.readAllBytes(file.toPath()), fairnessKey);
+	}
+
+	/**
+	 * Submits a Word document to Philter to be redacted asynchronously. Philter accepts the document and returns
+	 * immediately; poll {@link #getDocumentState(String)} with the returned document ID and retrieve the
+	 * redacted document, in the same format, with {@link #getDocument(String)}.
+	 *
+	 * <p>Requires Philter 4.1.0 or later. Only the Transitional Office Open XML format is redacted. Philter
+	 * refuses a body that is not a Word document, such as an Excel workbook sent as Word, any other ZIP file, a legacy
+	 * {@code .doc} file, or a password-protected document, with a 415, and one over its Office size limits
+	 * with a 413.</p>
+	 *
+	 * @param context The context. Contexts can be used to group text based on some arbitrary property.
+	 * @param policyName The name of the policy to apply to the document.
+	 * @param filename The name of the file being filtered, recorded against the document. May be {@code null}.
+	 * @param content The Word ({@code .docx}) bytes.
+	 * @return The ID Philter assigned to the document.
+	 * @throws IOException Thrown if the request can not be completed.
+	 */
+	public String filterWordAsync(String context, String policyName, String filename, byte[] content) throws IOException {
+		return filterWordAsync(context, policyName, filename, content, null);
+	}
+
+	/**
+	 * Submits a Word document to Philter to be redacted asynchronously, with a fairness key. Philter accepts the
+	 * document and returns immediately; poll {@link #getDocumentState(String)} with the returned document ID
+	 * and retrieve the redacted document, in the same format, with {@link #getDocument(String)}.
+	 *
+	 * <p>Requires Philter 4.1.0 or later. Only the Transitional Office Open XML format is redacted. Philter
+	 * refuses a body that is not a Word document, such as an Excel workbook sent as Word, any other ZIP file, a legacy
+	 * {@code .doc} file, or a password-protected document, with a 415, and one over its Office size limits
+	 * with a 413.</p>
+	 *
+	 * @param context The context. Contexts can be used to group text based on some arbitrary property.
+	 * @param policyName The name of the policy to apply to the document.
+	 * @param filename The name of the file being filtered, recorded against the document. May be {@code null}.
+	 * @param content The Word ({@code .docx}) bytes.
+	 * @param fairnessKey A key that shares Philter's queue fairly among the people a single API key submits
+	 *                    for. See {@link #filterAsync(String, String, String, byte[], String)}. May be
+	 *                    {@code null} to send no key.
+	 * @return The ID Philter assigned to the document.
+	 * @throws IOException Thrown if the request can not be completed.
+	 */
+	public String filterWordAsync(String context, String policyName, String filename, byte[] content,
+	                              String fairnessKey) throws IOException {
+		return filterBinaryAsync(context, policyName, filename, content, WORD, WORD, fairnessKey, null)
+				.getDocumentId();
+	}
+
+	/**
+	 * Send an Excel workbook to Philter to be redacted, waiting for the redacted workbook, which is returned in the
+	 * same format.
+	 *
+	 * <p>Requires Philter 4.1.0 or later. Only the Transitional Office Open XML format is redacted. Philter
+	 * refuses a body that is not an Excel workbook, such as a Word document sent as Excel, any other ZIP file, a legacy
+	 * {@code .xls} file, or a password-protected document, with a 415, and one over its Office size limits
+	 * with a 413.</p>
+	 *
+	 * @param context The context. Contexts can be used to group text based on some arbitrary property.
+	 * @param policyName The name of the policy to apply to the workbook.
+	 * @param filename The name of the file being filtered, recorded against the document. May be {@code null}.
+	 * @param file The Excel file ({@code .xlsx}) to be redacted.
+	 * @return The redacted workbook and the ID Philter recorded it under.
+	 * @throws IOException Thrown if the request can not be completed.
+	 */
+	public BinaryFilterResponse filterExcel(String context, String policyName, String filename, File file) throws IOException {
+		return filterExcel(context, policyName, filename, Files.readAllBytes(file.toPath()));
+	}
+
+	/**
+	 * Send an Excel workbook held in memory to Philter to be redacted, waiting for the redacted workbook, which is
+	 * returned in the same format. Sends the same request as the {@link File} overload.
+	 *
+	 * <p>Requires Philter 4.1.0 or later. Only the Transitional Office Open XML format is redacted. Philter
+	 * refuses a body that is not an Excel workbook, such as a Word document sent as Excel, any other ZIP file, a legacy
+	 * {@code .xls} file, or a password-protected document, with a 415, and one over its Office size limits
+	 * with a 413.</p>
+	 *
+	 * @param context The context. Contexts can be used to group text based on some arbitrary property.
+	 * @param policyName The name of the policy to apply to the workbook.
+	 * @param filename The name of the file being filtered, recorded against the document. May be {@code null}.
+	 * @param content The Excel ({@code .xlsx}) bytes.
+	 * @return The redacted workbook and the ID Philter recorded it under.
+	 * @throws IOException Thrown if the request can not be completed.
+	 */
+	public BinaryFilterResponse filterExcel(String context, String policyName, String filename, byte[] content) throws IOException {
+		return filterBinary(context, policyName, filename, content, EXCEL, EXCEL, null);
+	}
+
+	/**
+	 * Submits an Excel workbook to Philter to be redacted asynchronously. Philter accepts the document and returns
+	 * immediately; poll {@link #getDocumentState(String)} with the returned document ID and retrieve the
+	 * redacted workbook, in the same format, with {@link #getDocument(String)}.
+	 *
+	 * <p>Requires Philter 4.1.0 or later. Only the Transitional Office Open XML format is redacted. Philter
+	 * refuses a body that is not an Excel workbook, such as a Word document sent as Excel, any other ZIP file, a legacy
+	 * {@code .xls} file, or a password-protected document, with a 415, and one over its Office size limits
+	 * with a 413.</p>
+	 *
+	 * @param context The context. Contexts can be used to group text based on some arbitrary property.
+	 * @param policyName The name of the policy to apply to the workbook.
+	 * @param filename The name of the file being filtered, recorded against the document. May be {@code null}.
+	 * @param file The Excel file ({@code .xlsx}) to be redacted.
+	 * @return The ID Philter assigned to the document.
+	 * @throws IOException Thrown if the request can not be completed.
+	 */
+	public String filterExcelAsync(String context, String policyName, String filename, File file) throws IOException {
+		return filterExcelAsync(context, policyName, filename, file, null);
+	}
+
+	/**
+	 * Submits an Excel workbook to Philter to be redacted asynchronously, with a fairness key. Philter accepts the
+	 * document and returns immediately; poll {@link #getDocumentState(String)} with the returned document ID
+	 * and retrieve the redacted workbook, in the same format, with {@link #getDocument(String)}.
+	 *
+	 * <p>Requires Philter 4.1.0 or later. Only the Transitional Office Open XML format is redacted. Philter
+	 * refuses a body that is not an Excel workbook, such as a Word document sent as Excel, any other ZIP file, a legacy
+	 * {@code .xls} file, or a password-protected document, with a 415, and one over its Office size limits
+	 * with a 413.</p>
+	 *
+	 * @param context The context. Contexts can be used to group text based on some arbitrary property.
+	 * @param policyName The name of the policy to apply to the workbook.
+	 * @param filename The name of the file being filtered, recorded against the document. May be {@code null}.
+	 * @param file The Excel file ({@code .xlsx}) to be redacted.
+	 * @param fairnessKey A key that shares Philter's queue fairly among the people a single API key submits
+	 *                    for. See {@link #filterAsync(String, String, String, byte[], String)}. May be
+	 *                    {@code null} to send no key.
+	 * @return The ID Philter assigned to the document.
+	 * @throws IOException Thrown if the request can not be completed.
+	 */
+	public String filterExcelAsync(String context, String policyName, String filename, File file,
+	                               String fairnessKey) throws IOException {
+		return filterExcelAsync(context, policyName, filename, Files.readAllBytes(file.toPath()), fairnessKey);
+	}
+
+	/**
+	 * Submits an Excel workbook to Philter to be redacted asynchronously. Philter accepts the document and returns
+	 * immediately; poll {@link #getDocumentState(String)} with the returned document ID and retrieve the
+	 * redacted workbook, in the same format, with {@link #getDocument(String)}.
+	 *
+	 * <p>Requires Philter 4.1.0 or later. Only the Transitional Office Open XML format is redacted. Philter
+	 * refuses a body that is not an Excel workbook, such as a Word document sent as Excel, any other ZIP file, a legacy
+	 * {@code .xls} file, or a password-protected document, with a 415, and one over its Office size limits
+	 * with a 413.</p>
+	 *
+	 * @param context The context. Contexts can be used to group text based on some arbitrary property.
+	 * @param policyName The name of the policy to apply to the workbook.
+	 * @param filename The name of the file being filtered, recorded against the document. May be {@code null}.
+	 * @param content The Excel ({@code .xlsx}) bytes.
+	 * @return The ID Philter assigned to the document.
+	 * @throws IOException Thrown if the request can not be completed.
+	 */
+	public String filterExcelAsync(String context, String policyName, String filename, byte[] content) throws IOException {
+		return filterExcelAsync(context, policyName, filename, content, null);
+	}
+
+	/**
+	 * Submits an Excel workbook to Philter to be redacted asynchronously, with a fairness key. Philter accepts the
+	 * document and returns immediately; poll {@link #getDocumentState(String)} with the returned document ID
+	 * and retrieve the redacted workbook, in the same format, with {@link #getDocument(String)}.
+	 *
+	 * <p>Requires Philter 4.1.0 or later. Only the Transitional Office Open XML format is redacted. Philter
+	 * refuses a body that is not an Excel workbook, such as a Word document sent as Excel, any other ZIP file, a legacy
+	 * {@code .xls} file, or a password-protected document, with a 415, and one over its Office size limits
+	 * with a 413.</p>
+	 *
+	 * @param context The context. Contexts can be used to group text based on some arbitrary property.
+	 * @param policyName The name of the policy to apply to the workbook.
+	 * @param filename The name of the file being filtered, recorded against the document. May be {@code null}.
+	 * @param content The Excel ({@code .xlsx}) bytes.
+	 * @param fairnessKey A key that shares Philter's queue fairly among the people a single API key submits
+	 *                    for. See {@link #filterAsync(String, String, String, byte[], String)}. May be
+	 *                    {@code null} to send no key.
+	 * @return The ID Philter assigned to the document.
+	 * @throws IOException Thrown if the request can not be completed.
+	 */
+	public String filterExcelAsync(String context, String policyName, String filename, byte[] content,
+	                               String fairnessKey) throws IOException {
+		return filterBinaryAsync(context, policyName, filename, content, EXCEL, EXCEL, fairnessKey, null)
+				.getDocumentId();
 	}
 
 	/**
