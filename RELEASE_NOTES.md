@@ -9,6 +9,10 @@ Not yet released; changes are relative to 3.0.0.
 
 ### New features
 
+* `Limits.Caller` has `getUsername()`, the username of the user the API key belongs to, which an administrator passes as
+  `owner` to reach that user's resources, such as the ledger chain of a document the key redacted. Philter 4.1.0 and
+  later send it; from an earlier Philter it is `null` (philterd/philter#207).
+
 * `ClientException` and `ServiceUnavailableException` have `getRetryAfterSeconds()`, the response's `Retry-After` in
   seconds, as the sign-in exceptions already did, and `PhilterError` has it too. Philter sends it on a `409`
   `admin_change_in_progress` from `setUserRole` or `deactivateUser`, a `429` or `503` from an asynchronous filter call,

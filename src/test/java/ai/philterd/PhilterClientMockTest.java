@@ -5921,7 +5921,7 @@ public class PhilterClientMockTest {
             + "\"users\":{\"roles\":[\"admin\",\"user\"],\"reservedUsernames\":[\"me\"]},"
             + "\"auditExport\":{\"maxWindowDays\":30,\"defaultPageSize\":100,\"maxPageSize\":1000},"
             + "\"sessionKeys\":{\"idleTimeoutMinutes\":30,\"maxLifetimeMinutes\":720},"
-            + "\"caller\":{\"role\":\"admin\",\"contextCount\":3,\"crossUserAccess\":false,\"ledgerDeletion\":true},"
+            + "\"caller\":{\"username\":\"jordan\",\"role\":\"admin\",\"contextCount\":3,\"crossUserAccess\":false,\"ledgerDeletion\":true},"
             // Fields a later Philter adds are ignored.
             + "\"somethingNew\":{\"x\":1},\"requestsExtra\":7}";
 
@@ -5969,6 +5969,7 @@ public class PhilterClientMockTest {
         Assert.assertEquals(1000, limits.getAuditExport().getMaxPageSize());
         Assert.assertEquals(30, limits.getSessionKeys().getIdleTimeoutMinutes());
         Assert.assertEquals(720, limits.getSessionKeys().getMaxLifetimeMinutes());
+        Assert.assertEquals("jordan", limits.getCaller().getUsername());
         Assert.assertEquals("admin", limits.getCaller().getRole());
         Assert.assertEquals(3, limits.getCaller().getContextCount());
         Assert.assertFalse(limits.getCaller().isCrossUserAccess());

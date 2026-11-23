@@ -33,6 +33,6 @@ Any valid API key can call it, whatever its scopes, including a session key that
 | `getUsers()` | `getRoles()` and `getReservedUsernames()`. |
 | `getAuditExport()` | `getMaxWindowDays()`, `getDefaultPageSize()`, and `getMaxPageSize()`. |
 | `getSessionKeys()` | `getIdleTimeoutMinutes()` and `getMaxLifetimeMinutes()`. |
-| `getCaller()` | `getRole()`, `getContextCount()`, `isCrossUserAccess()` (may use `owner` and all-users listings), and `isLedgerDeletion()` (may delete and purge ledger chains). |
+| `getCaller()` | `getUsername()` (the value an administrator passes as `owner` to reach this user; null before Philter 4.1.0), `getRole()`, `getContextCount()`, `isCrossUserAccess()` (may use `owner` and all-users listings), and `isLedgerDeletion()` (may delete and purge ledger chains). |
 
 The values are the deployment's: several, such as the request sizes and the session key lifetimes, are settings an administrator can change. For what each means in Philter, see Philter's [limits documentation](https://github.com/philterd/philter/blob/main/docs/docs/api_and_sdks/api/limits_api.md).

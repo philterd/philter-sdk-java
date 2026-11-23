@@ -492,6 +492,10 @@ public class Limits {
     public static class Caller {
 
         @Expose
+        @SerializedName("username")
+        private String username;
+
+        @Expose
         @SerializedName("role")
         private String role;
 
@@ -506,6 +510,18 @@ public class Limits {
         @Expose
         @SerializedName("ledgerDeletion")
         private boolean ledgerDeletion;
+
+        /**
+         * The username of the user the API key or session key belongs to: the value an administrator passes as
+         * {@code owner} to reach this user's resources. Null from a Philter earlier than 4.1.0, which does not send it.
+         */
+        public String getUsername() {
+            return username;
+        }
+
+        public void setUsername(String username) {
+            this.username = username;
+        }
 
         /** The caller's role, read when the request is made. */
         public String getRole() {
