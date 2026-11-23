@@ -43,6 +43,10 @@ public class LegalHoldResponse {
     @SerializedName("setAt")
     private String setAt;
 
+    @Expose
+    @SerializedName("setBy")
+    private String setBy;
+
     public String getReason() {
         return reason;
     }
@@ -85,6 +89,20 @@ public class LegalHoldResponse {
 
     public void setSetAt(String setAt) {
         this.setAt = setAt;
+    }
+
+    /**
+     * The username of the user who placed the hold. It differs from the owner when an administrator
+     * placed the hold on another user's evidence.
+     * @return The username, or {@code null} when Philter does not report it: a Philter that does not send
+     * the field, such as 4.0.0, or a hold whose setter no longer exists.
+     */
+    public String getSetBy() {
+        return setBy;
+    }
+
+    public void setSetBy(String setBy) {
+        this.setBy = setBy;
     }
 
 }

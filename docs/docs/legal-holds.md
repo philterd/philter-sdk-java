@@ -33,6 +33,8 @@ System.out.println(theirs.getScopeValue());                  // "jordan"
 
 Naming another user with `owner` requires an administrator and `ADMIN_CROSS_USER_ACCESS_ENABLED`; see [Owners and Pagination](owners-and-pagination.md).
 
+`getSetBy()` is the username of the user who placed a hold, so a hold an administrator placed on another user's evidence names the administrator. It is `null` when Philter does not report it: Philter versions that do not send the field, such as 4.0.0, and a hold whose setter no longer exists.
+
 Philter rejects with an HTTP 400 a missing `reference` or `scopeType`, any other scope type, a `document_chain` hold without `scopeValue`, a `user` hold whose `scopeValue` names anyone but its owner, and a reference that cannot be used in a request path: one containing `/`, `\`, `;`, `%`, or a control character, or that is `.` or `..`. Re-using a reference that is already held returns an HTTP 409. Both surface as a `ClientException`.
 
 ```java

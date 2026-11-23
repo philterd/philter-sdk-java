@@ -4880,6 +4880,46 @@ public class PhilterClientMockTest {
     }
 
     @Test
+    public void holdsReadWhoPlacedThemAndNullWithoutIt() throws Exception {
+
+        final PhilterClient c = client();
+        final String withSetBy = "{\"reference\":\"case-1\",\"scopeType\":\"user\",\"scopeValue\":\"jordan\","
+                + "\"setAt\":\"2026-10-05T12:00:00Z\",\"setBy\":\"admin\"}";
+        // As Philter 4.0.0 sends a hold, with no setBy.
+        final String withoutSetBy = "{\"reference\":\"case-1\",\"scopeType\":\"user\",\"scopeValue\":\"jordan\","
+                + "\"setAt\":\"2026-10-05T12:00:00Z\"}";
+
+        final LegalHoldRequest request = new LegalHoldRequest();
+        request.setReference("case-1");
+        request.setScopeType("user");
+
+        respond(201, withSetBy);
+        Assert.assertEquals("admin", c.createHold(request, "jordan").getSetBy());
+        respond(201, withoutSetBy);
+        Assert.assertNull(c.createHold(request).getSetBy());
+
+        respond(200, withSetBy);
+        Assert.assertEquals("admin", c.getHold("case-1").getSetBy());
+        respond(200, withoutSetBy);
+        Assert.assertNull(c.getHold("case-1").getSetBy());
+
+        respond(200, "{\"holds\":[" + withSetBy + "," + withoutSetBy + "],\"total\":2}");
+        final List<LegalHoldResponse> holds = c.listHolds(null, null).getItems();
+        Assert.assertEquals("admin", holds.get(0).getSetBy());
+        Assert.assertNull(holds.get(1).getSetBy());
+
+        respond(200, "{\"holds\":[{\"reference\":\"case-1\",\"owner\":\"jordan\",\"setBy\":\"admin\"},"
+                + "{\"reference\":\"case-2\",\"owner\":\"jordan\"},"
+                + "{\"reference\":\"case-3\",\"owner\":\"jordan\",\"setBy\":null}],\"total\":3}");
+        final List<OwnedLegalHoldResponse> owned = c.listHoldsAcrossUsers(null).getItems();
+        Assert.assertEquals("admin", owned.get(0).getSetBy());
+        Assert.assertEquals("jordan", owned.get(0).getOwner());
+        Assert.assertNull(owned.get(1).getSetBy());
+        // A hold whose setter no longer exists.
+        Assert.assertNull(owned.get(2).getSetBy());
+    }
+
+    @Test
     public void listHoldsAcrossUsersMapsTheHoldAndItsOwner() throws Exception {
 
         respond(200, "{\"holds\":[{\"reference\":\"case-1\",\"scopeType\":\"document\",\"scopeValue\":\"doc-1\","

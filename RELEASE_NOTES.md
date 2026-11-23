@@ -9,6 +9,9 @@ Not yet released; changes are relative to 3.0.0.
 
 ### New features
 
+* `LegalHoldResponse.getSetBy()`, and so `OwnedLegalHoldResponse.getSetBy()`, returns the username of the user who
+  placed a hold, from Philter's `setBy` field. It is `null` against a Philter that does not send the field, such as
+  4.0.0.
 * Word (`.docx`) and Excel (`.xlsx`) documents can be redacted. `filterWord` and `filterExcel` wait for the redacted
   document, and `filterWordAsync` and `filterExcelAsync` submit it and return its ID, with an optional fairness key.
   Each takes a `File` or a `byte[]`, sends the Office type as both `Content-Type` and `Accept`, and gets back a
