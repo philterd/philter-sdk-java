@@ -26,6 +26,22 @@ FilterResponse response = client.filter("my-context", "default", "notes.txt", te
 
 The replacement text (redaction tokens, masking characters, encrypted values, and so on) is entirely determined by the policy you name. See [Policies](policies.md).
 
+## Requests selected for review
+
+A policy with a review sampling rate (`config.review.samplingRate`) has that share of its requests selected at random for human spot review. `isReviewSampled()` is `true` when Philter selected the request, so the result can be routed to a reviewer:
+
+```java
+FilterResponse response = client.filter("my-context", "default", text);
+
+if (response.isReviewSampled()) {
+    // Queue response.getDocumentId() and the redacted text for a reviewer.
+}
+```
+
+It reads Philter's `X-Philter-Review: sampled` response header. A response without the header, or with any other value, reads as `false`. The same method is on the responses from `explain` ([Explain](explain.md)), the PDF, Word, and Excel methods ([PDF](pdf.md#requests-selected-for-review), [Word and Excel](word-and-excel.md#requests-selected-for-review)), and asynchronous submissions, where the selection is reported only on the submission's response, not on the document's status or download. Each selection is recorded in the [audit log](audit-log.md) as `redaction_review_sampled`. Requires Philter 4.1.0 or later; from an earlier Philter it is always `false`.
+
+A request that was not selected has not been checked by anyone. Detection is probabilistic, so validate results against your own data whether or not a request was selected. See Philter's [review sampling](https://github.com/philterd/philter/blob/main/docs/docs/policies/filter_policies.md#sampling-requests-for-review) documentation to configure the rate.
+
 ## Signed responses
 
 Philter can sign the text it returns, so a recipient can verify that the response came from a specific deployment, was governed by the named policy, and was not modified. Pass `true` as the last argument of `filter` or `explain` to ask for a signature:

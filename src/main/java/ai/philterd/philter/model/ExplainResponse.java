@@ -42,6 +42,10 @@ public class ExplainResponse {
     @SerializedName("explanation")
     private Explanation explanation;
 
+    @Expose
+    @SerializedName("reviewSampled")
+    private boolean reviewSampled;
+
     // Not part of the JSON body: set by the client from the response, so transient.
     private transient String signature;
     private transient String responseBody;
@@ -114,6 +118,22 @@ public class ExplainResponse {
 
     public void setResponseBody(String responseBody) {
         this.responseBody = responseBody;
+    }
+
+    /**
+     * Whether the policy's review sampling rate selected this request for human spot review, from the
+     * body's {@code reviewSampled} or the {@code X-Philter-Review: sampled} response header. A header with
+     * any other value is not reported as selected. A request that was not selected has not been checked by
+     * anyone; detection is probabilistic, so validate results against your own data either way. Requires
+     * Philter 4.1.0 or later.
+     * @return {@code true} when Philter reported the request as selected.
+     */
+    public boolean isReviewSampled() {
+        return reviewSampled;
+    }
+
+    public void setReviewSampled(boolean reviewSampled) {
+        this.reviewSampled = reviewSampled;
     }
 
 }

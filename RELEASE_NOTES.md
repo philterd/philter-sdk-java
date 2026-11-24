@@ -9,6 +9,12 @@ Not yet released; changes are relative to 3.0.0.
 
 ### New features
 
+* `FilterResponse`, `BinaryFilterResponse`, `ExplainResponse`, and `AsyncFilterResponse` have `isReviewSampled()`,
+  `true` when a policy's review sampling rate selected the request for human spot review. It reads Philter's
+  `X-Philter-Review: sampled` header, and for `explain` also the body's `reviewSampled`; any other header value reads
+  as `false`. An asynchronous document's selection is reported only on its submission's response, so `submitWord` and
+  `submitExcel` are added: they send the same request as `filterWordAsync` and `filterExcelAsync` and return an
+  `AsyncFilterResponse` rather than only the document ID. Requires Philter 4.1.0 or later (philterd/philter#217).
 * `Model` has `getSha256()`, the SHA-256 of the model's `model.onnx` as lowercase hex. It identifies a model's
   weights, which its name does not, so evaluation results can record which weights produced them. `getModels()` and
   `getModel(name)` return it. Philter 4.1.0 and later send it; from 4.0.x it is `null` (philterd/philter#100).

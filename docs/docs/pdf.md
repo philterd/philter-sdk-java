@@ -117,3 +117,18 @@ String documentId = client.filterAsync("my-context", "default", "report.pdf", ne
 The key is opaque to Philter and is stored unencrypted with the queued document, so it must not contain personal data such as a name or email address. Use an internal ID instead. A key is 1 to 64 characters of letters, digits, `.`, `_`, `:` and `-`; Philter refuses any other value with an HTTP 400. Passing `null`, or calling the overloads without a key, sends no key; documents queued without a key take turns together, as if they shared one key. The synchronous `filter(...)` and `filterToPdf(...)` methods do not take one, since Philter refuses a key on a synchronous request.
 
 Use `listDocuments()` to list the stored documents and `deleteDocument(documentId)` to remove one.
+
+## Requests selected for review
+
+`BinaryFilterResponse.isReviewSampled()` is `true` when the policy's review sampling rate selected a synchronous request for human spot review. See [Requests selected for review](redacting-text.md#requests-selected-for-review).
+
+An asynchronous document is selected when Philter accepts it, so only the submission's response reports it; the status and download responses do not. `filterAsync(...)` and `filterToPdfAsync(...)` with a fairness key and page policies return an `AsyncFilterResponse` whose `isReviewSampled()` reports it. Pass `null` for either to send none:
+
+```java
+AsyncFilterResponse accepted =
+        client.filterAsync("my-context", "default", "report.pdf", new File("report.pdf"), null, null);
+
+if (accepted.isReviewSampled()) {
+    // Keep accepted.getDocumentId() for a reviewer.
+}
+```

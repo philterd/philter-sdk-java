@@ -38,6 +38,19 @@ byte[] docx = client.getDocument(documentId);           // once the status is CO
 
 Pass a [fairness key](pdf.md#sharing-the-queue-fairly) as the last argument to share the queue among the people one API key submits for. The synchronous methods do not take one.
 
+## Requests selected for review
+
+`BinaryFilterResponse.isReviewSampled()` is `true` when the policy's review sampling rate selected a `filterWord` or `filterExcel` request for human spot review. See [Requests selected for review](redacting-text.md#requests-selected-for-review).
+
+An asynchronous document is selected when Philter accepts it, so only the submission's response reports it; the status and download responses do not. `filterWordAsync` and `filterExcelAsync` return only the document ID, so use `submitWord(...)` and `submitExcel(...)` instead. They take the same arguments, send the same request, and return an `AsyncFilterResponse`:
+
+```java
+AsyncFilterResponse accepted = client.submitWord("my-context", "default", "letter.docx", new File("letter.docx"));
+
+String documentId = accepted.getDocumentId();
+boolean selected = accepted.isReviewSampled();
+```
+
 ## What is redacted
 
 Philter redacts the copies of text Office documents keep outside the visible body as well, such as headers and footers, comments, text boxes, chart text, cached values, and embedded Word and Excel documents. Embedded objects it cannot inspect are removed.

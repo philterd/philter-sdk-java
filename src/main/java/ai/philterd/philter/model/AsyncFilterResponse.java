@@ -30,6 +30,7 @@ public class AsyncFilterResponse {
 
     // From the response header rather than the JSON body, so Gson leaves it alone.
     private transient String pagePolicies;
+    private transient boolean reviewSampled;
 
     public String getDocumentId() {
         return documentId;
@@ -52,6 +53,23 @@ public class AsyncFilterResponse {
 
     public void setPagePolicies(String pagePolicies) {
         this.pagePolicies = pagePolicies;
+    }
+
+    /**
+     * Whether the policy's review sampling rate selected this document for human spot review, from the
+     * {@code X-Philter-Review: sampled} header of the {@code 202 Accepted} response. A document is selected
+     * when Philter accepts it, and its status and download responses do not carry the header, so keep this
+     * with the document ID. A header with any other value is not reported as selected. A document that was
+     * not selected has not been checked by anyone; detection is probabilistic, so validate results against
+     * your own data either way. Requires Philter 4.1.0 or later.
+     * @return {@code true} when the response carried {@code X-Philter-Review: sampled}.
+     */
+    public boolean isReviewSampled() {
+        return reviewSampled;
+    }
+
+    public void setReviewSampled(boolean reviewSampled) {
+        this.reviewSampled = reviewSampled;
     }
 
 }

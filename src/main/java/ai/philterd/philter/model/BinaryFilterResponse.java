@@ -21,16 +21,23 @@ public class BinaryFilterResponse {
     private String context;
     private String documentId;
     private String pagePolicies;
+    private boolean reviewSampled;
 
     public BinaryFilterResponse(String context, String documentId, byte[] content) {
         this(context, documentId, content, null);
     }
 
     public BinaryFilterResponse(String context, String documentId, byte[] content, String pagePolicies) {
+        this(context, documentId, content, pagePolicies, false);
+    }
+
+    public BinaryFilterResponse(String context, String documentId, byte[] content, String pagePolicies,
+                                boolean reviewSampled) {
         this.context = context;
         this.documentId = documentId;
         this.content = content;
         this.pagePolicies = pagePolicies;
+        this.reviewSampled = reviewSampled;
     }
 
     public byte[] getContent() {
@@ -70,6 +77,21 @@ public class BinaryFilterResponse {
 
     public void setPagePolicies(String pagePolicies) {
         this.pagePolicies = pagePolicies;
+    }
+
+    /**
+     * Whether the policy's review sampling rate selected this request for human spot review, from the
+     * {@code X-Philter-Review: sampled} response header. A header with any other value is not reported as
+     * selected. A request that was not selected has not been checked by anyone; detection is probabilistic,
+     * so validate results against your own data either way. Requires Philter 4.1.0 or later.
+     * @return {@code true} when the response carried {@code X-Philter-Review: sampled}.
+     */
+    public boolean isReviewSampled() {
+        return reviewSampled;
+    }
+
+    public void setReviewSampled(boolean reviewSampled) {
+        this.reviewSampled = reviewSampled;
     }
 
 }

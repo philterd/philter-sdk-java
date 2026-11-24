@@ -36,6 +36,8 @@ Every field of an `AuditEvent` except `getTimestamp()` and `getEvent()` is `null
 
 `getSource()` says where an event came from: `api` for an event a request caused, including a redaction the asynchronous worker completes later, or `system` for one Philter recorded on its own, such as at startup or when a session key expires in the background. `getClientIpAddress()` is the address of the client whose request caused the event (the connection's address or, for a request from a trusted proxy, the address its `X-Forwarded-For` names), and `null` for an event with no request behind it. Events recorded by a Philter without philterd/philter#149 have no source, and some hold `api` or `system` in the client address instead. For the list of event types and what each field holds, see Philter's [auditing documentation](https://github.com/philterd/philter/blob/main/docs/docs/auditing.md).
 
+Philter 4.1.0 and later record `redaction_review_sampled` each time a policy's review sampling rate selects a request for human spot review, with the document ID and the policy name and version in `getDetails()`. Pass it as `event` to list the selections, such as to find any a reviewer has not seen. A response reports its own selection with `isReviewSampled()`; see [Requests selected for review](redacting-text.md#requests-selected-for-review).
+
 ## Exporting as CSV
 
 `exportAuditLog` returns the log as CSV for a range of whole days.

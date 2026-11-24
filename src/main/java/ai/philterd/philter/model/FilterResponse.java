@@ -42,6 +42,10 @@ public class FilterResponse {
     @SerializedName("signature")
     private String signature;
 
+    @Expose
+    @SerializedName("reviewSampled")
+    private boolean reviewSampled;
+
     /**
      * Creates a new filter response.
      * @param filteredText The filtered text.
@@ -60,10 +64,24 @@ public class FilterResponse {
      * @param signature The {@code X-Philter-Signature} JWT, or {@code null} if the response is unsigned.
      */
     public FilterResponse(String filteredText, String context, String documentId, String signature) {
+        this(filteredText, context, documentId, signature, false);
+    }
+
+    /**
+     * Creates a new filter response.
+     * @param filteredText The filtered text.
+     * @param context The context.
+     * @param documentId The document ID.
+     * @param signature The {@code X-Philter-Signature} JWT, or {@code null} if the response is unsigned.
+     * @param reviewSampled Whether the request was selected for review.
+     */
+    public FilterResponse(String filteredText, String context, String documentId, String signature,
+                          boolean reviewSampled) {
         this.filteredText = filteredText;
         this.context = context;
         this.documentId = documentId;
         this.signature = signature;
+        this.reviewSampled = reviewSampled;
     }
 
     public int hashCode() {
@@ -118,6 +136,21 @@ public class FilterResponse {
 
     public void setSignature(String signature) {
         this.signature = signature;
+    }
+
+    /**
+     * Whether the policy's review sampling rate selected this request for human spot review, from the
+     * {@code X-Philter-Review: sampled} response header. A header with any other value is not reported as
+     * selected. A request that was not selected has not been checked by anyone; detection is probabilistic,
+     * so validate results against your own data either way. Requires Philter 4.1.0 or later.
+     * @return {@code true} when the response carried {@code X-Philter-Review: sampled}.
+     */
+    public boolean isReviewSampled() {
+        return reviewSampled;
+    }
+
+    public void setReviewSampled(boolean reviewSampled) {
+        this.reviewSampled = reviewSampled;
     }
 
 }

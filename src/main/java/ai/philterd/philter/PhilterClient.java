@@ -165,6 +165,7 @@ public class PhilterClient {
 
 	private static final String SIGNATURE_HEADER = "X-Philter-Signature";
 	private static final String PAGE_POLICIES_HEADER = "X-Philter-Page-Policies";
+	private static final String REVIEW_HEADER = "X-Philter-Review";
 
 	private static final String APPLICATION_PDF = "application/pdf";
 	private static final String WORD = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
@@ -605,6 +606,14 @@ public class PhilterClient {
 		return response.statusCode() >= 200 && response.statusCode() < 300;
 	}
 
+	/**
+	 * Whether a response carries {@code X-Philter-Review: sampled}. Any other value is not a selection, so
+	 * reasons Philter may add later are not misreported.
+	 */
+	private static boolean isReviewSampled(final HttpResponse<?> response) {
+		return response.headers().allValues(REVIEW_HEADER).stream().anyMatch(v -> "sampled".equals(v.trim()));
+	}
+
 	/** How much of an error response body is carried in the exception message. */
 	private static final int MAX_ERROR_BODY_LENGTH = 512;
 
@@ -924,7 +933,7 @@ public class PhilterClient {
 
 			final String documentId = response.headers().firstValue(DOCUMENT_ID_HEADER).orElse(null);
 			final String signature = response.headers().firstValue(SIGNATURE_HEADER).orElse(null);
-			return new FilterResponse(response.body(), context, documentId, signature);
+			return new FilterResponse(response.body(), context, documentId, signature, isReviewSampled(response));
 
 		}
 
@@ -1095,7 +1104,8 @@ public class PhilterClient {
 
 			final String documentId = response.headers().firstValue(DOCUMENT_ID_HEADER).orElse(null);
 			final String appliedPagePolicies = response.headers().firstValue(PAGE_POLICIES_HEADER).orElse(null);
-			return new BinaryFilterResponse(context, documentId, response.body(), appliedPagePolicies);
+			return new BinaryFilterResponse(context, documentId, response.body(), appliedPagePolicies,
+					isReviewSampled(response));
 
 		}
 
@@ -1433,6 +1443,7 @@ public class PhilterClient {
 			accepted = new AsyncFilterResponse();
 		}
 		accepted.setPagePolicies(response.headers().firstValue(PAGE_POLICIES_HEADER).orElse(null));
+		accepted.setReviewSampled(isReviewSampled(response));
 
 		return accepted;
 
@@ -1591,8 +1602,87 @@ public class PhilterClient {
 	 */
 	public String filterWordAsync(String context, String policyName, String filename, byte[] content,
 	                              String fairnessKey) throws IOException {
-		return filterBinaryAsync(context, policyName, filename, content, WORD, WORD, fairnessKey, null)
-				.getDocumentId();
+		return submitWord(context, policyName, filename, content, fairnessKey).getDocumentId();
+	}
+
+	/**
+	 * Submits a Word document to Philter to be redacted asynchronously, as {@code filterWordAsync} does, returning the
+	 * whole {@code 202 Accepted} response rather than only the document ID. {@link AsyncFilterResponse#isReviewSampled()}
+	 * reports whether the policy selected the document for review, which its status and download responses do not.
+	 *
+	 * <p>Requires Philter 4.1.0 or later.</p>
+	 *
+	 * @param context The context. Contexts can be used to group text based on some arbitrary property.
+	 * @param policyName The name of the policy to apply to the document.
+	 * @param filename The name of the file being filtered, recorded against the document. May be {@code null}.
+	 * @param file The Word file ({@code .docx}) to be redacted.
+	 * @return The ID Philter assigned to the document and whether it was selected for review.
+	 * @throws IOException Thrown if the request can not be completed.
+	 */
+	public AsyncFilterResponse submitWord(String context, String policyName, String filename, File file) throws IOException {
+		return submitWord(context, policyName, filename, Files.readAllBytes(file.toPath()), null);
+	}
+
+	/**
+	 * Submits a Word document to Philter to be redacted asynchronously, as {@code filterWordAsync} does, returning the
+	 * whole {@code 202 Accepted} response rather than only the document ID. {@link AsyncFilterResponse#isReviewSampled()}
+	 * reports whether the policy selected the document for review, which its status and download responses do not.
+	 *
+	 * <p>Requires Philter 4.1.0 or later.</p>
+	 *
+	 * @param context The context. Contexts can be used to group text based on some arbitrary property.
+	 * @param policyName The name of the policy to apply to the document.
+	 * @param filename The name of the file being filtered, recorded against the document. May be {@code null}.
+	 * @param file The Word file ({@code .docx}) to be redacted.
+	 * @param fairnessKey A key that shares Philter's queue fairly among the people a single API key submits
+	 *                    for. See {@link #filterAsync(String, String, String, byte[], String)}. May be
+	 *                    {@code null} to send no key.
+	 * @return The ID Philter assigned to the document and whether it was selected for review.
+	 * @throws IOException Thrown if the request can not be completed.
+	 */
+	public AsyncFilterResponse submitWord(String context, String policyName, String filename, File file,
+	                                      String fairnessKey) throws IOException {
+		return submitWord(context, policyName, filename, Files.readAllBytes(file.toPath()), fairnessKey);
+	}
+
+	/**
+	 * Submits a Word document to Philter to be redacted asynchronously, as {@code filterWordAsync} does, returning the
+	 * whole {@code 202 Accepted} response rather than only the document ID. {@link AsyncFilterResponse#isReviewSampled()}
+	 * reports whether the policy selected the document for review, which its status and download responses do not.
+	 *
+	 * <p>Requires Philter 4.1.0 or later.</p>
+	 *
+	 * @param context The context. Contexts can be used to group text based on some arbitrary property.
+	 * @param policyName The name of the policy to apply to the document.
+	 * @param filename The name of the file being filtered, recorded against the document. May be {@code null}.
+	 * @param content The Word ({@code .docx}) bytes.
+	 * @return The ID Philter assigned to the document and whether it was selected for review.
+	 * @throws IOException Thrown if the request can not be completed.
+	 */
+	public AsyncFilterResponse submitWord(String context, String policyName, String filename, byte[] content) throws IOException {
+		return submitWord(context, policyName, filename, content, null);
+	}
+
+	/**
+	 * Submits a Word document to Philter to be redacted asynchronously, as {@code filterWordAsync} does, returning the
+	 * whole {@code 202 Accepted} response rather than only the document ID. {@link AsyncFilterResponse#isReviewSampled()}
+	 * reports whether the policy selected the document for review, which its status and download responses do not.
+	 *
+	 * <p>Requires Philter 4.1.0 or later.</p>
+	 *
+	 * @param context The context. Contexts can be used to group text based on some arbitrary property.
+	 * @param policyName The name of the policy to apply to the document.
+	 * @param filename The name of the file being filtered, recorded against the document. May be {@code null}.
+	 * @param content The Word ({@code .docx}) bytes.
+	 * @param fairnessKey A key that shares Philter's queue fairly among the people a single API key submits
+	 *                    for. See {@link #filterAsync(String, String, String, byte[], String)}. May be
+	 *                    {@code null} to send no key.
+	 * @return The ID Philter assigned to the document and whether it was selected for review.
+	 * @throws IOException Thrown if the request can not be completed.
+	 */
+	public AsyncFilterResponse submitWord(String context, String policyName, String filename, byte[] content,
+	                                      String fairnessKey) throws IOException {
+		return filterBinaryAsync(context, policyName, filename, content, WORD, WORD, fairnessKey, null);
 	}
 
 	/**
@@ -1724,8 +1814,87 @@ public class PhilterClient {
 	 */
 	public String filterExcelAsync(String context, String policyName, String filename, byte[] content,
 	                               String fairnessKey) throws IOException {
-		return filterBinaryAsync(context, policyName, filename, content, EXCEL, EXCEL, fairnessKey, null)
-				.getDocumentId();
+		return submitExcel(context, policyName, filename, content, fairnessKey).getDocumentId();
+	}
+
+	/**
+	 * Submits an Excel workbook to Philter to be redacted asynchronously, as {@code filterExcelAsync} does, returning the
+	 * whole {@code 202 Accepted} response rather than only the document ID. {@link AsyncFilterResponse#isReviewSampled()}
+	 * reports whether the policy selected the document for review, which its status and download responses do not.
+	 *
+	 * <p>Requires Philter 4.1.0 or later.</p>
+	 *
+	 * @param context The context. Contexts can be used to group text based on some arbitrary property.
+	 * @param policyName The name of the policy to apply to the document.
+	 * @param filename The name of the file being filtered, recorded against the document. May be {@code null}.
+	 * @param file The Excel file ({@code .xlsx}) to be redacted.
+	 * @return The ID Philter assigned to the document and whether it was selected for review.
+	 * @throws IOException Thrown if the request can not be completed.
+	 */
+	public AsyncFilterResponse submitExcel(String context, String policyName, String filename, File file) throws IOException {
+		return submitExcel(context, policyName, filename, Files.readAllBytes(file.toPath()), null);
+	}
+
+	/**
+	 * Submits an Excel workbook to Philter to be redacted asynchronously, as {@code filterExcelAsync} does, returning the
+	 * whole {@code 202 Accepted} response rather than only the document ID. {@link AsyncFilterResponse#isReviewSampled()}
+	 * reports whether the policy selected the document for review, which its status and download responses do not.
+	 *
+	 * <p>Requires Philter 4.1.0 or later.</p>
+	 *
+	 * @param context The context. Contexts can be used to group text based on some arbitrary property.
+	 * @param policyName The name of the policy to apply to the document.
+	 * @param filename The name of the file being filtered, recorded against the document. May be {@code null}.
+	 * @param file The Excel file ({@code .xlsx}) to be redacted.
+	 * @param fairnessKey A key that shares Philter's queue fairly among the people a single API key submits
+	 *                    for. See {@link #filterAsync(String, String, String, byte[], String)}. May be
+	 *                    {@code null} to send no key.
+	 * @return The ID Philter assigned to the document and whether it was selected for review.
+	 * @throws IOException Thrown if the request can not be completed.
+	 */
+	public AsyncFilterResponse submitExcel(String context, String policyName, String filename, File file,
+	                                       String fairnessKey) throws IOException {
+		return submitExcel(context, policyName, filename, Files.readAllBytes(file.toPath()), fairnessKey);
+	}
+
+	/**
+	 * Submits an Excel workbook to Philter to be redacted asynchronously, as {@code filterExcelAsync} does, returning the
+	 * whole {@code 202 Accepted} response rather than only the document ID. {@link AsyncFilterResponse#isReviewSampled()}
+	 * reports whether the policy selected the document for review, which its status and download responses do not.
+	 *
+	 * <p>Requires Philter 4.1.0 or later.</p>
+	 *
+	 * @param context The context. Contexts can be used to group text based on some arbitrary property.
+	 * @param policyName The name of the policy to apply to the document.
+	 * @param filename The name of the file being filtered, recorded against the document. May be {@code null}.
+	 * @param content The Excel ({@code .xlsx}) bytes.
+	 * @return The ID Philter assigned to the document and whether it was selected for review.
+	 * @throws IOException Thrown if the request can not be completed.
+	 */
+	public AsyncFilterResponse submitExcel(String context, String policyName, String filename, byte[] content) throws IOException {
+		return submitExcel(context, policyName, filename, content, null);
+	}
+
+	/**
+	 * Submits an Excel workbook to Philter to be redacted asynchronously, as {@code filterExcelAsync} does, returning the
+	 * whole {@code 202 Accepted} response rather than only the document ID. {@link AsyncFilterResponse#isReviewSampled()}
+	 * reports whether the policy selected the document for review, which its status and download responses do not.
+	 *
+	 * <p>Requires Philter 4.1.0 or later.</p>
+	 *
+	 * @param context The context. Contexts can be used to group text based on some arbitrary property.
+	 * @param policyName The name of the policy to apply to the document.
+	 * @param filename The name of the file being filtered, recorded against the document. May be {@code null}.
+	 * @param content The Excel ({@code .xlsx}) bytes.
+	 * @param fairnessKey A key that shares Philter's queue fairly among the people a single API key submits
+	 *                    for. See {@link #filterAsync(String, String, String, byte[], String)}. May be
+	 *                    {@code null} to send no key.
+	 * @return The ID Philter assigned to the document and whether it was selected for review.
+	 * @throws IOException Thrown if the request can not be completed.
+	 */
+	public AsyncFilterResponse submitExcel(String context, String policyName, String filename, byte[] content,
+	                                       String fairnessKey) throws IOException {
+		return filterBinaryAsync(context, policyName, filename, content, EXCEL, EXCEL, fairnessKey, null);
 	}
 
 	/**
@@ -1794,6 +1963,10 @@ public class PhilterClient {
 			explainResponse.setSignature(response.headers().firstValue(SIGNATURE_HEADER).orElse(null));
 			// Philter sends the document ID in a header, not in the body.
 			explainResponse.setDocumentId(response.headers().firstValue(DOCUMENT_ID_HEADER).orElse(null));
+			// The body's reviewSampled and the header report the same selection; either is enough.
+			if(isReviewSampled(response)) {
+				explainResponse.setReviewSampled(true);
+			}
 		}
 
 		return explainResponse;

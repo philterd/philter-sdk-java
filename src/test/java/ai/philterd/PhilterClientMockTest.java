@@ -779,6 +779,127 @@ public class PhilterClientMockTest {
     }
 
     @Test
+    public void filterReportsWhetherTheRequestWasSampledForReview() throws Exception {
+
+        respond(200, "redacted");
+
+        responseHeaders.put("X-Philter-Review", "sampled");
+        Assert.assertTrue(client().filter("ctx", "default", "My SSN is 123-45-6789.").isReviewSampled());
+
+        responseHeaders.clear();
+        Assert.assertFalse(client().filter("ctx", "default", "My SSN is 123-45-6789.").isReviewSampled());
+
+        // A value Philter may add later is not reported as a selection.
+        responseHeaders.put("X-Philter-Review", "escalated");
+        Assert.assertFalse(client().filter("ctx", "default", "My SSN is 123-45-6789.").isReviewSampled());
+    }
+
+    @Test
+    public void binaryFilterReportsWhetherTheRequestWasSampledForReview() throws Exception {
+
+        final byte[] pdf = {0x25, 0x50, 0x44, 0x46};
+
+        respond(200, pdf);
+        responseHeaders.put("X-Philter-Review", "sampled");
+
+        Assert.assertTrue(client().filter("ctx", "default", "a.pdf", pdf).isReviewSampled());
+        Assert.assertTrue(client().filterToPdf("ctx", "default", "a.pdf", pdfFile()).isReviewSampled());
+        Assert.assertTrue(client().filter("ctx", "default", "a.pdf", pdf,
+                List.of(new PagePolicy("1", "records"))).isReviewSampled());
+        Assert.assertTrue(client().filterWord("ctx", "default", "a.docx", OFFICE).isReviewSampled());
+        Assert.assertTrue(client().filterExcel("ctx", "default", "a.xlsx", officeFile(".xlsx")).isReviewSampled());
+
+        responseHeaders.clear();
+
+        Assert.assertFalse(client().filter("ctx", "default", "a.pdf", pdf).isReviewSampled());
+        Assert.assertFalse(client().filterToPdf("ctx", "default", "a.pdf", pdf).isReviewSampled());
+        Assert.assertFalse(client().filterWord("ctx", "default", "a.docx", officeFile(".docx")).isReviewSampled());
+        Assert.assertFalse(client().filterExcel("ctx", "default", "a.xlsx", OFFICE).isReviewSampled());
+    }
+
+    @Test
+    public void asynchronousSubmissionsReportWhetherTheDocumentWasSampledForReview() throws Exception {
+
+        final byte[] pdf = {0x25, 0x50, 0x44, 0x46};
+
+        respond(202, "{\"documentId\":\"doc-review\"}");
+        responseHeaders.put("X-Philter-Review", "sampled");
+
+        AsyncFilterResponse response = client().filterAsync("ctx", "default", "a.pdf", pdf, null, null);
+        Assert.assertEquals("doc-review", response.getDocumentId());
+        Assert.assertTrue(response.isReviewSampled());
+        Assert.assertTrue(client().filterToPdfAsync("ctx", "default", "a.pdf", pdfFile(), null, null).isReviewSampled());
+
+        response = client().submitWord("ctx", "default", "a.docx", OFFICE);
+        Assert.assertEquals("doc-review", response.getDocumentId());
+        Assert.assertTrue(response.isReviewSampled());
+        Assert.assertEquals(WORD, header("Content-Type"));
+        Assert.assertEquals(WORD, header("Accept"));
+        Assert.assertEquals("true", queryParameter("async"));
+        Assert.assertFalse(queryParameters.containsKey("fairness_key"));
+        final String wordWithoutKey = lastRequest();
+
+        // submitWord sends the same request as filterWordAsync.
+        client().filterWordAsync("ctx", "default", "a.docx", OFFICE);
+        Assert.assertEquals(wordWithoutKey, lastRequest());
+        Assert.assertTrue(client().submitWord("ctx", "default", "a.docx", officeFile(".docx")).isReviewSampled());
+        Assert.assertEquals(wordWithoutKey, lastRequest());
+        Assert.assertTrue(client().submitWord("ctx", "default", "a.docx", OFFICE, "group:42").isReviewSampled());
+        Assert.assertEquals("group:42", queryParameter("fairness_key"));
+        Assert.assertTrue(client().submitWord("ctx", "default", "a.docx", officeFile(".docx"), "group:43")
+                .isReviewSampled());
+        Assert.assertEquals("group:43", queryParameter("fairness_key"));
+
+        response = client().submitExcel("ctx", "default", "a.xlsx", OFFICE);
+        Assert.assertEquals("doc-review", response.getDocumentId());
+        Assert.assertTrue(response.isReviewSampled());
+        Assert.assertEquals(EXCEL, header("Content-Type"));
+        Assert.assertEquals(EXCEL, header("Accept"));
+        final String excelWithoutKey = lastRequest();
+
+        client().filterExcelAsync("ctx", "default", "a.xlsx", OFFICE);
+        Assert.assertEquals(excelWithoutKey, lastRequest());
+        Assert.assertTrue(client().submitExcel("ctx", "default", "a.xlsx", officeFile(".xlsx")).isReviewSampled());
+        Assert.assertEquals(excelWithoutKey, lastRequest());
+        Assert.assertTrue(client().submitExcel("ctx", "default", "a.xlsx", OFFICE, "group:42").isReviewSampled());
+        Assert.assertEquals("group:42", queryParameter("fairness_key"));
+        Assert.assertTrue(client().submitExcel("ctx", "default", "a.xlsx", officeFile(".xlsx"), "group:43")
+                .isReviewSampled());
+        Assert.assertEquals("group:43", queryParameter("fairness_key"));
+
+        responseHeaders.clear();
+
+        Assert.assertFalse(client().filterAsync("ctx", "default", "a.pdf", pdf, null, null).isReviewSampled());
+        Assert.assertFalse(client().submitWord("ctx", "default", "a.docx", OFFICE).isReviewSampled());
+        Assert.assertFalse(client().submitExcel("ctx", "default", "a.xlsx", OFFICE).isReviewSampled());
+    }
+
+    @Test
+    public void explainReportsWhetherTheRequestWasSampledForReview() throws Exception {
+
+        final String notSampled = "{\"filteredText\":\"redacted\",\"reviewSampled\":false}";
+
+        respond(200, "{\"filteredText\":\"redacted\",\"reviewSampled\":true}");
+        responseHeaders.put("X-Philter-Review", "sampled");
+        Assert.assertTrue(client().explain("ctx", "default", "My SSN is 123-45-6789.").isReviewSampled());
+
+        // Either the body or the header is enough.
+        responseHeaders.clear();
+        Assert.assertTrue(client().explain("ctx", "default", "My SSN is 123-45-6789.").isReviewSampled());
+        respond(200, notSampled);
+        responseHeaders.put("X-Philter-Review", "sampled");
+        Assert.assertTrue(client().explain("ctx", "default", "My SSN is 123-45-6789.").isReviewSampled());
+
+        responseHeaders.put("X-Philter-Review", "escalated");
+        Assert.assertFalse(client().explain("ctx", "default", "My SSN is 123-45-6789.").isReviewSampled());
+
+        // A Philter before 4.1.0 sends neither.
+        responseHeaders.clear();
+        respond(200, "{\"filteredText\":\"redacted\"}");
+        Assert.assertFalse(client().explain("ctx", "default", "My SSN is 123-45-6789.").isReviewSampled());
+    }
+
+    @Test
     public void aCompletedOfficeDocumentDownloadsAsItsBytes() throws Exception {
 
         final byte[] redacted = {0x50, 0x4B, 0x03, 0x04, 0x0C};
