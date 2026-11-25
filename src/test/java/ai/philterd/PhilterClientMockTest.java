@@ -168,6 +168,8 @@ public class PhilterClientMockTest {
     private volatile String locationHeader;
     private volatile String contentTypeHeader;
     private final Map<String, String> responseHeaders = new HashMap<>();
+    /** Sent as separate lines of the same header, after {@link #responseHeaders}. */
+    private final List<String[]> repeatedResponseHeaders = new java.util.concurrent.CopyOnWriteArrayList<>();
 
     /** Responses returned in order before falling back to {@link #status} and {@link #responseBody}. */
     private final Queue<Map.Entry<Integer, byte[]>> queuedResponses = new ConcurrentLinkedQueue<>();
@@ -219,6 +221,7 @@ public class PhilterClientMockTest {
             }
 
             responseHeaders.forEach(exchange.getResponseHeaders()::add);
+            repeatedResponseHeaders.forEach(header -> exchange.getResponseHeaders().add(header[0], header[1]));
 
             final Map.Entry<Integer, byte[]> queued = queuedResponses.poll();
             final int status = queued != null ? queued.getKey() : this.status;
@@ -872,6 +875,46 @@ public class PhilterClientMockTest {
         Assert.assertFalse(client().filterAsync("ctx", "default", "a.pdf", pdf, null, null).isReviewSampled());
         Assert.assertFalse(client().submitWord("ctx", "default", "a.docx", OFFICE).isReviewSampled());
         Assert.assertFalse(client().submitExcel("ctx", "default", "a.xlsx", OFFICE).isReviewSampled());
+    }
+
+    /** Sets X-Philter-Review to the given lines, or removes it when there are none. */
+    private void reviewHeader(final String... lines) {
+        responseHeaders.remove("X-Philter-Review");
+        repeatedResponseHeaders.clear();
+        for (final String line : lines) {
+            repeatedResponseHeaders.add(new String[]{"X-Philter-Review", line});
+        }
+    }
+
+    @Test
+    public void reviewHeaderIsReadAsAListOfReasons() throws Exception {
+
+        final byte[] pdf = {0x25, 0x50, 0x44, 0x46};
+        final String[][] sampled = {{"sampled"}, {"sampled, leftovers"}, {"leftovers, sampled"}, {"leftovers,sampled"},
+                {"SAMPLED"}, {"sampled", "leftovers"}, {"leftovers", "sampled"}, {"sampled, escalated"}};
+        final String[][] notSampled = {{}, {"leftovers"}, {"escalated, leftovers"}, {"leftovers", "escalated"},
+                {"unsampled"}, {""}};
+
+        for (final boolean expected : new boolean[]{true, false}) {
+            for (final String[] lines : expected ? sampled : notSampled) {
+
+                final String label = String.join(" | ", lines);
+                reviewHeader(lines);
+
+                respond(200, "redacted");
+                Assert.assertEquals(label, expected, client().filter("ctx", "default", "My SSN is 123-45-6789.").isReviewSampled());
+
+                respond(200, pdf);
+                Assert.assertEquals(label, expected, client().filter("ctx", "default", "a.pdf", pdf).isReviewSampled());
+                Assert.assertEquals(label, expected, client().filterWord("ctx", "default", "a.docx", OFFICE).isReviewSampled());
+
+                respond(202, "{\"documentId\":\"doc-review\"}");
+                Assert.assertEquals(label, expected, client().submitWord("ctx", "default", "a.docx", OFFICE).isReviewSampled());
+
+                respond(200, "{\"filteredText\":\"redacted\",\"reviewSampled\":false}");
+                Assert.assertEquals(label, expected, client().explain("ctx", "default", "My SSN is 123-45-6789.").isReviewSampled());
+            }
+        }
     }
 
     @Test

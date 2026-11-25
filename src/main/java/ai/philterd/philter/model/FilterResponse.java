@@ -140,10 +140,11 @@ public class FilterResponse {
 
     /**
      * Whether the policy's review sampling rate selected this request for human spot review, from the
-     * {@code X-Philter-Review: sampled} response header. A header with any other value is not reported as
-     * selected. A request that was not selected has not been checked by anyone; detection is probabilistic,
-     * so validate results against your own data either way. Requires Philter 4.1.0 or later.
-     * @return {@code true} when the response carried {@code X-Philter-Review: sampled}.
+     * {@code X-Philter-Review} response header, which lists the reasons a request was flagged, such as
+     * {@code sampled, leftovers}; it is selected when {@code sampled} is among them. A request that was not
+     * selected has not been checked by anyone; detection is probabilistic, so validate results against your own
+     * data either way. Requires Philter 4.1.0 or later.
+     * @return {@code true} when the response's {@code X-Philter-Review} listed {@code sampled}.
      */
     public boolean isReviewSampled() {
         return reviewSampled;

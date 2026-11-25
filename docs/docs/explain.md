@@ -24,7 +24,7 @@ for (Span span : response.getExplanation().getAppliedSpans()) {
 
 `getClassification()` gives what a span was classified as beyond its filter type, and is `null` when the filter gives none. For a driver's license number it is the state whose format matched, such as `UTAH`; several states share a format, so treat it as a candidate rather than the issuing state. For a custom identifier or custom dictionary it is the classification set in the policy (`custom-identifier` by default for an identifier). PhEye spans have no classification.
 
-`isReviewSampled()` is `true` when the policy's review sampling rate selected the request for human spot review, from the body's `reviewSampled` or the `X-Philter-Review: sampled` header. See [Requests selected for review](redacting-text.md#requests-selected-for-review).
+`isReviewSampled()` is `true` when the policy's review sampling rate selected the request for human spot review, from the body's `reviewSampled` or `sampled` in the `X-Philter-Review` header. See [Requests selected for review](redacting-text.md#requests-selected-for-review).
 
 Pass `true` as the last argument of `explain(context, policyName, filename, text, sign)` to ask for a signed response. `getSignature()` returns the signature, and `getResponseBody()` the JSON exactly as Philter sent it, which is what the signature covers. See [Signed responses](redacting-text.md#signed-responses).
 

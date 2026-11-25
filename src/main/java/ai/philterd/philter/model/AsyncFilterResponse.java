@@ -57,12 +57,12 @@ public class AsyncFilterResponse {
 
     /**
      * Whether the policy's review sampling rate selected this document for human spot review, from the
-     * {@code X-Philter-Review: sampled} header of the {@code 202 Accepted} response. A document is selected
-     * when Philter accepts it, and its status and download responses do not carry the header, so keep this
-     * with the document ID. A header with any other value is not reported as selected. A document that was
-     * not selected has not been checked by anyone; detection is probabilistic, so validate results against
-     * your own data either way. Requires Philter 4.1.0 or later.
-     * @return {@code true} when the response carried {@code X-Philter-Review: sampled}.
+     * {@code X-Philter-Review} header of the {@code 202 Accepted} response, a list of reasons such as
+     * {@code sampled, leftovers} in which it is selected when {@code sampled} is listed. A document is selected
+     * when Philter accepts it, and the selection is not repeated on its status and download responses, so keep
+     * this with the document ID. A document that was not selected has not been checked by anyone; detection is
+     * probabilistic, so validate results against your own data either way. Requires Philter 4.1.0 or later.
+     * @return {@code true} when the response's {@code X-Philter-Review} listed {@code sampled}.
      */
     public boolean isReviewSampled() {
         return reviewSampled;

@@ -122,10 +122,10 @@ public class ExplainResponse {
 
     /**
      * Whether the policy's review sampling rate selected this request for human spot review, from the
-     * body's {@code reviewSampled} or the {@code X-Philter-Review: sampled} response header. A header with
-     * any other value is not reported as selected. A request that was not selected has not been checked by
-     * anyone; detection is probabilistic, so validate results against your own data either way. Requires
-     * Philter 4.1.0 or later.
+     * body's {@code reviewSampled} or the {@code X-Philter-Review} response header, which lists the reasons a
+     * request was flagged, such as {@code sampled, leftovers}; it is selected when {@code sampled} is among
+     * them. A request that was not selected has not been checked by anyone; detection is probabilistic, so
+     * validate results against your own data either way. Requires Philter 4.1.0 or later.
      * @return {@code true} when Philter reported the request as selected.
      */
     public boolean isReviewSampled() {

@@ -607,11 +607,14 @@ public class PhilterClient {
 	}
 
 	/**
-	 * Whether a response carries {@code X-Philter-Review: sampled}. Any other value is not a selection, so
-	 * reasons Philter may add later are not misreported.
+	 * Whether a response's {@code X-Philter-Review} lists {@code sampled}. The header is a comma-separated list of
+	 * reasons, such as {@code sampled, leftovers}, and may arrive as one line or several, so each line is split.
+	 * Other reasons are ignored, so ones Philter adds later are not misreported.
 	 */
 	private static boolean isReviewSampled(final HttpResponse<?> response) {
-		return response.headers().allValues(REVIEW_HEADER).stream().anyMatch(v -> "sampled".equals(v.trim()));
+		return response.headers().allValues(REVIEW_HEADER).stream()
+				.flatMap(value -> java.util.Arrays.stream(value.split(",")))
+				.anyMatch(reason -> "sampled".equalsIgnoreCase(reason.trim()));
 	}
 
 	/** How much of an error response body is carried in the exception message. */
