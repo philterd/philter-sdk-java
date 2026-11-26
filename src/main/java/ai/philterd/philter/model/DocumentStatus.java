@@ -23,6 +23,10 @@ import com.google.gson.annotations.SerializedName;
  */
 public class DocumentStatus {
 
+    // Not part of the JSON body: set by the client from the response headers, so transient.
+    private transient LeftoverCheck leftoverCheck;
+    private transient boolean leftoversFlagged;
+
     @Expose
     @SerializedName("type")
     private String type;
@@ -131,6 +135,33 @@ public class DocumentStatus {
 
     public void setPolicyContentHash(String policyContentHash) {
         this.policyContentHash = policyContentHash;
+    }
+
+    /**
+     * The result of the policy's leftover check, from the {@code X-Philter-Leftovers} header: the number of values
+     * still detectable, or a check that was not performed because nothing could be checked. Empty when the check
+     * was not called for, and until the document is redacted. Requires Philter 4.1.0 or later.
+     * @return The leftover check, or empty.
+     */
+    public java.util.Optional<LeftoverCheck> getLeftoverCheck() {
+        return java.util.Optional.ofNullable(leftoverCheck);
+    }
+
+    public void setLeftoverCheck(LeftoverCheck leftoverCheck) {
+        this.leftoverCheck = leftoverCheck;
+    }
+
+    /**
+     * Whether the leftover check flagged the request for human review, because it found something: {@code true}
+     * when Philter's {@code X-Philter-Review} header lists {@code leftovers}. Requires Philter 4.1.0 or later.
+     * @return {@code true} when flagged.
+     */
+    public boolean isLeftoversFlagged() {
+        return leftoversFlagged;
+    }
+
+    public void setLeftoversFlagged(boolean leftoversFlagged) {
+        this.leftoversFlagged = leftoversFlagged;
     }
 
 }

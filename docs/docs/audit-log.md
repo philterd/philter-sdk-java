@@ -38,6 +38,8 @@ Every field of an `AuditEvent` except `getTimestamp()` and `getEvent()` is `null
 
 Philter 4.1.0 and later record `redaction_review_sampled` each time a policy's review sampling rate selects a request for human spot review, with the document ID and the policy name and version in `getDetails()`. Pass it as `event` to list the selections, such as to find any a reviewer has not seen. A response reports its own selection with `isReviewSampled()`; see [Requests selected for review](redacting-text.md#requests-selected-for-review).
 
+Philter 4.1.0 and later record `redaction_leftovers_found` each time a policy's leftover check finds values still detectable in a redaction's output, with the document ID, the policy name and version, the number of findings, and their types in `getDetails()`, never their text. For an asynchronous document, checked when it is redacted, the event's request ID is the document ID. A response reports its own result with `getLeftoverCheck()`; see [Checking what is left](redacting-text.md#checking-what-is-left-leftover-check).
+
 ## Exporting as CSV
 
 `exportAuditLog` returns the log as CSV for a range of whole days.

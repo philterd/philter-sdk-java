@@ -51,6 +51,19 @@ String documentId = accepted.getDocumentId();
 boolean selected = accepted.isReviewSampled();
 ```
 
+## Leftover check
+
+To request the policy's [leftover check](redacting-text.md#checking-what-is-left-leftover-check), pass `FilterOptions` as the last argument of `filterWord(...)` or `filterExcel(...)` with a `byte[]`, or of `submitWord(...)` or `submitExcel(...)` with a `byte[]` and a fairness key (`null` for none):
+
+```java
+FilterOptions options = FilterOptions.defaults().withLeftoverCheck(true);
+
+BinaryFilterResponse response = client.filterWord("my-context", "default", "letter.docx", docx, options);
+response.getLeftoverCheck().ifPresent(check -> System.out.println(check.getFindingCount()));
+```
+
+An asynchronous document is checked when it is redacted, so its result is on `getDocumentState(documentId)` and `downloadDocument(documentId)`, not on the submission's response. See [PDF](pdf.md#leftover-check).
+
 ## What is redacted
 
 Philter redacts the copies of text Office documents keep outside the visible body as well, such as headers and footers, comments, text boxes, chart text, cached values, and embedded Word and Excel documents. Embedded objects it cannot inspect are removed.

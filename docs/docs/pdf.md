@@ -118,6 +118,27 @@ The key is opaque to Philter and is stored unencrypted with the queued document,
 
 Use `listDocuments()` to list the stored documents and `deleteDocument(documentId)` to remove one.
 
+## Leftover check
+
+To request the policy's [leftover check](redacting-text.md#checking-what-is-left-leftover-check), pass `FilterOptions` as the last argument of `filter(...)` or `filterToPdf(...)` with a `byte[]` and page policies, or of `filterAsync(...)` or `filterToPdfAsync(...)` with a `byte[]`, a fairness key, and page policies. Pass `null` for page policies or a fairness key to send none. A synchronous response reports the result on `getLeftoverCheck()` and `isLeftoversFlagged()`.
+
+An asynchronous document is checked when it is redacted, after Philter accepts it, so its result is on the status and download responses, not on the submission's. `getDocument(documentId)` returns only the bytes; `downloadDocument(documentId)` returns them with the result:
+
+```java
+FilterOptions options = FilterOptions.defaults().withLeftoverCheck(true);
+
+String documentId = client.filterAsync("my-context", "default", "report.pdf", pdf, null, null, options)
+        .getDocumentId();
+
+DocumentStatus status = client.getDocumentState(documentId);   // the result, once the status is COMPLETE
+
+DocumentDownload download = client.downloadDocument(documentId);
+byte[] zip = download.getContent();
+download.getLeftoverCheck().ifPresent(check -> System.out.println(check.getFindingCount()));
+```
+
+A PDF's redacted pages are flattened to images, so only pages kept as text can be checked. When the output has no readable text, the check is reported as not performed.
+
 ## Requests selected for review
 
 `BinaryFilterResponse.isReviewSampled()` is `true` when the policy's review sampling rate selected a synchronous request for human spot review. See [Requests selected for review](redacting-text.md#requests-selected-for-review).

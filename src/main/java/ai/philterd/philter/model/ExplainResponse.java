@@ -27,6 +27,13 @@ import org.apache.commons.lang3.builder.HashCodeBuilder;
 public class ExplainResponse {
 
     @Expose
+    @SerializedName("leftoverCheck")
+    private LeftoverCheck leftoverCheck;
+
+    // Not part of the JSON body: set by the client from the X-Philter-Review header, so transient.
+    private transient boolean leftoversFlagged;
+
+    @Expose
     @SerializedName("filteredText")
 	private String filteredText;
 
@@ -134,6 +141,33 @@ public class ExplainResponse {
 
     public void setReviewSampled(boolean reviewSampled) {
         this.reviewSampled = reviewSampled;
+    }
+
+    /**
+     * The result of the policy's leftover check, from the body's {@code leftoverCheck}: whether it was performed,
+     * why not, the number of values still detectable, and each finding's type, position in the filtered text, and
+     * confidence. Empty when the check was not called for. Requires Philter 4.1.0 or later.
+     * @return The leftover check, or empty.
+     */
+    public java.util.Optional<LeftoverCheck> getLeftoverCheck() {
+        return java.util.Optional.ofNullable(leftoverCheck);
+    }
+
+    public void setLeftoverCheck(LeftoverCheck leftoverCheck) {
+        this.leftoverCheck = leftoverCheck;
+    }
+
+    /**
+     * Whether the leftover check flagged the request for human review, because it found something: {@code true}
+     * when Philter's {@code X-Philter-Review} header lists {@code leftovers}. Requires Philter 4.1.0 or later.
+     * @return {@code true} when flagged.
+     */
+    public boolean isLeftoversFlagged() {
+        return leftoversFlagged;
+    }
+
+    public void setLeftoversFlagged(boolean leftoversFlagged) {
+        this.leftoversFlagged = leftoversFlagged;
     }
 
 }

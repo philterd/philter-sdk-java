@@ -42,6 +42,32 @@ It reads Philter's `X-Philter-Review` response header, which lists the reasons a
 
 A request that was not selected has not been checked by anyone. Detection is probabilistic, so validate results against your own data whether or not a request was selected. See Philter's [review sampling](https://github.com/philterd/philter/blob/main/docs/docs/policies/filter_policies.md#sampling-requests-for-review) documentation to configure the rate.
 
+## Checking what is left (leftover check)
+
+A policy can have Philter run detection a second time over the redacted output and report what is still detectable, with `config.review.leftoverCheck`. Under `mode: always` every request is checked. Under `onRequest`, a request is checked when it asks, with `FilterOptions`:
+
+```java
+FilterOptions options = FilterOptions.defaults().withLeftoverCheck(true);
+
+FilterResponse response = client.filter("my-context", "default", null, text, false, options);
+
+response.getLeftoverCheck().ifPresent(check -> {
+    if (!check.isPerformed()) {
+        // Nothing was checked: the output had no readable text, or the check failed.
+    } else if (check.getFindingCount() > 0) {
+        // Something is still detectable.
+    }
+});
+
+boolean flagged = response.isLeftoversFlagged();
+```
+
+`getLeftoverCheck()` reads Philter's `X-Philter-Leftovers` header. It is empty when the check was not called for. `isPerformed()` is `false` when nothing was checked, because the output had no readable text or the check failed; the redacted output is returned either way, and `getFindingCount()` is then 0 without meaning that nothing was found. A header value that is not a count, including one a later Philter may send, also reads as not performed. `isLeftoversFlagged()` is `true` when `X-Philter-Review` lists `leftovers`, which Philter adds when the check found something.
+
+`withLeftoverCheck(true)` sends `leftover_check=true`. Under `always` the check runs whatever the option says. Under `off`, Philter refuses the request with an HTTP 400, raised as a `ClientException` carrying Philter's message. The same option is taken by `explain` ([Explain](explain.md#leftover-check)) and by the PDF, Word, and Excel methods ([PDF](pdf.md#leftover-check), [Word and Excel](word-and-excel.md#leftover-check)). Each request with findings is recorded in the [audit log](audit-log.md) as `redaction_leftovers_found`. Requires Philter 4.1.0 or later.
+
+The check runs detection again, so it adds latency to each request it runs on. A count of 0 does not mean the output is free of sensitive information: detection is probabilistic, and results still need validating against your own data. See Philter's [leftover check](https://github.com/philterd/philter/blob/main/docs/docs/policies/filter_policies.md#leftover-check) documentation to configure the policy.
+
 ## Signed responses
 
 Philter can sign the text it returns, so a recipient can verify that the response came from a specific deployment, was governed by the named policy, and was not modified. Pass `true` as the last argument of `filter` or `explain` to ask for a signature:

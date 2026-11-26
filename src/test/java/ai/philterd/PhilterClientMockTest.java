@@ -31,6 +31,10 @@ import ai.philterd.philter.model.GetContextsAcrossUsersResponse;
 import ai.philterd.philter.model.GetContextEntriesResponse;
 import ai.philterd.philter.model.DocumentSummary;
 import ai.philterd.philter.model.DocumentStatus;
+import ai.philterd.philter.model.LeftoverFinding;
+import ai.philterd.philter.model.LeftoverCheck;
+import ai.philterd.philter.model.FilterOptions;
+import ai.philterd.philter.model.DocumentDownload;
 import ai.philterd.philter.model.CustomList;
 import ai.philterd.philter.model.CustomListSummary;
 import ai.philterd.philter.model.ContextEntry;
@@ -915,6 +919,232 @@ public class PhilterClientMockTest {
                 Assert.assertEquals(label, expected, client().explain("ctx", "default", "My SSN is 123-45-6789.").isReviewSampled());
             }
         }
+    }
+
+    // --- leftover check (philterd/philter-sdk-java#98) ---------------------------------------------
+
+    private static final String LEFTOVER_CHECK_OFF = "leftover_check=true requests the policy's leftover check, but "
+            + "the policy's config.review.leftoverCheck.mode is off, so no check would run. Omit leftover_check, or set "
+            + "the mode to onRequest or always.";
+
+    /** A request whose leftover_check parameter is checked, made with the given options. */
+    private interface OptionsCall {
+        void call(FilterOptions options) throws Exception;
+    }
+
+    /** Every overload that takes FilterOptions, each with the response its endpoint returns. */
+    private Map<String, OptionsCall> optionsCalls() {
+        final byte[] pdf = {0x25, 0x50, 0x44, 0x46};
+        final Map<String, OptionsCall> calls = new java.util.LinkedHashMap<>();
+        calls.put("filter text", o -> { respond(200, "redacted"); client().filter("ctx", "default", null, "text", false, o); });
+        calls.put("explain", o -> { respond(200, "{\"filteredText\":\"redacted\"}"); client().explain("ctx", "default", null, "text", false, o); });
+        calls.put("filter pdf", o -> { respond(200, pdf); client().filter("ctx", "default", "a.pdf", pdf, null, o); });
+        calls.put("filterToPdf", o -> { respond(200, pdf); client().filterToPdf("ctx", "default", "a.pdf", pdf, null, o); });
+        calls.put("filterAsync", o -> { respond(202, "{\"documentId\":\"d\"}"); client().filterAsync("ctx", "default", "a.pdf", pdf, null, null, o); });
+        calls.put("filterToPdfAsync", o -> { respond(202, "{\"documentId\":\"d\"}"); client().filterToPdfAsync("ctx", "default", "a.pdf", pdf, null, null, o); });
+        calls.put("filterWord", o -> { respond(200, OFFICE); client().filterWord("ctx", "default", "a.docx", OFFICE, o); });
+        calls.put("submitWord", o -> { respond(202, "{\"documentId\":\"d\"}"); client().submitWord("ctx", "default", "a.docx", OFFICE, null, o); });
+        calls.put("filterExcel", o -> { respond(200, OFFICE); client().filterExcel("ctx", "default", "a.xlsx", OFFICE, o); });
+        calls.put("submitExcel", o -> { respond(202, "{\"documentId\":\"d\"}"); client().submitExcel("ctx", "default", "a.xlsx", OFFICE, null, o); });
+        return calls;
+    }
+
+    @Test
+    public void leftoverCheckIsSentOnlyWhenRequested() throws Exception {
+
+        for (final Map.Entry<String, OptionsCall> call : optionsCalls().entrySet()) {
+
+            call.getValue().call(FilterOptions.defaults().withLeftoverCheck(true));
+            Assert.assertEquals(call.getKey(), "true", queryParameter("leftover_check"));
+            final String requested = lastRequest();
+
+            // Without the request, the call is the one the overload without options sends.
+            call.getValue().call(FilterOptions.defaults());
+            Assert.assertFalse(call.getKey(), queryParameters.containsKey("leftover_check"));
+            final String unrequested = lastRequest();
+            Assert.assertNotEquals(call.getKey(), requested, unrequested);
+
+            call.getValue().call(null);
+            Assert.assertEquals(call.getKey(), unrequested, lastRequest());
+            call.getValue().call(FilterOptions.defaults().withLeftoverCheck(false));
+            Assert.assertEquals(call.getKey(), unrequested, lastRequest());
+        }
+
+        // The overloads without options send no such parameter.
+        final byte[] pdf = {0x25, 0x50, 0x44, 0x46};
+        respond(200, "redacted");
+        client().filter("ctx", "default", null, "text", false);
+        Assert.assertFalse(queryParameters.containsKey("leftover_check"));
+        respond(200, pdf);
+        client().filter("ctx", "default", "a.pdf", pdf);
+        Assert.assertFalse(queryParameters.containsKey("leftover_check"));
+        client().filterWord("ctx", "default", "a.docx", OFFICE);
+        Assert.assertFalse(queryParameters.containsKey("leftover_check"));
+        respond(202, "{\"documentId\":\"d\"}");
+        client().submitExcel("ctx", "default", "a.xlsx", OFFICE, null);
+        Assert.assertFalse(queryParameters.containsKey("leftover_check"));
+        respond(200, "{\"filteredText\":\"redacted\"}");
+        client().explain("ctx", "default", "text");
+        Assert.assertFalse(queryParameters.containsKey("leftover_check"));
+    }
+
+    @Test
+    public void leftoverCheckUnderAPolicyThatIsOffIsA400WithPhiltersMessage() {
+
+        respond(400, "{\"message\":\"" + LEFTOVER_CHECK_OFF + "\",\"reason\":\"invalid_request\"}");
+        final FilterOptions requested = FilterOptions.defaults().withLeftoverCheck(true);
+
+        ClientException ex = Assert.assertThrows(ClientException.class,
+                () -> client().filter("ctx", "default", null, "text", false, requested));
+        Assert.assertEquals(400, ex.getStatusCode());
+        Assert.assertEquals(LEFTOVER_CHECK_OFF, ex.getErrorMessage());
+
+        ex = Assert.assertThrows(ClientException.class,
+                () -> client().filterWord("ctx", "default", "a.docx", OFFICE, requested));
+        Assert.assertEquals(400, ex.getStatusCode());
+        Assert.assertEquals(LEFTOVER_CHECK_OFF, ex.getErrorMessage());
+    }
+
+    /** The leftover check each kind of response reports for the current response headers. */
+    private Map<String, java.util.Optional<LeftoverCheck>> leftoverChecks() throws Exception {
+        final byte[] pdf = {0x25, 0x50, 0x44, 0x46};
+        final Map<String, java.util.Optional<LeftoverCheck>> checks = new java.util.LinkedHashMap<>();
+        respond(200, "redacted");
+        checks.put("text", client().filter("ctx", "default", "text").getLeftoverCheck());
+        respond(200, pdf);
+        checks.put("pdf", client().filter("ctx", "default", "a.pdf", pdf).getLeftoverCheck());
+        checks.put("word", client().filterWord("ctx", "default", "a.docx", OFFICE).getLeftoverCheck());
+        checks.put("download", client().downloadDocument("d").getLeftoverCheck());
+        respond(200, "{\"filteredText\":\"redacted\"}");
+        checks.put("explain", client().explain("ctx", "default", "text").getLeftoverCheck());
+        respond(200, "{\"documentId\":\"d\",\"status\":\"COMPLETE\"}");
+        checks.put("status", client().getDocumentState("d").getLeftoverCheck());
+        return checks;
+    }
+
+    @Test
+    public void leftoversHeaderIsReadOnEveryResponse() throws Exception {
+
+        for (final String[] value : new String[][]{{"3", "3"}, {"0", "0"}, {" 7 ", "7"}}) {
+            responseHeaders.put("X-Philter-Leftovers", value[0]);
+            for (final Map.Entry<String, java.util.Optional<LeftoverCheck>> check : leftoverChecks().entrySet()) {
+                final String label = check.getKey() + " " + value[0];
+                Assert.assertTrue(label, check.getValue().isPresent());
+                Assert.assertTrue(label, check.getValue().get().isPerformed());
+                Assert.assertEquals(label, Integer.parseInt(value[1]), check.getValue().get().getFindingCount());
+                Assert.assertTrue(label, check.getValue().get().getFindings().isEmpty());
+            }
+        }
+
+        // not-checked, and any value that is not a count, including one Philter may add later, is not checked.
+        for (final String value : new String[]{"not-checked", "later", "-1", ""}) {
+            responseHeaders.put("X-Philter-Leftovers", value);
+            for (final Map.Entry<String, java.util.Optional<LeftoverCheck>> check : leftoverChecks().entrySet()) {
+                final String label = check.getKey() + " '" + value + "'";
+                Assert.assertTrue(label, check.getValue().isPresent());
+                Assert.assertFalse(label, check.getValue().get().isPerformed());
+                Assert.assertEquals(label, 0, check.getValue().get().getFindingCount());
+                Assert.assertNull(label, check.getValue().get().getReason());
+            }
+        }
+
+        // Absent when the check was not called for.
+        responseHeaders.remove("X-Philter-Leftovers");
+        for (final Map.Entry<String, java.util.Optional<LeftoverCheck>> check : leftoverChecks().entrySet()) {
+            Assert.assertFalse(check.getKey(), check.getValue().isPresent());
+        }
+    }
+
+    @Test
+    public void leftoversFlaggedReadsTheReviewHeaderAsAList() throws Exception {
+
+        final byte[] pdf = {0x25, 0x50, 0x44, 0x46};
+        final String[][] flagged = {{"leftovers"}, {"sampled, leftovers"}, {"sampled", "leftovers"}, {"LEFTOVERS"}};
+        final String[][] notFlagged = {{}, {"sampled"}, {"escalated"}, {"leftovers-later"}};
+
+        for (final boolean expected : new boolean[]{true, false}) {
+            for (final String[] lines : expected ? flagged : notFlagged) {
+                final String label = String.join(" | ", lines);
+                reviewHeader(lines);
+
+                respond(200, "redacted");
+                Assert.assertEquals(label, expected, client().filter("ctx", "default", "text").isLeftoversFlagged());
+                respond(200, pdf);
+                Assert.assertEquals(label, expected, client().filter("ctx", "default", "a.pdf", pdf).isLeftoversFlagged());
+                Assert.assertEquals(label, expected, client().downloadDocument("d").isLeftoversFlagged());
+                respond(200, "{\"filteredText\":\"redacted\"}");
+                Assert.assertEquals(label, expected, client().explain("ctx", "default", "text").isLeftoversFlagged());
+                respond(200, "{\"documentId\":\"d\",\"status\":\"COMPLETE\"}");
+                Assert.assertEquals(label, expected, client().getDocumentState("d").isLeftoversFlagged());
+            }
+        }
+        reviewHeader();
+    }
+
+    @Test
+    public void explainReadsTheLeftoverCheckFromItsBody() throws Exception {
+
+        respond(200, "{\"filteredText\":\"My SSN is 123-45-6789.\",\"leftoverCheck\":{\"performed\":true,"
+                + "\"findingCount\":1,\"findings\":[{\"filterType\":\"SSN\",\"classification\":\"ssn\","
+                + "\"characterStart\":10,\"characterEnd\":21,\"confidence\":0.9}]}}");
+        responseHeaders.put("X-Philter-Leftovers", "1");
+
+        LeftoverCheck check = client().explain("ctx", "default", "text").getLeftoverCheck().orElseThrow();
+        Assert.assertTrue(check.isPerformed());
+        Assert.assertNull(check.getReason());
+        Assert.assertEquals(1, check.getFindingCount());
+        final LeftoverFinding finding = check.getFindings().get(0);
+        Assert.assertEquals("SSN", finding.getFilterType());
+        Assert.assertEquals("ssn", finding.getClassification());
+        Assert.assertEquals(10, finding.getCharacterStart());
+        Assert.assertEquals(21, finding.getCharacterEnd());
+        Assert.assertEquals(0.9, finding.getConfidence(), 0.0);
+
+        // Why it was not performed, including a reason Philter may add later.
+        for (final String reason : new String[]{"unreadableOutput", "checkFailed", "later"}) {
+            respond(200, "{\"filteredText\":\"redacted\",\"leftoverCheck\":{\"performed\":false,\"reason\":\""
+                    + reason + "\",\"findingCount\":0,\"findings\":[]}}");
+            responseHeaders.put("X-Philter-Leftovers", "not-checked");
+            check = client().explain("ctx", "default", "text").getLeftoverCheck().orElseThrow();
+            Assert.assertFalse(reason, check.isPerformed());
+            Assert.assertEquals(reason, check.getReason());
+            Assert.assertTrue(check.getFindings().isEmpty());
+        }
+        responseHeaders.remove("X-Philter-Leftovers");
+    }
+
+    @Test
+    public void downloadDocumentSendsTheRequestGetDocumentSends() throws Exception {
+
+        final byte[] redacted = {1, 2, 3};
+        respond(200, redacted);
+        responseHeaders.put("X-Philter-Leftovers", "2");
+        reviewHeader("leftovers");
+
+        Assert.assertArrayEquals(redacted, client().getDocument("d", "owner@example.com"));
+        final String get = lastRequest();
+
+        final DocumentDownload download = client().downloadDocument("d", "owner@example.com");
+        Assert.assertEquals(get, lastRequest());
+        Assert.assertArrayEquals(redacted, download.getContent());
+        Assert.assertEquals(2, download.getLeftoverCheck().orElseThrow().getFindingCount());
+        Assert.assertTrue(download.isLeftoversFlagged());
+
+        respond(404, "{\"message\":\"Document not found.\",\"reason\":\"not_found\"}");
+        final ClientException ex = Assert.assertThrows(ClientException.class, () -> client().downloadDocument("missing"));
+        Assert.assertEquals(404, ex.getStatusCode());
+
+        responseHeaders.remove("X-Philter-Leftovers");
+        reviewHeader();
+    }
+
+    @Test
+    public void filterOptionsAreValues() {
+        Assert.assertFalse(FilterOptions.defaults().isLeftoverCheck());
+        Assert.assertTrue(FilterOptions.defaults().withLeftoverCheck(true).isLeftoverCheck());
+        Assert.assertFalse(FilterOptions.defaults().withLeftoverCheck(true).withLeftoverCheck(false).isLeftoverCheck());
+        Assert.assertEquals(FilterOptions.defaults(), FilterOptions.defaults().withLeftoverCheck(false));
+        Assert.assertEquals(FilterOptions.defaults().withLeftoverCheck(true), FilterOptions.defaults().withLeftoverCheck(true));
     }
 
     @Test

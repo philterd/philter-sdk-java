@@ -28,3 +28,21 @@ for (Span span : response.getExplanation().getAppliedSpans()) {
 
 Pass `true` as the last argument of `explain(context, policyName, filename, text, sign)` to ask for a signed response. `getSignature()` returns the signature, and `getResponseBody()` the JSON exactly as Philter sent it, which is what the signature covers. See [Signed responses](redacting-text.md#signed-responses).
 
+## Leftover check
+
+Pass `FilterOptions` as the last argument of `explain(context, policyName, filename, text, sign, options)` to request the policy's [leftover check](redacting-text.md#checking-what-is-left-leftover-check). `getLeftoverCheck()` reads it from the body, with each finding's type, position in the filtered text, and confidence:
+
+```java
+FilterOptions options = FilterOptions.defaults().withLeftoverCheck(true);
+
+ExplainResponse response = client.explain("my-context", "default", null, text, false, options);
+
+response.getLeftoverCheck().ifPresent(check -> {
+    for (LeftoverFinding finding : check.getFindings()) {
+        System.out.printf("%s at [%d, %d) (confidence %.2f)%n",
+                finding.getFilterType(), finding.getCharacterStart(), finding.getCharacterEnd(), finding.getConfidence());
+    }
+});
+```
+
+A finding does not carry the value's text; read it from the filtered text by its offsets. When the check was not performed, `getReason()` says why: `unreadableOutput` or `checkFailed`. It is a string, so a reason a later Philter adds is still read.

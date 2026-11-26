@@ -27,6 +27,9 @@ import ai.philterd.philter.model.GetContextsResponse;
 import ai.philterd.philter.model.GetContextsAcrossUsersResponse;
 import ai.philterd.philter.model.GetContextEntriesResponse;
 import ai.philterd.philter.model.DocumentStatus;
+import ai.philterd.philter.model.LeftoverCheck;
+import ai.philterd.philter.model.FilterOptions;
+import ai.philterd.philter.model.DocumentDownload;
 import ai.philterd.philter.model.DisambiguationScope;
 import ai.philterd.philter.model.CustomList;
 import ai.philterd.philter.model.CustomListSummary;
@@ -166,6 +169,7 @@ public class PhilterClient {
 	private static final String SIGNATURE_HEADER = "X-Philter-Signature";
 	private static final String PAGE_POLICIES_HEADER = "X-Philter-Page-Policies";
 	private static final String REVIEW_HEADER = "X-Philter-Review";
+	private static final String LEFTOVERS_HEADER = "X-Philter-Leftovers";
 
 	private static final String APPLICATION_PDF = "application/pdf";
 	private static final String WORD = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
@@ -612,9 +616,28 @@ public class PhilterClient {
 	 * Other reasons are ignored, so ones Philter adds later are not misreported.
 	 */
 	private static boolean isReviewSampled(final HttpResponse<?> response) {
+		return hasReviewReason(response, "sampled");
+	}
+
+	/** Whether a response's {@code X-Philter-Review} lists {@code leftovers}, read as {@link #isReviewSampled} reads it. */
+	private static boolean isLeftoversFlagged(final HttpResponse<?> response) {
+		return hasReviewReason(response, "leftovers");
+	}
+
+	private static boolean hasReviewReason(final HttpResponse<?> response, final String reason) {
 		return response.headers().allValues(REVIEW_HEADER).stream()
 				.flatMap(value -> java.util.Arrays.stream(value.split(",")))
-				.anyMatch(reason -> "sampled".equalsIgnoreCase(reason.trim()));
+				.anyMatch(listed -> reason.equalsIgnoreCase(listed.trim()));
+	}
+
+	/** The leftover check from a response's {@code X-Philter-Leftovers}, or {@code null} when the header is absent. */
+	private static LeftoverCheck leftoverCheckOf(final HttpResponse<?> response) {
+		return LeftoverCheck.fromHeader(response.headers().firstValue(LEFTOVERS_HEADER).orElse(null));
+	}
+
+	/** The {@code leftover_check} parameter's value: {@code true} when requested, otherwise not sent. */
+	private static Boolean leftoverCheckParameter(final FilterOptions options) {
+		return options != null && options.isLeftoverCheck() ? Boolean.TRUE : null;
 	}
 
 	/** How much of an error response body is carried in the exception message. */
@@ -920,11 +943,30 @@ public class PhilterClient {
 	 */
 	public FilterResponse filter(String context, String policyName, String filename, String text, boolean sign)
 			throws IOException {
+		return filter(context, policyName, filename, text, sign, FilterOptions.defaults());
+	}
+
+	/**
+	 * Send text to Philter to be filtered, with per-request options such as requesting the policy's leftover check.
+	 * The check's result is on {@link FilterResponse#getLeftoverCheck()} and
+	 * {@link FilterResponse#isLeftoversFlagged()}.
+	 * @param context The context. Contexts can be used to group text based on some arbitrary property.
+	 * @param policyName The name of the policy to apply to the text.
+	 * @param filename The name of the file the text came from, recorded against the document. May be {@code null}.
+	 * @param text The text to be filtered.
+	 * @param sign {@code true} to ask Philter to sign the response. See
+	 *             {@link #filter(String, String, String, String, boolean)}.
+	 * @param options The per-request options. May be {@code null} for none.
+	 * @return The filtered text, and the signature when the response is signed.
+	 * @throws IOException Thrown if the request can not be completed.
+	 */
+	public FilterResponse filter(String context, String policyName, String filename, String text, boolean sign,
+	                             FilterOptions options) throws IOException {
 
 		// Philter's text endpoint is always synchronous, so the filtered text comes back in the response body.
 		// sign is sent only when true: false asks for nothing, so leaving it out keeps the request unchanged.
 		final HttpRequest request = request(uri("/api/filter", "c", context, "p", policyName, "filename", filename,
-				"sign", sign ? Boolean.TRUE : null))
+				"sign", sign ? Boolean.TRUE : null, "leftover_check", leftoverCheckParameter(options)))
 				.header("Accept", TEXT_PLAIN)
 				.header("Content-Type", TEXT_PLAIN)
 				.POST(text(text))
@@ -936,7 +978,11 @@ public class PhilterClient {
 
 			final String documentId = response.headers().firstValue(DOCUMENT_ID_HEADER).orElse(null);
 			final String signature = response.headers().firstValue(SIGNATURE_HEADER).orElse(null);
-			return new FilterResponse(response.body(), context, documentId, signature, isReviewSampled(response));
+			final FilterResponse filterResponse = new FilterResponse(response.body(), context, documentId, signature,
+					isReviewSampled(response));
+			filterResponse.setLeftoverCheck(leftoverCheckOf(response));
+			filterResponse.setLeftoversFlagged(isLeftoversFlagged(response));
+			return filterResponse;
 
 		}
 
@@ -1094,12 +1140,60 @@ public class PhilterClient {
 		return filterBinary(context, policyName, filename, content, APPLICATION_PDF, "application/pdf", pagePolicies);
 	}
 
+	/**
+	 * Send a PDF document held in memory to Philter to be filtered, waiting for the filtered document as a ZIP
+	 * archive, with page policies and per-request options. See
+	 * {@link #filter(String, String, String, byte[], List)}.
+	 * @param context The context. Contexts can be used to group text based on some arbitrary property.
+	 * @param policyName The name of the policy to apply to the pages not assigned another.
+	 * @param filename The name of the file being filtered, recorded against the document. May be {@code null}.
+	 * @param content The PDF.
+	 * @param pagePolicies The policies for sets of pages. May be {@code null} or empty to send none.
+	 * @param options The per-request options, such as requesting the policy's leftover check, whose result is on
+	 *                the response's {@code getLeftoverCheck()} and {@code isLeftoversFlagged()}. May be {@code null}
+	 *                for none.
+	 * @return The filtered document as a ZIP archive.
+	 * @throws IOException Thrown if the request can not be completed.
+	 */
+	public BinaryFilterResponse filter(String context, String policyName, String filename, byte[] content,
+	                                   List<PagePolicy> pagePolicies, FilterOptions options) throws IOException {
+		return filterBinary(context, policyName, filename, content, APPLICATION_PDF, "application/zip", pagePolicies,
+				options);
+	}
+
+	/**
+	 * Send a PDF document held in memory to Philter to be filtered, waiting for the filtered document as a PDF,
+	 * with page policies and per-request options. See {@link #filterToPdf(String, String, String, byte[], List)}.
+	 * @param context The context. Contexts can be used to group text based on some arbitrary property.
+	 * @param policyName The name of the policy to apply to the pages not assigned another.
+	 * @param filename The name of the file being filtered, recorded against the document. May be {@code null}.
+	 * @param content The PDF.
+	 * @param pagePolicies The policies for sets of pages. May be {@code null} or empty to send none.
+	 * @param options The per-request options, such as requesting the policy's leftover check, whose result is on
+	 *                the response's {@code getLeftoverCheck()} and {@code isLeftoversFlagged()}. May be {@code null}
+	 *                for none.
+	 * @return The filtered document as a PDF.
+	 * @throws IOException Thrown if the request can not be completed.
+	 */
+	public BinaryFilterResponse filterToPdf(String context, String policyName, String filename, byte[] content,
+	                                        List<PagePolicy> pagePolicies, FilterOptions options) throws IOException {
+		return filterBinary(context, policyName, filename, content, APPLICATION_PDF, "application/pdf", pagePolicies,
+				options);
+	}
+
 	private BinaryFilterResponse filterBinary(String context, String policyName, String filename, byte[] content,
 	                                          String contentType, String accept, List<PagePolicy> pagePolicies)
 			throws IOException {
+		return filterBinary(context, policyName, filename, content, contentType, accept, pagePolicies,
+				FilterOptions.defaults());
+	}
+
+	private BinaryFilterResponse filterBinary(String context, String policyName, String filename, byte[] content,
+	                                          String contentType, String accept, List<PagePolicy> pagePolicies,
+	                                          FilterOptions options) throws IOException {
 
 		final HttpRequest request = binaryFilterRequest(context, policyName, filename, content, contentType, accept,
-				false, null, pagePolicies);
+				false, null, pagePolicies, options);
 
 		final HttpResponse<byte[]> response = send(request, HttpResponse.BodyHandlers.ofByteArray());
 
@@ -1107,8 +1201,11 @@ public class PhilterClient {
 
 			final String documentId = response.headers().firstValue(DOCUMENT_ID_HEADER).orElse(null);
 			final String appliedPagePolicies = response.headers().firstValue(PAGE_POLICIES_HEADER).orElse(null);
-			return new BinaryFilterResponse(context, documentId, response.body(), appliedPagePolicies,
-					isReviewSampled(response));
+			final BinaryFilterResponse binaryResponse = new BinaryFilterResponse(context, documentId, response.body(),
+					appliedPagePolicies, isReviewSampled(response));
+			binaryResponse.setLeftoverCheck(leftoverCheckOf(response));
+			binaryResponse.setLeftoversFlagged(isLeftoversFlagged(response));
+			return binaryResponse;
 
 		}
 
@@ -1427,12 +1524,66 @@ public class PhilterClient {
 				pagePolicies);
 	}
 
+	/**
+	 * Submits a PDF document held in memory to Philter to be filtered asynchronously, into a ZIP archive, with a
+	 * fairness key, page policies, and per-request options. See
+	 * {@link #filterAsync(String, String, String, byte[], String, List)}.
+	 * @param context The context. Contexts can be used to group text based on some arbitrary property.
+	 * @param policyName The name of the policy to apply to the pages not assigned another.
+	 * @param filename The name of the file being filtered, recorded against the document. May be {@code null}.
+	 * @param content The PDF.
+	 * @param fairnessKey A key that shares Philter's queue fairly. May be {@code null} to send no key.
+	 * @param pagePolicies The policies for sets of pages. May be {@code null} or empty to send none.
+	 * @param options The per-request options, such as requesting the policy's leftover check. The document is
+	 *                checked when it is redacted, so the result is on {@link #getDocumentState(String)} and
+	 *                {@link #downloadDocument(String)}, not on this response. May be {@code null} for none.
+	 * @return The ID Philter assigned to the document and whether it was selected for review.
+	 * @throws IOException Thrown if the request can not be completed.
+	 */
+	public AsyncFilterResponse filterAsync(String context, String policyName, String filename, byte[] content,
+	                                       String fairnessKey, List<PagePolicy> pagePolicies, FilterOptions options)
+			throws IOException {
+		return filterBinaryAsync(context, policyName, filename, content, APPLICATION_PDF, "application/zip", fairnessKey,
+				pagePolicies, options);
+	}
+
+	/**
+	 * Submits a PDF document held in memory to Philter to be filtered asynchronously, into a PDF, with a fairness
+	 * key, page policies, and per-request options. See
+	 * {@link #filterToPdfAsync(String, String, String, byte[], String, List)}.
+	 * @param context The context. Contexts can be used to group text based on some arbitrary property.
+	 * @param policyName The name of the policy to apply to the pages not assigned another.
+	 * @param filename The name of the file being filtered, recorded against the document. May be {@code null}.
+	 * @param content The PDF.
+	 * @param fairnessKey A key that shares Philter's queue fairly. May be {@code null} to send no key.
+	 * @param pagePolicies The policies for sets of pages. May be {@code null} or empty to send none.
+	 * @param options The per-request options, such as requesting the policy's leftover check. The document is
+	 *                checked when it is redacted, so the result is on {@link #getDocumentState(String)} and
+	 *                {@link #downloadDocument(String)}, not on this response. May be {@code null} for none.
+	 * @return The ID Philter assigned to the document and whether it was selected for review.
+	 * @throws IOException Thrown if the request can not be completed.
+	 */
+	public AsyncFilterResponse filterToPdfAsync(String context, String policyName, String filename, byte[] content,
+	                                            String fairnessKey, List<PagePolicy> pagePolicies, FilterOptions options)
+			throws IOException {
+		return filterBinaryAsync(context, policyName, filename, content, APPLICATION_PDF, "application/pdf", fairnessKey,
+				pagePolicies, options);
+	}
+
 	private AsyncFilterResponse filterBinaryAsync(String context, String policyName, String filename, byte[] content,
 	                                              String contentType, String accept, String fairnessKey,
 	                                              List<PagePolicy> pagePolicies) throws IOException {
+		return filterBinaryAsync(context, policyName, filename, content, contentType, accept, fairnessKey, pagePolicies,
+				FilterOptions.defaults());
+	}
+
+	private AsyncFilterResponse filterBinaryAsync(String context, String policyName, String filename, byte[] content,
+	                                              String contentType, String accept, String fairnessKey,
+	                                              List<PagePolicy> pagePolicies, FilterOptions options)
+			throws IOException {
 
 		final HttpRequest request = binaryFilterRequest(context, policyName, filename, content, contentType, accept,
-				true, fairnessKey, pagePolicies);
+				true, fairnessKey, pagePolicies, options);
 
 		final HttpResponse<String> response = send(request, HttpResponse.BodyHandlers.ofString());
 
@@ -1454,11 +1605,12 @@ public class PhilterClient {
 
 	private HttpRequest binaryFilterRequest(String context, String policyName, String filename, byte[] content,
 	                                        String contentType, String accept, boolean async, String fairnessKey,
-	                                        List<PagePolicy> pagePolicies) {
+	                                        List<PagePolicy> pagePolicies, FilterOptions options) {
 
 		// Philter refuses a fairness key on a synchronous request, so only asynchronous calls pass one.
 		final List<Object> parameters = new ArrayList<>(Arrays.asList("c", context, "p", policyName,
-				"filename", filename, "async", async, "fairness_key", fairnessKey));
+				"filename", filename, "async", async, "fairness_key", fairnessKey,
+				"leftover_check", leftoverCheckParameter(options)));
 
 		// Each assignment is its own parameter: a page set holds commas, so the values cannot be joined.
 		if(pagePolicies != null) {
@@ -1514,6 +1666,24 @@ public class PhilterClient {
 	 */
 	public BinaryFilterResponse filterWord(String context, String policyName, String filename, byte[] content) throws IOException {
 		return filterBinary(context, policyName, filename, content, WORD, WORD, null);
+	}
+
+	/**
+	 * Send a Word ({@code .docx}) document held in memory to Philter to be redacted, waiting for the redacted document, with per-request
+	 * options. See {@link #filterWord(String, String, String, byte[])}.
+	 * @param context The context. Contexts can be used to group text based on some arbitrary property.
+	 * @param policyName The name of the policy to apply.
+	 * @param filename The name of the file being filtered, recorded against the document. May be {@code null}.
+	 * @param content The document bytes.
+	 * @param options The per-request options, such as requesting the policy's leftover check, whose result is on
+	 *                the response's {@code getLeftoverCheck()} and {@code isLeftoversFlagged()}. May be {@code null}
+	 *                for none.
+	 * @return The redacted document and the ID Philter recorded it under.
+	 * @throws IOException Thrown if the request can not be completed.
+	 */
+	public BinaryFilterResponse filterWord(String context, String policyName, String filename, byte[] content,
+	                                   FilterOptions options) throws IOException {
+		return filterBinary(context, policyName, filename, content, WORD, WORD, null, options);
 	}
 
 	/**
@@ -1689,6 +1859,25 @@ public class PhilterClient {
 	}
 
 	/**
+	 * Submits a Word ({@code .docx}) document held in memory to Philter to be redacted asynchronously, with a fairness key and per-request
+	 * options. See {@link #submitWord(String, String, String, byte[], String)}.
+	 * @param context The context. Contexts can be used to group text based on some arbitrary property.
+	 * @param policyName The name of the policy to apply.
+	 * @param filename The name of the file being filtered, recorded against the document. May be {@code null}.
+	 * @param content The document bytes.
+	 * @param fairnessKey A key that shares Philter's queue fairly. May be {@code null} to send no key.
+	 * @param options The per-request options, such as requesting the policy's leftover check. The document is
+	 *                checked when it is redacted, so the result is on {@link #getDocumentState(String)} and
+	 *                {@link #downloadDocument(String)}, not on this response. May be {@code null} for none.
+	 * @return The ID Philter assigned to the document and whether it was selected for review.
+	 * @throws IOException Thrown if the request can not be completed.
+	 */
+	public AsyncFilterResponse submitWord(String context, String policyName, String filename, byte[] content,
+	                                      String fairnessKey, FilterOptions options) throws IOException {
+		return filterBinaryAsync(context, policyName, filename, content, WORD, WORD, fairnessKey, null, options);
+	}
+
+	/**
 	 * Send an Excel workbook to Philter to be redacted, waiting for the redacted workbook, which is returned in the
 	 * same format.
 	 *
@@ -1726,6 +1915,24 @@ public class PhilterClient {
 	 */
 	public BinaryFilterResponse filterExcel(String context, String policyName, String filename, byte[] content) throws IOException {
 		return filterBinary(context, policyName, filename, content, EXCEL, EXCEL, null);
+	}
+
+	/**
+	 * Send a Excel ({@code .xlsx}) workbook held in memory to Philter to be redacted, waiting for the redacted document, with per-request
+	 * options. See {@link #filterExcel(String, String, String, byte[])}.
+	 * @param context The context. Contexts can be used to group text based on some arbitrary property.
+	 * @param policyName The name of the policy to apply.
+	 * @param filename The name of the file being filtered, recorded against the document. May be {@code null}.
+	 * @param content The document bytes.
+	 * @param options The per-request options, such as requesting the policy's leftover check, whose result is on
+	 *                the response's {@code getLeftoverCheck()} and {@code isLeftoversFlagged()}. May be {@code null}
+	 *                for none.
+	 * @return The redacted document and the ID Philter recorded it under.
+	 * @throws IOException Thrown if the request can not be completed.
+	 */
+	public BinaryFilterResponse filterExcel(String context, String policyName, String filename, byte[] content,
+	                                   FilterOptions options) throws IOException {
+		return filterBinary(context, policyName, filename, content, EXCEL, EXCEL, null, options);
 	}
 
 	/**
@@ -1901,6 +2108,25 @@ public class PhilterClient {
 	}
 
 	/**
+	 * Submits a Excel ({@code .xlsx}) workbook held in memory to Philter to be redacted asynchronously, with a fairness key and per-request
+	 * options. See {@link #submitExcel(String, String, String, byte[], String)}.
+	 * @param context The context. Contexts can be used to group text based on some arbitrary property.
+	 * @param policyName The name of the policy to apply.
+	 * @param filename The name of the file being filtered, recorded against the document. May be {@code null}.
+	 * @param content The document bytes.
+	 * @param fairnessKey A key that shares Philter's queue fairly. May be {@code null} to send no key.
+	 * @param options The per-request options, such as requesting the policy's leftover check. The document is
+	 *                checked when it is redacted, so the result is on {@link #getDocumentState(String)} and
+	 *                {@link #downloadDocument(String)}, not on this response. May be {@code null} for none.
+	 * @return The ID Philter assigned to the document and whether it was selected for review.
+	 * @throws IOException Thrown if the request can not be completed.
+	 */
+	public AsyncFilterResponse submitExcel(String context, String policyName, String filename, byte[] content,
+	                                      String fairnessKey, FilterOptions options) throws IOException {
+		return filterBinaryAsync(context, policyName, filename, content, EXCEL, EXCEL, fairnessKey, null, options);
+	}
+
+	/**
 	 * Send text to Philter to be filtered and get an explanation. Each applied {@link Span} has its
 	 * filter type and, when the filter gives one, a {@link Span#getClassification() classification}, such as the
 	 * state of a driver's license number.
@@ -1944,9 +2170,28 @@ public class PhilterClient {
 	 */
 	public ExplainResponse explain(String context, String policyName, String filename, String text, boolean sign)
 			throws IOException {
+		return explain(context, policyName, filename, text, sign, FilterOptions.defaults());
+	}
+
+	/**
+	 * Send text to Philter to be filtered and explained, with per-request options such as requesting the policy's
+	 * leftover check. The check's result, with each finding's type, position, and confidence, is on
+	 * {@link ExplainResponse#getLeftoverCheck()}.
+	 * @param context The context. Contexts can be used to group text based on some arbitrary property.
+	 * @param policyName The name of the policy to apply to the text.
+	 * @param filename The name of the file the text came from, recorded against the document. May be {@code null}.
+	 * @param text The text to be filtered.
+	 * @param sign {@code true} to ask Philter to sign the response. See
+	 *             {@link #explain(String, String, String, String, boolean)}.
+	 * @param options The per-request options. May be {@code null} for none.
+	 * @return The explanation.
+	 * @throws IOException Thrown if the request can not be completed.
+	 */
+	public ExplainResponse explain(String context, String policyName, String filename, String text, boolean sign,
+	                               FilterOptions options) throws IOException {
 
 		final HttpRequest request = request(uri("/api/explain", "c", context, "p", policyName, "filename", filename,
-				"sign", sign ? Boolean.TRUE : null))
+				"sign", sign ? Boolean.TRUE : null, "leftover_check", leftoverCheckParameter(options)))
 				.header("Accept", APPLICATION_JSON)
 				.header("Content-Type", TEXT_PLAIN)
 				.POST(text(text))
@@ -1970,6 +2215,11 @@ public class PhilterClient {
 			if(isReviewSampled(response)) {
 				explainResponse.setReviewSampled(true);
 			}
+			// The body's leftoverCheck carries the findings; the header is read only when the body has none.
+			if(!explainResponse.getLeftoverCheck().isPresent()) {
+				explainResponse.setLeftoverCheck(leftoverCheckOf(response));
+			}
+			explainResponse.setLeftoversFlagged(isLeftoversFlagged(response));
 		}
 
 		return explainResponse;
@@ -3456,6 +3706,39 @@ public class PhilterClient {
 	}
 
 	/**
+	 * Downloads a stored document with what Philter reports about it on the download response. See
+	 * {@link #downloadDocument(String, String)}.
+	 * @param documentId The document ID.
+	 * @return The document bytes and the leftover check's result.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public DocumentDownload downloadDocument(String documentId) throws IOException {
+		return downloadDocument(documentId, null);
+	}
+
+	/**
+	 * Downloads a stored document, as {@link #getDocument(String, String)} does, with what Philter reports about it
+	 * on the download response: the result of the policy's leftover check, which runs when an asynchronous document
+	 * is redacted, and whether it flagged the document for review.
+	 * @param documentId The document ID.
+	 * @param owner The owner of the document. May be {@code null}.
+	 * @return The document bytes and the leftover check's result.
+	 * @throws IOException Thrown if the call can not be executed.
+	 */
+	public DocumentDownload downloadDocument(String documentId, String owner) throws IOException {
+
+		final HttpRequest request = request(uri("/api/documents/" + encode(documentId), "owner", owner)).GET().build();
+		final HttpResponse<byte[]> response = send(request, HttpResponse.BodyHandlers.ofByteArray());
+
+		if(!isSuccessful(response)) {
+			throw toException(response, new String(response.body(), StandardCharsets.UTF_8));
+		}
+
+		return new DocumentDownload(response.body(), leftoverCheckOf(response), isLeftoversFlagged(response));
+
+	}
+
+	/**
 	 * Deletes a stored document.
 	 * @param documentId The document ID.
 	 * @throws IOException Thrown if the call can not be executed.
@@ -3498,7 +3781,21 @@ public class PhilterClient {
 				.GET()
 				.build();
 
-		return sendExpectingJson(request, DocumentStatus.class);
+		final HttpResponse<String> response = send(request, HttpResponse.BodyHandlers.ofString());
+
+		if(!isSuccessful(response)) {
+			throw toException(response, response.body());
+		}
+
+		final DocumentStatus status = gson.fromJson(response.body(), DocumentStatus.class);
+
+		// The leftover check's result is in headers, sent once the document is redacted.
+		if(status != null) {
+			status.setLeftoverCheck(leftoverCheckOf(response));
+			status.setLeftoversFlagged(isLeftoversFlagged(response));
+		}
+
+		return status;
 
 	}
 

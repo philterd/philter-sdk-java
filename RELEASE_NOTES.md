@@ -9,6 +9,20 @@ Not yet released; changes are relative to 3.0.0.
 
 ### New features
 
+* The policy's leftover check can be requested and its result read (philterd/philter-sdk-java#98). A new
+  `FilterOptions` type (`FilterOptions.defaults().withLeftoverCheck(true)`) sends `leftover_check=true`, and is taken
+  as the last argument by new overloads of `filter` and `explain` for text, `filter`, `filterToPdf`, `filterAsync`,
+  and `filterToPdfAsync` for a PDF held in memory, and `filterWord`, `submitWord`, `filterExcel`, and `submitExcel`.
+  Existing signatures are unchanged and send no such parameter. `FilterResponse`, `BinaryFilterResponse`,
+  `ExplainResponse`, and `DocumentStatus` have `getLeftoverCheck()`, a `LeftoverCheck` read from
+  `X-Philter-Leftovers`, empty when the check was not called for, and `isLeftoversFlagged()`, `true` when
+  `X-Philter-Review` lists `leftovers`. A check that checked nothing, because the output had no readable text or the
+  check failed, reports `isPerformed()` as `false`, as does a header value that is not a count. For `explain` the
+  result comes from the body, with each `LeftoverFinding`'s type, position, and confidence and, when not performed,
+  `getReason()` (`unreadableOutput` or `checkFailed`). An asynchronous document's result is on its status and on the
+  new `downloadDocument`, which returns a `DocumentDownload` with the bytes `getDocument` returns. Philter refuses
+  the request under a policy whose mode is `off` with a 400, raised as a `ClientException`. Requires Philter 4.1.0 or
+  later (philterd/philter#218, philterd/philter#227).
 * `FilterResponse`, `BinaryFilterResponse`, `ExplainResponse`, and `AsyncFilterResponse` have `isReviewSampled()`,
   `true` when a policy's review sampling rate selected the request for human spot review. It reads Philter's
   `X-Philter-Review` header, a comma-separated list of reasons such as `sampled, leftovers` that may also arrive as
